@@ -428,8 +428,8 @@ def orange_readback(mujoco, np, m, info: dict) -> tuple:
 #
 # Why this changes only the picture (sources under runs/2026-10-13_drone_model_sources and the ones before it):
 #   - The drawn drone is mesh geoms of class "visual" (cf21B_500.xml lines 39-41, 55-63, 76-87): contype 0 and
-#     conaffinity 0, so they are not in any collision. The collision is the separate sphere col_sphere (line 67,
-#     radius 0.086 m). Flight physics is Crazyflow's own parameter file, not the geometry.
+#     conaffinity 0, so they are not in any collision. The collision is a separate geom (col_sphere, line 67, or col_box,
+#     line 69; LSY switches to the box, see drone_parts). Flight physics is Crazyflow's own parameter file, not the geometry.
 #   - mjr_makeContext -> makeMesh -> mjr_uploadMesh (render_context.c lines 198-205, 211-326) copies m->mesh_vert into an
 #     OpenGL display list ONCE, when the context is made. The context is made in Gymnasium's BaseRender.__init__
 #     (mujoco_rendering.py line 75), which Sim.render calls the first time it has no viewer (sim.py lines 237-253) and
@@ -485,9 +485,10 @@ def drone_parts(mujoco, np, m) -> dict:
     bid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "drone:0")
     if bid < 0:
         raise ValueError("body drone:0 not found in the compiled model")
-    mesh_type, sphere_type = int(mujoco.mjtGeom.mjGEOM_MESH), int(mujoco.mjtGeom.mjGEOM_SPHERE)
+    mesh_type = int(mujoco.mjtGeom.mjGEOM_MESH)
+    type_names = {int(v): n for n, v in mujoco.mjtGeom.__members__.items()}
     props = [b for b in range(m.nbody) if b != bid and int(m.body_parentid[b]) == bid
-             and re.fullmatch(r"prop\d+(:\d+)?", mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "")]
+             and re.fullmatch(r"prop\d+.*", mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "")]
     if len(props) != 4:
         raise ValueError(f"expected 4 propeller bodies below drone:0, found {len(props)}")
 
@@ -495,7 +496,13 @@ def drone_parts(mujoco, np, m) -> dict:
         return list(range(int(m.body_geomadr[b]), int(m.body_geomadr[b]) + int(m.body_geomnum[b])))
 
     scaled = [g for g in geoms_of(bid) if int(m.geom_type[g]) == mesh_type] + [g for b in props for g in geoms_of(b)]
-    collision = [g for g in geoms_of(bid) if int(m.geom_type[g]) != mesh_type]
+    # Collision geoms: every geom of the drone's bodies that can collide, whatever its type. Which one that is depends on the
+    # run: LSY's environment calls use_box_collision(self.sim, True) after it builds the simulator (race_core.py line 395), which
+    # sets contype and conaffinity of "col_sphere*" to 0 and those of "col_box*" to 1 (crazyflow sim.py lines 778-788, then
+    # build_mjx recompiles the model). So in the compiled model of a running LSY environment the box collides, not the sphere.
+    # frozen_geoms = the non-mesh geoms of drone:0 (sphere and box, active or not): none of them may change.
+    frozen_geoms = [g for g in geoms_of(bid) if int(m.geom_type[g]) != mesh_type]
+    collision = [g for b in [bid] + props for g in geoms_of(b) if int(m.geom_contype[g]) != 0 or int(m.geom_conaffinity[g]) != 0]
     for g in scaled:
         if int(m.geom_type[g]) != mesh_type or int(m.geom_contype[g]) != 0 or int(m.geom_conaffinity[g]) != 0:
             raise ValueError(f"geom {g} would be scaled but is not a visual mesh geom without collision")
@@ -506,12 +513,16 @@ def drone_parts(mujoco, np, m) -> dict:
             raise ValueError(f"mesh {int(m.geom_dataid[g])} is also used by geom {g}, which is not part of the drawn drone")
     if m.mesh_vert.ndim != 2 or m.mesh_vert.shape[1] != 3:
         raise ValueError(f"mesh_vert has shape {m.mesh_vert.shape}, expected (nmeshvert, 3)")
-    spheres = [g for g in collision if int(m.geom_type[g]) == sphere_type and int(m.geom_contype[g]) != 0]
-    if len(spheres) != 1:
-        raise ValueError(f"expected one collision sphere on drone:0, found {len(spheres)}")
+    if not collision:
+        raise ValueError("no geom of drone:0 or of its propeller bodies has contype or conaffinity different from 0")
+    collision_info = [{
+        "geom": g, "name": mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, g) or f"geom{g}", "type": type_names.get(int(m.geom_type[g]), str(int(m.geom_type[g]))),
+        "size_m": [float(v) for v in m.geom_size[g]], "pos_m": [float(v) for v in m.geom_pos[g]],
+        "contype": int(m.geom_contype[g]), "conaffinity": int(m.geom_conaffinity[g]),
+    } for g in collision]
     ranges = {k: (int(m.mesh_vertadr[k]), int(m.mesh_vertnum[k])) for k in meshes}
     return {
-        "body": bid, "prop_bodies": props, "scaled_geoms": scaled, "collision_geoms": collision, "sphere": spheres[0],
+        "body": bid, "prop_bodies": props, "scaled_geoms": scaled, "collision_geoms": collision, "frozen_geoms": frozen_geoms, "collision_info": collision_info,
         "meshes": meshes, "mesh_ranges": ranges,
         "geom_names": [mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, g) or f"geom{g}" for g in scaled],
         "mesh_names": [mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_MESH, k) for k in meshes],
@@ -555,7 +566,7 @@ def drawn_extent(mujoco, np, Rot, m, parts: dict) -> dict:
 
 def frozen_arrays(np, m, parts: dict) -> dict:
     """Copies of the numbers that must not change: collision geoms, masses, inertia, cameras."""
-    g = parts["collision_geoms"]
+    g = parts["frozen_geoms"] + [x for x in parts["collision_geoms"] if x not in parts["frozen_geoms"]]
     out = {name: np.array(getattr(m, name)[g], copy=True)
            for name in ("geom_type", "geom_size", "geom_pos", "geom_quat", "geom_contype", "geom_conaffinity", "geom_friction", "geom_condim")}
     for name in ("body_mass", "body_inertia", "cam_pos", "cam_quat", "cam_fovy"):
@@ -566,6 +577,21 @@ def frozen_arrays(np, m, parts: dict) -> dict:
 def changed_arrays(np, m, parts: dict, frozen: dict) -> list:
     now = frozen_arrays(np, m, parts)
     return [name for name in frozen if not np.array_equal(frozen[name], now[name])]
+
+
+def describe_collision(info: list) -> str:
+    """Plain words for the collision geoms in use: shape and size (box and sphere sizes in full length, in m)."""
+    parts_ = []
+    for c in info:
+        sz = c["size_m"]
+        if c["type"].endswith("BOX"):
+            what = f"box {2 * sz[0]:.3f} x {2 * sz[1]:.3f} x {2 * sz[2]:.3f} m (half sizes {sz[0]:.3f}, {sz[1]:.3f}, {sz[2]:.3f})"
+        elif c["type"].endswith("SPHERE"):
+            what = f"sphere of radius {sz[0]:.3f} m ({2 * sz[0]:.3f} m across)"
+        else:
+            what = f"{c['type']} with size {[round(v, 4) for v in sz]} m"
+        parts_.append(f"{c['name']}: {what}, contype {c['contype']}, conaffinity {c['conaffinity']}")
+    return "; ".join(parts_)
 
 
 def make_sheet(Image, ImageDraw, directory: Path, scales: list, widths=None) -> Path:
@@ -617,7 +643,8 @@ def run_scale_mode(mujoco, np, iio, jnp, core, env, m, layout: dict, result: dic
     obs0_pos = np.asarray(obs0["pos"], dtype=np.float64).reshape(-1)
     obs0_quat = np.asarray(obs0["quat"], dtype=np.float64).reshape(-1)
     sx, sy, sz = layout["start"]["pos"]
-    radius = float(m.geom_size[parts["sphere"]][0])
+    collision_info = parts["collision_info"]
+    collision_text = describe_collision(collision_info)
     mass = float(m.body_mass[bid])
     prop_mass = [float(m.body_mass[b]) for b in parts["prop_bodies"]]
 
@@ -756,7 +783,7 @@ def run_scale_mode(mujoco, np, iio, jnp, core, env, m, layout: dict, result: dic
         r["top_share_ratio_to_smallest"] = (r["orange_share"]["top"] / base["orange_share"]["top"]) if base["orange_share"]["top"] > 0 else None
         r["area_ratio_expected"] = (r["scale"] / smin) ** 2
     result["scale_mode"] = {
-        "scales": scales, "rows": rows, "collision_sphere_radius_m": radius, "drone_mass_kg": mass, "propeller_body_masses_kg": prop_mass,
+        "scales": scales, "rows": rows, "collision_geoms": collision_info, "collision_text": collision_text, "drone_mass_kg": mass, "propeller_body_masses_kg": prop_mass,
         "scaled_geoms": parts["geom_names"], "scaled_meshes": parts["mesh_names"], "propeller_bodies": len(parts["prop_bodies"]),
         "gate_picture": {"gate": abs(n0), "direction": "fwd" if n0 > 0 else "rev", "drone_position": gate_drone_pos.tolist(),
                          "gate_center": center.tolist(), "camera_distance_from_gate_m": gate_view["distance"]},
@@ -776,7 +803,7 @@ def run_scale_mode(mujoco, np, iio, jnp, core, env, m, layout: dict, result: dic
           f"hash of {len(rows)} scales (before and after each reset) equals the hash before any scale, with only the {len(parts['scaled_geoms'])} drawn geoms' geom_pos "
           f"and the {len(parts['prop_bodies'])} propeller bodies' body_pos left out; scales that differ: {sorted(set(hash_bad))}")
     entry("drone_scale_collision_mass_camera_unchanged", not changed_bad,
-          f"collision geoms (sphere radius {radius} m, size, pos, quat, contype, conaffinity, friction), body_mass (drone {mass} kg), body_inertia, cam_pos, cam_quat and "
+          f"collision geoms in use: {collision_text}; all non-mesh geoms of drone:0 (size, pos, quat, contype, conaffinity, friction) and body_mass (drone {mass} kg), body_inertia, cam_pos, cam_quat and "
           f"cam_fovy (fpv_cam) equal the originals at every scale; changed: {changed_bad}")
     entry("drone_scale_moved_bodies_massless", all(abs(v) <= MASSLESS_TOL for v in prop_mass),
           f"the four propeller bodies, whose body_pos moves with the scale, have masses {prop_mass} kg (limit {MASSLESS_TOL:g})")
@@ -1373,8 +1400,8 @@ def write_summary(result: dict, path: Path) -> None:
                 f"{num(sh.get('gate'), '.5f')} | {num(sh.get('fpv'), '.5f')} | {num(r.get('top_share_ratio_to_smallest'), '.2f')} (expected {num(r.get('area_ratio_expected'), '.2f')}) |"
             )
         lines += ["", f"The drone is only DRAWN larger: every vertex of its visual meshes ({', '.join(str(n) for n in sm.get('scaled_meshes') or [])}), the positions of those mesh geoms and the positions of "
-                      f"the {sm.get('propeller_bodies')} propeller bodies are multiplied by the scale about the drone's body origin. Its collision size is unchanged: the collision sphere keeps its radius of "
-                      f"{num(sm.get('collision_sphere_radius_m'), '.3f')} m (a sphere {num(sm.get('collision_sphere_radius_m'), '.3f', 2)} m across), and the mass ({num(sm.get('drone_mass_kg'), '.4f')} kg), the inertia, the camera fpv_cam and the "
+                      f"the {sm.get('propeller_bodies')} propeller bodies are multiplied by the scale about the drone's body origin. Its collision size is unchanged: the collision shape in use ("
+                      f"{sm.get('collision_text')}) keeps its size, and the mass ({num(sm.get('drone_mass_kg'), '.4f')} kg), the inertia, the camera fpv_cam and the "
                       f"physics fields are the same at every scale (see the checks above).",
                   "", f"Picture before the gate: gate {(sm.get('gate_picture') or {}).get('gate')} ({(sm.get('gate_picture') or {}).get('direction')}), the drone is drawn at "
                       f"{fmt3((sm.get('gate_picture') or {}).get('drone_position'))} (gate center {fmt3((sm.get('gate_picture') or {}).get('gate_center'))}); "
