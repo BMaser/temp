@@ -1,0 +1,33 @@
+<!--
+  Start pad: a flat round marking on the floor, 0.6 m across and 1 mm high, with the picture pad_start.png.
+  No collision (contype 0, conaffinity 0), no joint, not a mocap body: it never moves and the physics never sees it.
+  How the picture lands on the cylinder (MuJoCo 3.10.0, src/render/classic/render_gl3.c lines 111-149, and
+  render_context.c lines 1374-1375 for REPEAT wrapping): a 2d texture on a primitive geom is generated from the
+  object coordinates of the UNIT object (a closed cylinder of radius 1 from z = -1 to +1, render_context.c
+  lines 851 and 969-974, scaled by the geom size afterwards, render_gl3.c lines 353-355; texrepeat is 1 1 here, and a geom without a mesh does not divide by its size):
+    S = 0.5 * x - 0.5   and   T = -0.5 * y - 0.5   (taken modulo 1, so S = 0.5 x + 0.5 and T = 0.5 - 0.5 y).
+  So the full square picture is laid over the square that touches the circle; the corners of the picture (the
+  transparent ones) fall outside the disc and are never drawn. Image left is local -x, image right is local +x,
+  image top (first row) is local +y. A body with no rotation therefore shows the H upright for a viewer who
+  stands at the pad and looks along world +y (and in a straight-down picture with +y up and +x to the right).
+  Radius 0.3 m, half height 0.0005 m; the geom center is 0.0005 m above the body origin, so the pad spans
+  z = 0 to 0.001 m above the body origin, which the test puts on the floor (z = 0).
+  The picture has 4 channels; the texture keeps the default nchannel = 3 (user_objects.cc line 5224-5230 loads it as RGB).
+  emission = 1 with rgba 1 1 1 1: the lit color is clamped at white before the picture multiplies it
+  (render_gl3.c lines 252-256 set the emission to emission * rgba; line 646 uses GL_MODULATE), so the picture
+  shows its own colors also in shade.
+-->
+<mujoco>
+  <compiler angle="degree"/>
+
+  <asset>
+    <texture name="pad_start_tex" type="2d" file="pad_start.png" />
+    <material name="pad_start_mat" texture="pad_start_tex" rgba="1 1 1 1" specular="0" shininess="0" reflectance="0" emission="1"/>
+  </asset>
+
+  <worldbody>
+    <body name="pad_start">
+      <geom name="pad_start_disc" type="cylinder" size="0.3 0.0005" pos="0 0 0.0005" material="pad_start_mat" contype="0" conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco>

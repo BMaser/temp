@@ -1,0 +1,133 @@
+name: Track look
+
+on:
+  workflow_dispatch:
+    inputs:
+      layout:
+        description: "Layout file from the track designer, path inside this repository"
+        required: false
+        default: tracks/draft_01_with_end.json
+
+permissions:
+  contents: read
+
+env:
+  LSY_REPO: learnsyslab/lsy_drone_racing
+  LSY_COMMIT: ac7377baa1cfd8fef1bcdc31eeaebff382f453b7
+  LAYOUT: ${{ inputs.layout }}
+
+jobs:
+  stills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.LSY_REPO }}
+          ref: ${{ env.LSY_COMMIT }}
+          path: lsy_drone_racing
+
+      # Same step as in gate-look.yml. LSY loads its gate from lsy_drone_racing/envs/assets/gate.xml
+      # (race_core.py: gate_spec_path). The package is an editable install of this checkout
+      # (pyproject.toml: path = ".", editable = true), so copying the new model over the asset
+      # files changes what LSY loads. LSY's code is not touched. The test checks it again.
+      - name: Put the new gate model into the LSY checkout
+        run: |
+          set -e
+          assets=lsy_drone_racing/lsy_drone_racing/envs/assets
+          for f in gate.xml gate_top.png gate_bottom.png gate_left.png gate_right.png gate_post_bark.png spring.stl; do
+            cp "assets/gates/square/$f" "$assets/$f"
+            cmp "assets/gates/square/$f" "$assets/$f"
+            sha256sum "$assets/$f"
+          done
+          git -C lsy_drone_racing status --short
+
+      # The layout becomes a level file. This step uses the Python of the runner, not the pixi
+      # environment: tools/layout_to_level.py needs only the standard library, but tomllib needs
+      # Python 3.11 or newer, so the step stops here if the runner has an older one. The level
+      # file is written next to the results so it is part of the artifact.
+      - name: Make the level file from the layout
+        run: |
+          set -e
+          mkdir -p results/track-look
+          which python3
+          python3 --version
+          python3 -c "import sys, tomllib; assert sys.version_info >= (3, 11), sys.version; print('tomllib is available')"
+          test -f "$LAYOUT" || { echo "layout file $LAYOUT does not exist in this repository"; exit 1; }
+          cp "$LAYOUT" results/track-look/layout.json
+          set -o pipefail
+          python3 tools/layout_to_level.py "$LAYOUT" lsy_drone_racing/config/level0.toml results/track-look/level_track.toml \
+            2>&1 | tee results/track-look/layout_to_level.log
+
+      # MuJoCo loads libEGL / libOSMesa at run time. The pixi environment of lsy_drone_racing does
+      # not contain them, and the runner has no graphics driver, so take Mesa's software drawing.
+      - name: Install Mesa software drawing libraries
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libglx-mesa0 libgles2 libosmesa6
+          ldconfig -p | grep -E "libEGL|libOSMesa|libGL\.so" || true
+          ls /usr/share/glvnd/egl_vendor.d || true
+
+      # Same action, pixi version and options as the continuous integration of lsy_drone_racing
+      # (.github/workflows/testing.yml). Cache is off so a cache problem cannot hide the test.
+      - name: Setup pixi
+        id: pixi
+        continue-on-error: true
+        uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          pixi-version: v0.70.0
+          manifest-path: lsy_drone_racing/pyproject.toml
+          environments: default
+          activate-environment: false
+          locked: true
+          cache: false
+
+      # pixi activates the environment first. The sim feature of lsy_drone_racing builds acados
+      # in that step (tools/setup_acados.sh), which takes a few minutes.
+      - name: Run track look test
+        id: run
+        continue-on-error: true
+        run: |
+          mkdir -p results/track-look
+          set -o pipefail
+          pixi run --locked --manifest-path lsy_drone_racing/pyproject.toml -e default \
+            python tests/crazyflow_track_look.py \
+              --repo lsy_drone_racing --assets assets/gates/square --out results/track-look \
+              --level results/track-look/level_track.toml --layout results/track-look/layout.json \
+              --lsy-commit "$LSY_COMMIT" \
+            2>&1 | tee results/track-look/run.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          if [ -f results/track-look/summary.md ]; then
+            cat results/track-look/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Track look"
+              echo
+              echo "No result file was written. Outcome of the steps: pixi setup = ${{ steps.pixi.outcome }}, test = ${{ steps.run.outcome }}."
+              echo
+              echo '```'
+              tail -n 40 results/track-look/layout_to_level.log 2>/dev/null || echo "no layout_to_level.log"
+              tail -n 40 results/track-look/run.log 2>/dev/null || echo "no run.log either"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: track-look-results
+          path: results/track-look
+          if-no-files-found: warn
+
+      # Only this step marks the job as failed. It reads the result file and applies the pass rule.
+      - name: Apply pass rule
+        if: always()
+        run: python3 tests/crazyflow_track_look.py --check results/track-look/result.json
