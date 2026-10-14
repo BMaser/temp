@@ -1,0 +1,13 @@
+Look "Signal red on concrete" (red)
+Gate band (texture main color)   226 30 36
+Gate frame                       20 20 24
+Gate springs                     255 255 255
+Corner marks                     20 20 24 with 255 255 255 center
+Floor, two flat colors, no mirror  A 204 204 200   B 188 188 184   (0.5 m squares)
+Sky horizon                      244 244 246
+Sky top                          196 202 212
+Drone body / center propeller    255 220 0
+Drone nose plate                 20 20 24
+Drone rear wing / rear props     20 20 24
+Drone front propellers           255 255 255
+Drone arms 60 62 66, motors 90 92 96, guard rings and duct 30 32 36, cabin glass 20 22 26
