@@ -1,0 +1,1903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track designer</title>
+<style>
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --text:#1d2327; --muted:#56616b; --line:#c9d1d8;
+  --map:#ffffff; --grid:#e4e8ec; --grid2:#aab4be; --accent:#1e5bff; --accent-bg:#e3ebff;
+  --route:#00838f; --box:#c62828; --safe:#5b4fc7; --pole:#c9975b; --poletext:#8a5a1f; --gate:#1f9d3a; --neon:#f0ff00;
+  --arrow:#101010; --start:#1e5bff; --warn:#a4262c; --ok:#16652a;
+  --sky:#eef3f8; --floor:#e3e9ee; --hole:#ffffff; --padc:#12161a;
+  --mapw:min(calc(100vh - 215px),46vw);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171b; --panel:#1c2126; --text:#e6eaee; --muted:#a3adb7; --line:#3a434c;
+    --map:#1a1f24; --grid:#2a3138; --grid2:#4c5864; --accent:#7aa2ff; --accent-bg:#26324f;
+    --route:#4dd0e1; --box:#ff7b7b; --safe:#b3a8ff; --pole:#d9a86c; --poletext:#e0b070; --start:#7aa2ff; --arrow:#f2f2f2;
+    --warn:#ff8f8f; --ok:#7fd99a; --sky:#10161c; --floor:#232b33;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13171b; --panel:#1c2126; --text:#e6eaee; --muted:#a3adb7; --line:#3a434c;
+  --map:#1a1f24; --grid:#2a3138; --grid2:#4c5864; --accent:#7aa2ff; --accent-bg:#26324f;
+  --route:#4dd0e1; --box:#ff7b7b; --safe:#b3a8ff; --pole:#d9a86c; --poletext:#e0b070; --start:#7aa2ff; --arrow:#f2f2f2;
+  --warn:#ff8f8f; --ok:#7fd99a; --sky:#10161c; --floor:#232b33;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.4 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;}
+header{padding:8px 16px 0;display:flex;gap:14px;align-items:center}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:0 0 4px}
+.layout{padding:6px 16px 24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.toolbar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:4px}
+.toolbar .sep{width:1px;height:24px;background:var(--line);margin:0 3px}
+button,select,input{font:inherit;color:var(--text)}
+button{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px 9px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.on{background:var(--accent-bg);border-color:var(--accent)}
+:root[data-theme="dark"] button.primary{color:#0b1020}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.primary{color:#0b1020}}
+:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+input[type=number],input[type=text],select{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:3px 4px}
+#status{margin:0;flex:1 1 auto;min-width:0;height:2.7em;overflow:hidden;color:var(--muted);font-size:13px;line-height:1.35}
+#status.bad{color:var(--warn)}
+.mapzone{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.toolbox{width:92px;display:flex;flex-direction:column;gap:4px;flex:none}
+.toolbox .ttl{font-size:12px;color:var(--muted);margin:0}
+.tool{display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 2px;font-size:12px;line-height:1.1;touch-action:none;cursor:grab;text-align:center;width:100%;user-select:none}
+.tool svg{width:38px;height:38px;display:block}
+.mapcol{flex:none;width:var(--mapw);min-width:300px}
+.shapebar{display:flex;gap:6px;align-items:center;margin:0 0 4px;font-size:14px;flex-wrap:nowrap;height:34px;overflow:hidden}
+.shapebar > span{white-space:nowrap;flex:none}
+.shapebar button{display:flex;align-items:center;gap:4px;padding:2px 8px 2px 4px;flex:none}
+.shapebar button svg{width:26px;height:26px}
+.shapebar button[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent);font-weight:600}
+.mapwrap{position:relative;width:100%;aspect-ratio:1/1}
+#map{display:block;width:100%;height:100%;background:var(--map);border:1px solid var(--line);touch-action:none;cursor:grab;user-select:none}
+#map.panning{cursor:grabbing}
+.banner{position:absolute;left:6px;right:6px;top:6px;padding:4px 8px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:4px;font-size:13px;pointer-events:none}
+.trash{position:absolute;right:6px;bottom:6px;width:96px;height:38px;border:2px dashed var(--muted);border-radius:6px;background:var(--panel);opacity:.9;
+  display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center;pointer-events:none}
+.trash.hot{border-color:var(--warn);color:var(--warn);background:var(--accent-bg)}
+#hint{margin:4px 0 2px;height:2.8em;overflow:hidden;color:var(--muted);font-size:13px;line-height:1.35}
+.legend{margin:0 0 6px;color:var(--muted);font-size:12px}
+.col3d{flex:1 1 300px;min-width:280px}
+.col3d .row{display:flex;gap:5px;align-items:center;margin:0 0 4px;height:34px}
+.col3d .row span{color:var(--muted);font-size:13px;margin-left:6px}
+.pathnotes{height:92px;overflow:auto;margin-top:4px;padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);font-size:13px;line-height:1.4}
+.pathnotes .red{color:#e53935;font-weight:600}
+.pathhit{fill:none;stroke:rgba(0,0,0,0);cursor:copy;pointer-events:stroke}
+.cpdot{fill:#fff;stroke:var(--route);stroke-width:.03}
+.badx{fill:rgba(229,57,53,.25);stroke:#e53935;stroke-width:.04}
+.badt{fill:#e53935;font-weight:700;pointer-events:none}
+.pen{fill:none;stroke:var(--accent);stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.snapring{fill:none;stroke:var(--neon);stroke-width:.05;pointer-events:none}
+#map.penmode,#map.penmode .hit,#map.penmode .rothit{cursor:crosshair}
+#view3d{display:block;width:100%;height:calc(var(--mapw) - 96px);background:var(--sky);border:1px solid var(--line);touch-action:none;cursor:grab;user-select:none}
+.sideblock{margin-top:6px}
+#side{display:block;width:100%;height:300px;background:var(--map);border:1px solid var(--line);touch-action:none;user-select:none}
+.note{color:var(--muted);margin:3px 0 6px;font-size:13px}
+.bottom{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:10px;align-items:start;margin-top:10px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:2px 2px;text-align:left;font-weight:normal;font-size:13px}
+thead th{color:var(--muted);font-size:12px;border-bottom:1px solid var(--line)}
+tbody tr{cursor:pointer}
+tbody tr.rsel{background:var(--accent-bg)}
+tbody th{white-space:nowrap}
+td input[type=number]{width:4.4em;padding:2px 2px}
+td select{width:5.6em;padding:2px 1px}
+#routeMsg{margin:3px 0 0;min-height:1.3em;font-size:14px}
+#routeMsg.bad{color:var(--warn)}
+#routeMsg.ok{color:var(--ok)}
+#routeList{margin:2px 0 0;color:var(--muted);font-size:13px}
+#route{width:100%}
+.ghost{position:fixed;pointer-events:none;width:46px;height:46px;opacity:.85;z-index:40;transform:translate(-50%,-50%)}
+.menu{position:fixed;z-index:50;min-width:210px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.menu button{display:block;width:100%;text-align:left;border:0;border-radius:3px;padding:5px 10px;background:transparent}
+.menu button:hover,.menu button:focus-visible{background:var(--accent-bg)}
+.menu button.cur{font-weight:600}
+/* SVG parts */
+.grid{stroke:var(--grid);stroke-width:.008}
+.grid2{stroke:var(--grid2);stroke-width:.012}
+.tick,.axt{fill:var(--muted);pointer-events:none}
+.axt{font-style:italic}
+.boxline{fill:none;stroke:var(--box);stroke-width:.03}
+.safeline{fill:none;stroke:var(--safe);stroke-width:.02;stroke-dasharray:.1 .06}
+.boxlbl{fill:var(--box);pointer-events:none}
+.safelbl{fill:var(--safe);pointer-events:none}
+.g-under{fill:#000}
+.g-body{fill:var(--gate);stroke:var(--neon);stroke-width:.03}
+.g-open{fill:#e8ffe8}
+.g-tick{stroke:#000;stroke-width:.02}
+.g-arrow{stroke:var(--arrow);stroke-width:.035}
+.g-arrowhead{fill:var(--arrow)}
+.hit{fill:rgba(0,0,0,0);cursor:move}
+.routemode .hit{cursor:pointer}
+.hl{fill:none;stroke:var(--accent);stroke-width:.03;opacity:0;pointer-events:none}
+.obj:hover .hl{opacity:1}
+.rot{fill:var(--panel);stroke:var(--accent);stroke-width:.03}
+.rothit{fill:rgba(0,0,0,0);cursor:crosshair}
+.rotstem{stroke:var(--accent);stroke-width:.02}
+.lblc{fill:var(--panel);stroke:var(--text);stroke-width:.02}
+.lbl{fill:var(--text);font-weight:700;pointer-events:none}
+.hlbl{fill:var(--text);pointer-events:none}
+.leader{stroke:var(--muted);stroke-width:.01;stroke-dasharray:.03 .03;pointer-events:none}
+.pic{fill:var(--gate);stroke:var(--neon);stroke-width:.025}
+.pichole{fill:var(--hole);stroke:var(--neon);stroke-width:.02}
+.picu{fill:#000}
+#toolbox,#shapebar{--hole:var(--panel)}
+.pole{fill:var(--pole);stroke:#000;stroke-width:.02}
+.plbl{fill:var(--poletext);font-weight:700;pointer-events:none}
+.padd{fill:var(--padc)}
+.padr{fill:none;stroke:var(--neon);stroke-width:.035}
+.padw{fill:none;stroke:#fff;stroke-width:.05}
+.padk{fill:none;stroke:#000;stroke-width:.05;stroke-dasharray:.108 .108}
+.padh{fill:#fff;font-weight:700;pointer-events:none}
+.padt{fill:#fff;font-weight:700;pointer-events:none}
+.padarr{stroke:#fff;stroke-width:.03;fill:#fff}
+.startarrow{stroke:var(--start);stroke-width:.035}
+.selring{fill:none;stroke:var(--accent);stroke-width:.03;stroke-dasharray:.07 .05;pointer-events:none}
+.routeline{fill:none;stroke:var(--route);stroke-linejoin:round;stroke-linecap:round;pointer-events:none}
+.rarrow{fill:var(--route);pointer-events:none}
+.rnum{fill:var(--route);font-weight:700;pointer-events:none}
+.rpt{fill:var(--route);stroke:var(--panel);stroke-width:.025}
+.endl{fill:var(--text);font-weight:700;pointer-events:none}
+/* the side view is drawn in pixels */
+.s-grid{stroke:var(--grid);stroke-width:1}
+.s-grid2{stroke:var(--grid2);stroke-width:1}
+.s-floor{stroke:#7a5a4a;stroke-width:4}
+.s-ceil{stroke:var(--box);stroke-width:2;stroke-dasharray:8 5}
+.s-safe{stroke:var(--safe);stroke-width:1.5;stroke-dasharray:8 5}
+.s-txt{fill:var(--muted);pointer-events:none}
+.s-boxl{fill:var(--box);pointer-events:none}
+.s-safel{fill:var(--safe);pointer-events:none}
+.s-route{fill:none;stroke:var(--route);stroke-width:3;stroke-linejoin:round;pointer-events:none}
+.s-gate{fill:var(--gate);stroke:var(--neon);stroke-width:2.5}
+.s-pole{stroke:var(--pole);stroke-width:6;stroke-linecap:round;pointer-events:none}
+.s-polecap{fill:var(--pole);stroke:#000;stroke-width:1.5}
+.s-badge{fill:var(--panel);stroke:var(--text);stroke-width:2}
+.s-badget{fill:var(--text);font-weight:700;pointer-events:none;text-anchor:middle}
+.s-dot{fill:var(--route);stroke:var(--panel);stroke-width:2}
+.s-pad{fill:var(--padc);stroke:var(--neon);stroke-width:2}
+.s-padk{fill:#fff;stroke:#000;stroke-width:1.5}
+.s-lab{fill:var(--text);font-weight:700;pointer-events:none}
+.s-hl{fill:none;stroke:var(--accent);stroke-width:2.5;opacity:0;pointer-events:none}
+.s-sel{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-dasharray:5 4;pointer-events:none}
+.s-hit{fill:rgba(0,0,0,0);cursor:move}
+#side .obj:hover .s-hl{opacity:1}
+.s-hitline{stroke:rgba(0,0,0,0);stroke-width:18;cursor:ns-resize}
+/* 3D */
+.floor3d{fill:var(--floor)}
+.g3{stroke:var(--grid);stroke-width:.7}
+.box3{stroke:var(--grid2);stroke-width:1}
+.frame3{fill:var(--gate);stroke:var(--neon);stroke-width:1.6;fill-rule:evenodd}
+.post3{stroke:#8d8d8d}
+.pole3{stroke:var(--pole);stroke-linecap:round}
+.route3{stroke:var(--route);stroke-width:2.6;stroke-linecap:round}
+.arr3{fill:var(--arrow)}
+.lbl3{fill:var(--text);font-size:12px;font-weight:700;text-anchor:middle}
+.axl3{fill:var(--muted);font-size:11px;text-anchor:middle}
+.pad3{fill:var(--padc)}
+.padring3{fill:none;stroke:var(--neon);stroke-width:2}
+.padh3{stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+.padarr3{fill:#fff}
+.pt3{fill:var(--route);stroke:var(--panel);stroke-width:1}
+.endw3{fill:#fff}
+.endk3{fill:#000}
+</style>
+</head>
+<body>
+<header>
+  <h1>Track designer</h1>
+  <p id="status" role="status" aria-live="polite">Place gates and poles, draw the route, and save the layout as a file.</p>
+</header>
+<div class="layout">
+  <div class="toolbar" role="toolbar" aria-label="Actions">
+    <button id="btnAddGate" type="button">Add gate</button>
+    <button id="btnAddPole" type="button">Add pole</button>
+    <button id="btnDelete" type="button">Delete selected</button>
+    <span class="sep"></span>
+    <button id="btnUndo" type="button">Undo</button>
+    <button id="btnRedo" type="button">Redo</button>
+    <span class="sep"></span>
+    <button id="btnPen" type="button" aria-pressed="false">Draw flight path</button>
+    <button id="btnClearPath" type="button">Clear path</button>
+    <button id="btnTurnGates" type="button">Turn the gates to the path</button>
+    <span class="sep"></span>
+    <button id="btnDraw" type="button" aria-pressed="false">Route by clicking gates</button>
+    <button id="btnWhole" type="button">Whole room</button>
+    <span class="sep"></span>
+    <button id="btnReset" type="button">Start again from today's track</button>
+    <button id="btnSave" type="button" class="primary">Save layout</button>
+    <button id="btnLoad" type="button">Load layout</button>
+    <input id="fileLoad" type="file" accept=".json,application/json" hidden>
+  </div>
+  <div class="mapzone">
+    <div class="toolbox" id="toolbox" role="group" aria-label="Toolbox: drag onto the map">
+      <p class="ttl">Toolbox: drag onto the map</p>
+    </div>
+    <div class="mapcol">
+      <div class="shapebar" id="shapebar" role="group" aria-label="Shape of the selected gate">
+        <span id="shapeLabel">Gate shape:</span>
+      </div>
+      <div class="mapwrap">
+        <svg id="map" viewBox="-3.45 -3.45 6.9 6.9" role="img"
+             aria-label="Map of the track seen from above. x to the right, y up."></svg>
+        <div class="banner" id="banner" hidden></div>
+        <div class="trash" id="trash">Trash: drop here to delete</div>
+      </div>
+      <p id="hint" aria-live="off"></p>
+      <p class="legend">The dashed rectangle is the smaller area of LSY's real room; the simulator allows the whole 6 m box inside the red line. The teal line is a sketch of the route, not the path the drone will fly.</p>
+    </div>
+    <div class="col3d" id="col3d">
+      <div class="row">
+        <button id="btnOverview" type="button">Overview</button>
+        <button id="btnFromStart" type="button">View from the start</button>
+        <span>3D view: drag to look around, wheel to zoom.</span>
+      </div>
+      <svg id="view3d" viewBox="0 0 520 340" role="img" aria-label="3D view of the track. Drag to look around, wheel to zoom."></svg>
+      <div class="pathnotes" id="pathNotes" aria-live="polite"></div>
+    </div>
+  </div>
+  <div class="sideblock">
+    <h2>Side view: height against x</h2>
+    <svg id="side" viewBox="0 0 900 300" role="img"
+         aria-label="Side view of the track: height against x. Drag a gate, a pole top, a route point or the end pad."></svg>
+    <p class="note">Drag the numbered round handle of a gate (or its bar) up or down to set the height of its center, and sideways to move it along x. The top of a pole, a route point and the end pad work the same way. The wheel over a selected object changes its height by 0.05 m.</p>
+  </div>
+  <div class="bottom" id="tables">
+    <section class="card">
+      <h2><label for="route">Route (gate numbers; a p is a route point)</label></h2>
+      <input id="route" type="text" autocomplete="off" spellcheck="false" aria-describedby="routeMsg">
+      <p id="routeMsg" role="status" aria-live="polite"></p>
+      <p id="routeList"></p>
+    </section>
+    <section class="card">
+      <h2>Gates</h2>
+      <table id="tblGates"><thead><tr><th>Gate</th><th>x (m)</th><th>y (m)</th><th>Height (m)</th><th>Dir (deg)</th><th>Shape</th></tr></thead><tbody></tbody></table>
+    </section>
+    <section class="card">
+      <h2>Poles</h2>
+      <table id="tblPoles"><thead><tr><th>Pole</th><th>x (m)</th><th>y (m)</th><th>Height of top (m)</th></tr></thead><tbody></tbody></table>
+    </section>
+    <section class="card">
+      <h2>Route points</h2>
+      <table id="tblPoints"><thead><tr><th>Point</th><th>x (m)</th><th>y (m)</th><th>Height (m)</th></tr></thead><tbody></tbody></table>
+    </section>
+    <section class="card">
+      <h2>Start pad and end pad</h2>
+      <table id="tblStart"><thead><tr><th>Item</th><th>x (m)</th><th>y (m)</th><th>Height (m)</th><th>Dir (deg)</th></tr></thead><tbody></tbody></table>
+    </section>
+  </div>
+</div>
+<div class="menu" id="menu" role="menu" hidden></div>
+
+<script id="logic">
+const TD = (function () {
+'use strict';
+const VERSION = 'track_designer 4.0';
+const STORAGE_KEY = 'track_designer_layout_v4';
+const SNAP_R = 0.15, ANCHOR_R = 0.03, OPEN_HALF = 0.2, FRAME_HALF = 0.36, RDP_TOL = 0.05;
+const BOX = { x: [-3, 3], y: [-3, 3], z: [0, 2.5] };
+const SAFE = { x: [-2.5, 2.5], y: [-1.5, 1.5], zmax: 2.0 };
+const GATE_OUTER = 0.72, GATE_OPEN = 0.4, HALF = 0.36, PAD_R = 0.3;
+const SHAPES = ['square', 'triangle', 'circle'];
+const TODAY_FILE = {
+ "title": "Track made with the track designer",
+ "units": "meters; angles in radians in the file, degrees on the sheet",
+ "limits_box": {
+  "x": [
+   -3,
+   3
+  ],
+  "y": [
+   -3,
+   3
+  ],
+  "z": [
+   0,
+   2.5
+  ]
+ },
+ "level_file_safety_limits": {
+  "pos_limit_low": [
+   -2.5,
+   -1.5,
+   -0.001
+  ],
+  "pos_limit_high": [
+   2.5,
+   1.5,
+   2.0
+  ]
+ },
+ "gate_outer_m": 0.72,
+ "gate_opening_m": 0.4,
+ "gate_size_note": [
+  "# Tall gates: 1.195m height. Short gates: 0.695m height. Height is measured from the ground to the center of the gate.",
+  "# Gates are square. Gates are 0.72m wide (outer dimensions of the frame) with a 0.4m wide opening."
+ ],
+ "obstacle_note": [
+  "# Obstacle height: 1.52m + reflective marker on top. Height is measured from the ground to the top of the obstacle.",
+  "# Obstacles are cylinders with a diameter of 0.03m."
+ ],
+ "obstacle_pos_z_means": "top of the obstacle, measured from the floor (the pole starts at z = 0)",
+ "gate_order_in_level_file": [
+  1,
+  2,
+  3,
+  4,
+  2
+ ],
+ "start": {
+  "pos": [
+   -1.5,
+   0.75,
+   0.01
+  ],
+  "yaw_rad": 0.0
+ },
+ "gates": [
+  {
+   "pos": [
+    0.5,
+    0.25,
+    0.7
+   ],
+   "yaw_rad": -0.78,
+   "shape": "square"
+  },
+  {
+   "pos": [
+    1.05,
+    0.75,
+    1.2
+   ],
+   "yaw_rad": 2.35,
+   "shape": "square"
+  },
+  {
+   "pos": [
+    -1.0,
+    -0.25,
+    0.7
+   ],
+   "yaw_rad": 3.14,
+   "shape": "square"
+  },
+  {
+   "pos": [
+    0.0,
+    -0.75,
+    1.2
+   ],
+   "yaw_rad": 0.0,
+   "shape": "square"
+  }
+ ],
+ "obstacles": [
+  {
+   "pos": [
+    0.0,
+    0.75,
+    1.55
+   ]
+  },
+  {
+   "pos": [
+    1.0,
+    0.25,
+    1.55
+   ]
+  },
+  {
+   "pos": [
+    -1.5,
+    -0.25,
+    1.55
+   ]
+  },
+  {
+   "pos": [
+    -0.5,
+    -0.75,
+    1.55
+   ]
+  }
+ ]
+};
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const num = v => typeof v === 'number' && isFinite(v);
+const f3 = n => String(Math.round(n * 1000) / 1000);
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+/* ---------- snapping ---------- */
+function snap(v, step, off) {
+  if (off) return v;
+  return Math.round(Math.round(v / step) * step * 1e4) / 1e4 + 0;
+}
+function normDeg(d) {
+  if (d > -180 && d <= 180) return d;
+  let r = ((d % 360) + 360) % 360;
+  if (r > 180) r -= 360;
+  return r;
+}
+function snapDeg(d, off) { return off ? normDeg(d) : normDeg(snap(d, 5, false)); }
+function clampBoxXY(x, y) { return [clamp(x, BOX.x[0], BOX.x[1]), clamp(y, BOX.y[0], BOX.y[1])]; }
+/* where a dragged object goes: the pointer minus the grab offset, snapped, and held inside the 6 m box */
+function dragPosition(wx, wy, off, alt) {
+  const x = snap(wx - off[0], 0.05, alt), y = snap(wy - off[1], 0.05, alt);
+  const c = clampBoxXY(x, y);
+  return alt ? [Math.round(c[0] * 1000) / 1000, Math.round(c[1] * 1000) / 1000] : c;
+}
+
+/* ---------- objects ---------- */
+function pointIndices(L) { const r = []; L.route.forEach((e, i) => { if (e.type === 'point') r.push(i); }); return r; }
+function getObj(L, kind, i) {
+  if (kind === 'cp') return L.path && L.path.points[i] ? { pos: L.path.points[i] } : null;
+  if (kind === 'gate') return L.gates[i] || null;
+  if (kind === 'pole') return L.obstacles[i] || null;
+  if (kind === 'start') return L.start;
+  if (kind === 'end') return L.end || null;
+  if (kind === 'point') { const ix = pointIndices(L)[i]; return ix === undefined ? null : L.route[ix]; }
+  return null;
+}
+function orderOf(L) { return L.route.filter(e => e.type === 'gate').map(e => e.reverse ? -e.gate : e.gate); }
+function routeFromOrder(order) { return order.map(n => ({ type: 'gate', gate: Math.abs(n), reverse: n < 0 })); }
+
+/* ---------- the layout object and the file ---------- */
+function fromFile(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('This file is not a track layout.');
+  const pos3 = (p, what) => {
+    if (!Array.isArray(p) || p.length < 3 || !p.slice(0, 3).every(num))
+      throw new Error(what + ' needs three numbers: x, y and height.');
+    return [p[0], p[1], p[2]];
+  };
+  if (!Array.isArray(o.gates)) throw new Error('The file has no list of gates.');
+  const gates = o.gates.map((g, i) => {
+    if (!g || !num(g.yaw_rad)) throw new Error('Gate ' + (i + 1) + ' has no direction.');
+    return { pos: pos3(g.pos, 'Gate ' + (i + 1)), yaw_rad: g.yaw_rad, shape: SHAPES.indexOf(g.shape) >= 0 ? g.shape : 'square' };
+  });
+  const obstacles = (Array.isArray(o.obstacles) ? o.obstacles : []).map((p, i) => ({ pos: pos3(p && p.pos, 'Pole ' + (i + 1)) }));
+  if (!o.start || !num(o.start.yaw_rad)) throw new Error('The file has no start with a direction.');
+  const start = { pos: pos3(o.start.pos, 'The start'), yaw_rad: o.start.yaw_rad };
+  const okGate = n => Number.isInteger(n) && n >= 1 && n <= gates.length;
+  let route;
+  if (Array.isArray(o.route)) {
+    route = o.route.map((e, i) => {
+      if (e && e.type === 'gate') {
+        if (!okGate(e.gate)) throw new Error('Route entry ' + (i + 1) + ' names gate "' + e.gate + '", which is not a gate of this file.');
+        return { type: 'gate', gate: e.gate, reverse: !!e.reverse };
+      }
+      if (e && e.type === 'point') return { type: 'point', pos: pos3(e.pos, 'Route point in entry ' + (i + 1)) };
+      throw new Error('Route entry ' + (i + 1) + ' is neither a gate nor a point.');
+    });
+  } else {
+    let order = o.gate_order || o.gate_order_in_level_file;
+    if (!Array.isArray(order)) order = gates.map((_, i) => i + 1);
+    order.forEach(n => {
+      if (!Number.isInteger(n) || n === 0 || !okGate(Math.abs(n)))
+        throw new Error('The route list has "' + n + '", which is not a gate number of this file.');
+    });
+    route = routeFromOrder(order);
+  }
+  const end = o.end ? { pos: pos3(o.end.pos, 'The end point') } : null;
+  const L = { title: typeof o.title === 'string' ? o.title : 'Track made with the track designer',
+              start, gates, obstacles, route, end, path: null };
+  if (o.path && Array.isArray(o.path.points) && o.path.points.length >= 2) {      // a drawn path: it decides the route
+    const pts = o.path.points.map((p, i) => pos3(p, 'Path point ' + (i + 1)));
+    const zl = Array.isArray(o.path.z_locked) ? o.path.z_locked : [];
+    L.path = { points: pts, z_locked: pts.map((_, i) => !!zl[i]), closed: false };
+    L.route = pathRoute(L, pathCompute(L));
+  }
+  return L;
+}
+function toFile(L) {
+  const f = {
+    title: L.title,
+    units: 'meters; angles in radians in the file, degrees on the sheet',
+    limits_box: { x: BOX.x.slice(), y: BOX.y.slice(), z: BOX.z.slice() },
+    level_file_safety_limits: { pos_limit_low: [SAFE.x[0], SAFE.y[0], -0.001], pos_limit_high: [SAFE.x[1], SAFE.y[1], SAFE.zmax] },
+    gate_outer_m: GATE_OUTER,
+    gate_opening_m: GATE_OPEN,
+    obstacle_pos_z_means: 'top of the obstacle, measured from the floor (the pole starts at z = 0)',
+    gate_order: orderOf(L),
+    gate_order_note: 'only the gate passages, in order; gate numbers start at 1; a negative number means the same gate crossed in the opposite direction',
+    route: clone(L.route),
+    route_note: 'the full route in order: gates (reverse = crossed the other way) and free route points the line must pass through',
+    designer_version: VERSION,
+    start: clone(L.start),
+    gates: clone(L.gates),
+    obstacles: clone(L.obstacles),
+    route_points: []
+  };
+  if (L.end) f.end = clone(L.end);
+  if (L.path) {
+    f.path = { points: clone(L.path.points), closed: false };
+    if (L.path.z_locked.some(Boolean)) f.path.z_locked = L.path.z_locked.slice();
+  }
+  return f;
+}
+function todayLayout() { return fromFile(clone(TODAY_FILE)); }
+
+/* ---------- editing (all change the layout in place) ---------- */
+function moveObject(L, kind, i, x, y) {
+  const o = getObj(L, kind, i); if (!o) return L;
+  o.pos[0] = x; o.pos[1] = y;
+  if (kind === 'cp' && L.path && L.end && i === L.path.points.length - 1) { L.end.pos[0] = x; L.end.pos[1] = y; }   // the last dot is the end pad
+  syncPathEnds(L); return L;
+}
+/* a drag in the side view: x sideways and height up and down (the start pad keeps its height) */
+function dragSide(L, kind, i, xp, zp, off, alt) {
+  const o = getObj(L, kind, i); if (!o) return L;
+  const rd = v => alt ? Math.round(v * 1000) / 1000 : snap(v, 0.05, false);
+  o.pos[0] = clamp(rd(xp - off[0]), BOX.x[0], BOX.x[1]);
+  if (kind !== 'start') o.pos[2] = clamp(rd(zp - off[1]), 0, 2.5);
+  if (kind === 'cp' && L.path) {
+    L.path.z_locked[i] = true;                              // a height set by hand stays
+    if (L.end && i === L.path.points.length - 1) { L.end.pos[0] = o.pos[0]; L.end.pos[2] = o.pos[2]; }
+  }
+  syncPathEnds(L); return L;
+}
+function setYaw(L, kind, i, yaw) {
+  const o = kind === 'gate' ? L.gates[i] : kind === 'start' ? L.start : null;
+  if (o) o.yaw_rad = yaw; return L;
+}
+function setField(L, kind, i, field, value) {
+  const o = getObj(L, kind, i); if (!o) return L;
+  if (field === 'x') o.pos[0] = value;
+  else if (field === 'y') o.pos[1] = value;
+  else if (field === 'z') o.pos[2] = value;
+  else if (field === 'deg' && (kind === 'gate' || kind === 'start')) o.yaw_rad = value * D2R;
+  else if (field === 'shape' && kind === 'gate' && SHAPES.indexOf(value) >= 0) o.shape = value;
+  syncPathEnds(L); return L;
+}
+function setShape(L, i, shape) { return setField(L, 'gate', i, 'shape', shape); }
+function setHeight(L, kind, i, z, alt) {
+  const o = getObj(L, kind, i); if (!o || kind === 'start') return L;
+  const v = alt ? Math.round(z * 1000) / 1000 : snap(z, 0.05, false);
+  o.pos[2] = clamp(v, 0, 2.5);
+  if (kind === 'cp' && L.path) L.path.z_locked[i] = true;     // a height set by hand stays
+  return L;
+}
+function bumpHeight(L, kind, i, delta) {
+  const o = getObj(L, kind, i); if (!o || kind === 'start') return L;
+  return setHeight(L, kind, i, o.pos[2] + delta, false);
+}
+function turnAround(L, kind, i) {
+  const o = kind === 'gate' ? L.gates[i] : kind === 'start' ? L.start : null; if (!o) return L;
+  let y = o.yaw_rad + Math.PI; if (y > Math.PI) y -= 2 * Math.PI; o.yaw_rad = y; return L;
+}
+function freeSpot(L) {
+  const taken = L.gates.map(g => g.pos).concat(L.obstacles.map(p => p.pos));
+  const cands = [[0, 0]];
+  for (let r = 1; r <= 5; r++) for (let k = 0; k < 8; k++) {
+    const a = k * Math.PI / 4;
+    cands.push([snap(0.5 * r * Math.cos(a), 0.05), snap(0.5 * r * Math.sin(a), 0.05)]);
+  }
+  for (const c of cands)
+    if (taken.every(p => Math.hypot(p[0] - c[0], p[1] - c[1]) >= 0.4)) return c;
+  return [0, 0];
+}
+function addGate(L, shape) { const c = freeSpot(L); L.gates.push({ pos: [c[0], c[1], 1.0], yaw_rad: 0, shape: shape || 'square' }); return L.gates.length - 1; }
+function addPole(L) { const c = freeSpot(L); L.obstacles.push({ pos: [c[0], c[1], 1.55] }); return L.obstacles.length - 1; }
+/* a tool dropped on the map: a gate of a shape, a pole, the end pad, or the start pad (which MOVES the one start) */
+function dropObject(L, tool, wx, wy, alt) {
+  let x = alt ? Math.round(wx * 1000) / 1000 : snap(wx, 0.05, false), y = alt ? Math.round(wy * 1000) / 1000 : snap(wy, 0.05, false);
+  [x, y] = clampBoxXY(x, y);
+  if (tool === 'pole') { L.obstacles.push({ pos: [x, y, 1.55] }); return { kind: 'pole', i: L.obstacles.length - 1 }; }
+  if (tool === 'end') { L.end = { pos: [x, y, L.end ? L.end.pos[2] : 0] }; syncPathEnds(L); return { kind: 'end', i: 0 }; }
+  if (tool === 'start') { L.start.pos[0] = x; L.start.pos[1] = y; syncPathEnds(L); return { kind: 'start', i: 0 }; }
+  if (SHAPES.indexOf(tool) >= 0) { L.gates.push({ pos: [x, y, 1.0], yaw_rad: 0, shape: tool }); return { kind: 'gate', i: L.gates.length - 1 }; }
+  return null;
+}
+function duplicate(L, kind, i, dx, dy) {
+  const o = getObj(L, kind, i); if (!o || (kind !== 'gate' && kind !== 'pole')) return -1;
+  const c = clone(o); const p = clampBoxXY(c.pos[0] + (dx || 0), c.pos[1] + (dy || 0)); c.pos[0] = p[0]; c.pos[1] = p[1];
+  const list = kind === 'gate' ? L.gates : L.obstacles; list.push(c); return list.length - 1;
+}
+function deleteObject(L, kind, i) {
+  if (kind === 'cp') cpDelete(L, i);
+  else if (kind === 'pole' && L.obstacles[i]) L.obstacles.splice(i, 1);
+  else if (kind === 'end') L.end = null;
+  else if (kind === 'point') { const ix = pointIndices(L)[i]; if (ix !== undefined) L.route.splice(ix, 1); }
+  else if (kind === 'gate' && L.gates[i]) {
+    L.gates.splice(i, 1);
+    const k = i + 1;
+    L.route = L.route.filter(e => !(e.type === 'gate' && e.gate === k))
+      .map(e => (e.type === 'gate' && e.gate > k) ? { type: 'gate', gate: e.gate - 1, reverse: e.reverse } : e);
+  }
+  if (L.path && kind !== 'cp') pathRefresh(L);
+  return L;
+}
+
+/* ---------- undo and redo ---------- */
+function newHistory(layout) { return { present: layout, past: [], future: [] }; }
+function snapshot(h) { return JSON.stringify(h.present); }
+function record(h, before) {
+  if (JSON.stringify(h.present) === before) return false;
+  h.past.push(before); h.future = [];
+  if (h.past.length > 300) h.past.shift();
+  return true;
+}
+function undo(h) {
+  if (!h.past.length) return false;
+  h.future.push(JSON.stringify(h.present)); h.present = JSON.parse(h.past.pop()); return true;
+}
+function redo(h) {
+  if (!h.future.length) return false;
+  h.past.push(JSON.stringify(h.present)); h.present = JSON.parse(h.future.pop()); return true;
+}
+
+/* ---------- the route: text, clicks, geometry ---------- */
+function parseRouteText(text, nGates) {
+  const errors = [], entries = [];
+  const toks = String(text).split(/[\s,;]+/).filter(Boolean);
+  if (!toks.length) errors.push('The route is empty. Type gate numbers, for example 1, 2, 3, or press "Draw route".');
+  toks.forEach((t, i) => {
+    if (/^p$/i.test(t)) { entries.push({ type: 'point' }); return; }
+    if (!/^[+-]?\d+$/.test(t)) { errors.push('"' + t + '" is not a gate number. Use whole numbers such as 1, 2 or -3, or p for a route point.'); return; }
+    const n = parseInt(t, 10);
+    if (n === 0) { errors.push('Item ' + (i + 1) + ' is 0. Gate numbers start at 1.'); return; }
+    if (Math.abs(n) > nGates) {
+      errors.push('Item ' + (i + 1) + ' uses gate ' + Math.abs(n) + ', but there ' +
+        (nGates === 0 ? 'are no gates.' : nGates === 1 ? 'is only 1 gate.' : 'are only ' + nGates + ' gates.'));
+      return;
+    }
+    entries.push({ type: 'gate', gate: Math.abs(n), reverse: n < 0 });
+  });
+  return { entries, errors, empty: !toks.length };
+}
+function entriesToText(entries) { return entries.map(e => e.type === 'point' ? 'p' : (e.reverse ? '-' : '') + e.gate).join(', '); }
+function routeToText(L) { return entriesToText(L.route); }
+function gateDir(g) { return [Math.cos(g.yaw_rad), Math.sin(g.yaw_rad)]; }
+function lastKnotPos(L) {
+  for (let i = L.route.length - 1; i >= 0; i--) { const e = L.route[i]; return e.type === 'gate' ? (L.gates[e.gate - 1] ? L.gates[e.gate - 1].pos : L.start.pos) : e.pos; }
+  return L.start.pos;
+}
+/* a new route point: the clicked place, and a height halfway between the neighbors */
+function appendPoint(L, x, y) {
+  const c = clampBoxXY(x, y), prev = lastKnotPos(L);
+  const z = L.end ? (prev[2] + L.end.pos[2]) / 2 : prev[2];
+  L.route.push({ type: 'point', pos: [c[0], c[1], Math.round(clamp(z, 0, 2.5) * 100) / 100] });
+  return pointIndices(L).length - 1;
+}
+/* put the route typed in the field into the layout; points already there are kept in order, new ones are placed between their neighbors */
+function applyRouteText(L, text) {
+  const r = parseRouteText(text, L.gates.length);
+  if (r.errors.length) return false;
+  const old = L.route.filter(e => e.type === 'point');
+  const route = r.entries.map(e => e.type === 'gate' ? e : (old.length ? old.shift() : { type: 'point', pos: null }));
+  const resolved = e => e.type === 'gate' ? L.gates[e.gate - 1].pos : e.pos;
+  route.forEach((e, idx) => {
+    if (e.type !== 'point' || e.pos) return;
+    const prev = idx === 0 ? L.start.pos : resolved(route[idx - 1]) || L.start.pos;
+    let next = null;
+    for (let j = idx + 1; j < route.length && !next; j++) next = resolved(route[j]);
+    if (!next && L.end) next = L.end.pos;
+    const p = next ? [(prev[0] + next[0]) / 2, (prev[1] + next[1]) / 2, (prev[2] + next[2]) / 2] : [prev[0] + 0.4, prev[1], prev[2]];
+    const c = clampBoxXY(snap(p[0], 0.05), snap(p[1], 0.05));
+    e.pos = [c[0], c[1], Math.round(clamp(p[2], 0, 2.5) * 100) / 100];
+  });
+  L.route = route; L.path = null; return true;
+}
+/* a click on a gate in "Draw route": add a passage, or (same gate as the last passage) finish */
+function routeClick(L, n) {
+  const last = L.route[L.route.length - 1];
+  if (last && last.type === 'gate' && last.gate === Math.abs(n)) return { finish: true };
+  L.route.push({ type: 'gate', gate: Math.abs(n), reverse: n < 0 }); L.path = null; return { finish: false };
+}
+function clearRoute(L) { L.route = []; L.path = null; return L; }
+function routeLabel(L) {
+  const parts = ['Start']; let pt = 0;
+  L.route.forEach(e => { if (e.type === 'gate') parts.push('gate ' + e.gate + (e.reverse ? ' (other way)' : '')); else parts.push('point ' + (++pt)); });
+  if (L.end) parts.push('End');
+  return parts.join(', ');
+}
+function routeKnots(L) {
+  const s = L.start;
+  const knots = [{ type: 'start', x: s.pos[0], y: s.pos[1], z: s.pos[2], dx: Math.cos(s.yaw_rad), dy: Math.sin(s.yaw_rad), gate: 0, passage: 0, sign: 1, fixed: true }];
+  let passage = 0, pt = 0;
+  L.route.forEach(e => {
+    if (e.type === 'gate') {
+      const g = L.gates[e.gate - 1]; if (!g) return;
+      const d = gateDir(g), sg = e.reverse ? -1 : 1; passage++;
+      knots.push({ type: 'gate', x: g.pos[0], y: g.pos[1], z: g.pos[2], dx: sg * d[0], dy: sg * d[1], gate: e.gate, passage, sign: sg, fixed: true });
+    } else { pt++; knots.push({ type: 'point', x: e.pos[0], y: e.pos[1], z: e.pos[2], point: pt, gate: 0, passage: 0, sign: 1, fixed: false }); }
+  });
+  if (L.end) knots.push({ type: 'end', x: L.end.pos[0], y: L.end.pos[1], z: L.end.pos[2], gate: 0, passage: 0, sign: 1, fixed: false });
+  knots.forEach((k, i) => {
+    if (k.fixed) return;
+    const prev = knots[i - 1], next = knots[i + 1];
+    let vx = next ? next.x - prev.x : k.x - prev.x, vy = next ? next.y - prev.y : k.y - prev.y;
+    const n = Math.hypot(vx, vy);
+    if (n < 1e-9) { vx = 1; vy = 0; } else { vx /= n; vy /= n; }
+    k.dx = vx; k.dy = vy;
+  });
+  return knots;
+}
+/* A smooth sketch: a cubic Hermite curve through the start, each gate center, each route point and the end.
+   It leaves each gate along its crossing direction (reversed for a reversed passage).
+   Height uses the same curve parameter and is flat at each knot. */
+function routeGeometry(L, N) {
+  N = N || 32;
+  const knots = routeKnots(L);
+  const samples = [], mids = [];
+  samples.push({ x: knots[0].x, y: knots[0].y, z: knots[0].z, seg: 0 });
+  for (let i = 0; i + 1 < knots.length; i++) {
+    const a = knots[i], b = knots[i + 1], len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 1e-9) { samples.push({ x: b.x, y: b.y, z: b.z, seg: i + 1 }); continue; }
+    for (let j = 1; j <= N; j++) {
+      const t = j / N, t2 = t * t, t3 = t2 * t;
+      const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+      const sm = 3 * t2 - 2 * t3;
+      samples.push({
+        x: h00 * a.x + h10 * len * a.dx + h01 * b.x + h11 * len * b.dx,
+        y: h00 * a.y + h10 * len * a.dy + h01 * b.y + h11 * len * b.dy,
+        z: a.z + (b.z - a.z) * sm, seg: i + 1
+      });
+      if (j === N / 2) mids.push(samples.length - 1);
+    }
+  }
+  const marks = mids.map(ix => {
+    const p = samples[ix - 1], q = samples[ix + 1], d = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    return { x: samples[ix].x, y: samples[ix].y, dx: (q.x - p.x) / d, dy: (q.y - p.y) / d };
+  });
+  return { knots, samples, marks };
+}
+
+/* ---------- the drawn flight path ----------
+   L.path = { points: [[x, y, z], ...], z_locked: [bool, ...], closed: false }.
+   The first point is the start pad, the last point is the end pad. The curve passes exactly through the points.
+   The gates are NOT chosen by the owner: they are found where the curve crosses a gate's opening. */
+const r3 = v => Math.round(v * 1000) / 1000;
+function distPointSeg(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+  const t = l2 < 1e-18 ? 0 : clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2, 0, 1);
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+/* Ramer-Douglas-Peucker: which of the raw points stay (pinned points always stay) */
+function rdpKeep(pts, tol, pinned) {
+  const n = pts.length; if (n <= 2) return pts.map((_, i) => i);
+  const keep = new Array(n).fill(false); keep[0] = keep[n - 1] = true;
+  (pinned || []).forEach((p, i) => { if (p && i < n) keep[i] = true; });
+  const rec = (a, b) => {
+    if (b <= a + 1) return;
+    let md = -1, mi = -1;
+    for (let i = a + 1; i < b; i++) { const d = distPointSeg(pts[i], pts[a], pts[b]); if (d > md) { md = d; mi = i; } }
+    if (md > tol) { keep[mi] = true; rec(a, mi); rec(mi, b); }
+  };
+  const marks = []; keep.forEach((k, i) => { if (k) marks.push(i); });
+  for (let k = 0; k + 1 < marks.length; k++) rec(marks[k], marks[k + 1]);
+  const out = []; keep.forEach((k, i) => { if (k) out.push(i); });
+  return out;
+}
+/* the nearest gate opening center within 0.15 m: the pen is pulled to it (Alt switches this off) */
+function gateAt(L, x, y, r) {
+  let best = -1, bd = r;
+  L.gates.forEach((g, i) => { const d = Math.hypot(x - g.pos[0], y - g.pos[1]); if (d <= bd) { bd = d; best = i; } });
+  return best;
+}
+function snapSample(L, x, y, alt) {
+  const c = clampBoxXY(x, y);
+  if (!alt) { const gi = gateAt(L, c[0], c[1], SNAP_R); if (gi >= 0) return [L.gates[gi].pos[0], L.gates[gi].pos[1], gi]; }
+  return [c[0], c[1], -1];
+}
+/* raw samples [x, y, gate or -1] -> the few control points (a snapped gate center is always kept) */
+function reduceStroke(raw, tol) {
+  const s = [];
+  raw.forEach(p => { const l = s[s.length - 1]; if (!l || Math.hypot(p[0] - l[0], p[1] - l[1]) > 1e-6 || (p[2] !== l[2])) s.push(p); });
+  const dedup = [];
+  s.forEach(p => { const l = dedup[dedup.length - 1]; if (l && p[2] >= 0 && l[2] === p[2]) return; dedup.push(p); });   // one point per snapped run
+  const idx = rdpKeep(dedup, tol === undefined ? RDP_TOL : tol, dedup.map(p => p[2] >= 0));
+  const kept = idx.map(i => dedup[i]), centers = kept.filter(p => p[2] >= 0);
+  // dots crowded around a snapped center (a shaky hand) add nothing: the curve goes through the center anyway
+  let out = kept.filter(p => p[2] >= 0 || !centers.some(c => Math.hypot(p[0] - c[0], p[1] - c[1]) < SNAP_R + 0.02));
+  out = out.filter((p, i) => !(p[2] >= 0 && i > 0 && out[i - 1][2] === p[2]));
+  return out.map(p => [p[0], p[1]]);
+}
+function strokeLength(raw) { let s = 0; for (let i = 1; i < raw.length; i++) s += Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]); return s; }
+function syncPathEnds(L) {
+  if (!L.path) return;
+  const P = L.path.points; P[0][0] = L.start.pos[0]; P[0][1] = L.start.pos[1];
+  if (L.end && P.length > 1) { P[P.length - 1][0] = L.end.pos[0]; P[P.length - 1][1] = L.end.pos[1]; }
+}
+/* the curve: a cubic Hermite spline through the points; a point at a gate center leaves along the gate's direction */
+function cpTangents(L, P) {
+  const n = P.length, T = [];
+  for (let i = 0; i < n; i++) {
+    const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)];
+    let vx = b[0] - a[0], vy = b[1] - a[1]; const nn = Math.hypot(vx, vy);
+    if (nn < 1e-9) { vx = 1; vy = 0; } else { vx /= nn; vy /= nn; }
+    const gi = gateAt(L, P[i][0], P[i][1], ANCHOR_R);
+    if (gi >= 0 && i > 0 && i < n - 1) { const d = gateDir(L.gates[gi]), sg = d[0] * vx + d[1] * vy >= 0 ? 1 : -1; vx = sg * d[0]; vy = sg * d[1]; }
+    T.push([vx, vy]);
+  }
+  return T;
+}
+/* where the curve crosses a gate: through the opening (0.4 m), or through the frame only (red) */
+function findCrossings(L, samples) {
+  const out = [], cum = [0];
+  for (let k = 1; k < samples.length; k++) cum.push(cum[k - 1] + Math.hypot(samples[k].x - samples[k - 1].x, samples[k].y - samples[k - 1].y));
+  L.gates.forEach((g, gi) => {
+    const d = gateDir(g), n = [-d[1], d[0]], cx = g.pos[0], cy = g.pos[1];
+    for (let k = 0; k + 1 < samples.length; k++) {
+      const a = samples[k], b = samples[k + 1];
+      let sa = (a.x - cx) * d[0] + (a.y - cy) * d[1], sb = (b.x - cx) * d[0] + (b.y - cy) * d[1];
+      if (sa === 0) sa = 1e-12; if (sb === 0) sb = 1e-12;
+      if (sa * sb < 0) {
+        const t = sa / (sa - sb), px = a.x + t * (b.x - a.x), py = a.y + t * (b.y - a.y), u = (px - cx) * n[0] + (py - cy) * n[1], au = Math.abs(u);
+        if (au <= FRAME_HALF) out.push({ gate: gi + 1, sign: sb > sa ? 1 : -1, kind: au <= OPEN_HALF ? 'opening' : 'frame', x: px, y: py, u, pos: k + t, s: cum[k] + t * (cum[k + 1] - cum[k]) });
+      }
+    }
+  });
+  out.sort((p, q) => p.pos - q.pos);
+  const res = [];                                          // a wiggle across the same gate plane (there and back within 0.3 m) is not a pass
+  out.forEach(c => { const t = res[res.length - 1]; if (t && t.gate === c.gate && t.kind === c.kind && t.sign !== c.sign && c.s - t.s < 0.3) res.pop(); else res.push(c); });
+  return res;
+}
+function pathCompute(L, N) {
+  N = N || 20;
+  const P = L.path.points, n = P.length, T = cpTangents(L, P);
+  const samples = [{ x: P[0][0], y: P[0][1], z: 0, seg: 0 }], cpIdx = [0], mids = [];
+  for (let i = 0; i + 1 < n; i++) {
+    const a = P[i], b = P[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 1e-9) { samples.push({ x: b[0], y: b[1], z: 0, seg: i + 1 }); cpIdx.push(samples.length - 1); continue; }
+    for (let j = 1; j <= N; j++) {
+      const t = j / N, t2 = t * t, t3 = t2 * t;
+      const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+      samples.push({ x: h00 * a[0] + h10 * len * T[i][0] + h01 * b[0] + h11 * len * T[i + 1][0], y: h00 * a[1] + h10 * len * T[i][1] + h01 * b[1] + h11 * len * T[i + 1][1], z: 0, seg: i + 1 });
+      if (j === N / 2) mids.push(samples.length - 1);
+    }
+    cpIdx.push(samples.length - 1);
+  }
+  const cum = [0]; for (let k = 1; k < samples.length; k++) cum.push(cum[k - 1] + Math.hypot(samples[k].x - samples[k - 1].x, samples[k].y - samples[k - 1].y));
+  const crossings = findCrossings(L, samples);
+  // heights: the floor at the start and at the end, a gate's center height where the curve goes through its opening, a hand-set height at a locked dot; smooth in between
+  const anchors = [{ s: 0, z: L.start.pos[2], pr: 1 }, { s: cum[cum.length - 1], z: L.end ? L.end.pos[2] : 0, pr: 1 }];
+  crossings.forEach(c => { if (c.kind === 'opening') anchors.push({ s: c.s, z: L.gates[c.gate - 1].pos[2], pr: 3 }); });
+  P.forEach((p, i) => { if (i > 0 && i < n - 1 && L.path.z_locked[i]) anchors.push({ s: cum[cpIdx[i]], z: p[2], pr: 4 }); });
+  anchors.sort((p, q) => p.s - q.s || q.pr - p.pr);
+  const A = []; anchors.forEach(a => { const l = A[A.length - 1]; if (l && Math.abs(a.s - l.s) < 1e-6) return; A.push(a); });
+  const zAt = s => {
+    if (s <= A[0].s) return A[0].z; if (s >= A[A.length - 1].s) return A[A.length - 1].z;
+    let k = 0; while (k + 2 < A.length && A[k + 1].s < s) k++;
+    const t = (s - A[k].s) / (A[k + 1].s - A[k].s), sm = 3 * t * t - 2 * t * t * t; return A[k].z + (A[k + 1].z - A[k].z) * sm;
+  };
+  samples.forEach((p, k) => { p.z = zAt(cum[k]); });
+  const cpz = P.map((p, i) => (i === 0 || i === n - 1 || L.path.z_locked[i]) ? p[2] : zAt(cum[cpIdx[i]]));
+  cpz[0] = L.start.pos[2]; if (L.end) cpz[n - 1] = L.end.pos[2];
+  const openings = crossings.filter(c => c.kind === 'opening');
+  const knots = openings.map((c, k) => { const d = gateDir(L.gates[c.gate - 1]); return { type: 'gate', x: c.x, y: c.y, z: zAt(c.s), dx: c.sign * d[0], dy: c.sign * d[1], gate: c.gate, passage: k + 1, sign: c.sign }; });
+  const marks = mids.map(ix => { const p = samples[ix - 1], q = samples[ix + 1], d = Math.hypot(q.x - p.x, q.y - p.y) || 1; return { x: samples[ix].x, y: samples[ix].y, dx: (q.x - p.x) / d, dy: (q.y - p.y) / d }; });
+  return { samples, knots, marks, crossings, openings, frames: crossings.filter(c => c.kind === 'frame'), cpIdx, cpz, cum, total: cum[cum.length - 1] };
+}
+/* the route that the path means: the gates it passes (negative = against the arrow), and its free dots, in order along the curve */
+function pathRoute(L, comp) {
+  const items = comp.openings.map(c => ({ s: c.s, e: { type: 'gate', gate: c.gate, reverse: c.sign < 0 } }));
+  const P = L.path.points;
+  for (let i = 1; i < P.length - 1; i++) {
+    if (gateAt(L, P[i][0], P[i][1], ANCHOR_R) >= 0) continue;                 // a dot at a gate center is that gate's crossing
+    items.push({ s: comp.cum[comp.cpIdx[i]], e: { type: 'point', pos: [P[i][0], P[i][1], comp.cpz[i]] } });
+  }
+  items.sort((p, q) => p.s - q.s);
+  return items.map(it => it.e);
+}
+function pathRefresh(L) {
+  if (!L.path) return null;
+  syncPathEnds(L);
+  const comp = pathCompute(L);
+  L.path.points.forEach((p, i) => { p[2] = r3(comp.cpz[i]); });
+  L.route = pathRoute(L, comp);
+  return comp;
+}
+function pathGeometry(L, N) { return pathCompute(L, N); }
+function addStroke(L, raw) {
+  const pts = reduceStroke(raw, RDP_TOL); if (!pts.length || strokeLength(raw) < 0.1) return false;
+  if (!L.path) L.path = { points: [[L.start.pos[0], L.start.pos[1], L.start.pos[2]]], z_locked: [false], closed: false };   // the line always begins at the start pad
+  const P = L.path.points;
+  pts.forEach(p => { const l = P[P.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 0.02) return; const c = clampBoxXY(p[0], p[1]); P.push([r3(c[0]), r3(c[1]), 0]); L.path.z_locked.push(false); });
+  if (P.length < 2) return false;
+  const e = P[P.length - 1];
+  if (!L.end) L.end = { pos: [e[0], e[1], 0] }; else { L.end.pos[0] = e[0]; L.end.pos[1] = e[1]; }   // the end pad is where the path ends
+  pathRefresh(L); return true;
+}
+function cpInsert(L, x, y) {
+  if (!L.path) return -1;
+  const comp = pathCompute(L); let best = -1, bd = 0.25;
+  for (let k = 0; k + 1 < comp.samples.length; k++) {
+    const a = comp.samples[k], b = comp.samples[k + 1], d = distPointSeg([x, y], [a.x, a.y], [b.x, b.y]);
+    if (d < bd) { bd = d; best = k; }
+  }
+  if (best < 0) return -1;
+  const a = comp.samples[best], b = comp.samples[best + 1], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+  const t = clamp(((x - a.x) * dx + (y - a.y) * dy) / l2, 0, 1), px = a.x + t * dx, py = a.y + t * dy;
+  const i = b.seg - 1;                                       // between control point i and i + 1
+  const k = i + 1;
+  if (Math.hypot(px - L.path.points[i][0], py - L.path.points[i][1]) < 0.03 || Math.hypot(px - L.path.points[i + 1][0], py - L.path.points[i + 1][1]) < 0.03) return -1;
+  L.path.points.splice(k, 0, [r3(px), r3(py), 0]); L.path.z_locked.splice(k, 0, false);
+  pathRefresh(L); return k;
+}
+function cpDelete(L, i) {
+  if (!L.path || i <= 0 || i >= L.path.points.length - 1) return false;
+  L.path.points.splice(i, 1); L.path.z_locked.splice(i, 1); pathRefresh(L); return true;
+}
+function pathClear(L) { L.path = null; L.route = []; return L; }
+function pathNotes(L, comp) {
+  comp = comp || pathCompute(L);
+  const names = comp.openings.map(c => 'gate ' + c.gate + (c.sign < 0 ? ' (against its arrow)' : ''));
+  const lines = [names.length ? 'The path passes: ' + names.join(', ') + '.' : 'The path passes no gate yet.'];
+  comp.frames.forEach(c => lines.push('Red mark: the path touches the frame of gate ' + c.gate + ', not its opening.'));
+  const used = {}; comp.openings.forEach(c => { used[c.gate] = true; });
+  const not = []; L.gates.forEach((g, i) => { if (!used[i + 1]) not.push('gate ' + (i + 1)); });
+  if (not.length) lines.push('Not on the path: ' + not.join(', ') + '.');
+  return { lines, passes: comp.openings.map(c => ({ gate: c.gate, sign: c.sign })), frames: comp.frames.map(c => c.gate), notOn: not };
+}
+/* every gate that the path crosses against its arrow is turned around (a gate crossed both ways is left alone) */
+function turnGatesToPath(L) {
+  if (!L.path) return { turned: [], mixed: [] };
+  const comp = pathCompute(L), neg = {}, pos = {};
+  comp.openings.forEach(c => { (c.sign < 0 ? neg : pos)[c.gate] = true; });
+  const turned = [], mixed = [];
+  Object.keys(neg).map(Number).sort((a, b) => a - b).forEach(g => { if (pos[g]) mixed.push(g); else { turnAround(L, 'gate', g - 1); turned.push(g); } });
+  pathRefresh(L); return { turned, mixed };
+}
+
+/* ---------- the zoomed map: view = {cx, cy, half} in meters ---------- */
+const VIEW_MAX = 3.45;
+function newView() { return { cx: 0, cy: 0, half: VIEW_MAX }; }
+function clampView(v) { v.half = clamp(v.half, 0.5, VIEW_MAX); const m = VIEW_MAX - v.half; v.cx = clamp(v.cx, -m, m); v.cy = clamp(v.cy, -m, m); return v; }
+function zoomAt(v, wx, wy, factor) {
+  const nh = clamp(v.half / factor, 0.5, VIEW_MAX), s = nh / v.half;
+  v.cx = wx - (wx - v.cx) * s; v.cy = wy - (wy - v.cy) * s; v.half = nh; return clampView(v);
+}
+function viewBoxText(v) { return f3(v.cx - v.half) + ' ' + f3(-v.cy - v.half) + ' ' + f3(2 * v.half) + ' ' + f3(2 * v.half); }
+function viewScale(v) { return v.half / VIEW_MAX; }
+
+/* ---------- where each gate's number and picture go, so that they cover nothing ---------- */
+const BADGE_HW = 0.37, BADGE_HH = 0.25;
+function rectDist(px, py, cx, cy, hw, hh) { return Math.hypot(Math.max(Math.abs(px - cx) - hw, 0), Math.max(Math.abs(py - cy) - hh, 0)); }
+function keepOutPoints(L) {
+  const pts = [];
+  L.gates.forEach(g => {
+    const d = gateDir(g), x = g.pos[0], y = g.pos[1];
+    for (let t = -0.36; t <= 0.361; t += 0.06) pts.push([x - d[1] * t, y + d[0] * t]);
+    for (let t = -0.3; t <= 0.56; t += 0.06) pts.push([x + d[0] * t, y + d[1] * t]);
+  });
+  L.obstacles.forEach(p => pts.push([p.pos[0], p.pos[1]]));
+  const sd = [Math.cos(L.start.yaw_rad), Math.sin(L.start.yaw_rad)];
+  for (let a = 0; a < 360; a += 45) pts.push([L.start.pos[0] + PAD_R * Math.cos(a * D2R), L.start.pos[1] + PAD_R * Math.sin(a * D2R)]);
+  for (let t = 0; t <= 0.56; t += 0.07) pts.push([L.start.pos[0] + sd[0] * t, L.start.pos[1] + sd[1] * t]);
+  if (L.end) for (let a = 0; a < 360; a += 45) pts.push([L.end.pos[0] + PAD_R * Math.cos(a * D2R), L.end.pos[1] + PAD_R * Math.sin(a * D2R)]);
+  pointIndices(L).forEach(ix => pts.push([L.route[ix].pos[0], L.route[ix].pos[1]]));
+  return pts;
+}
+function badgePositions(L) {
+  const pts = keepOutPoints(L), placed = [], out = [];
+  const rels = [90, -90, 60, -60, 120, -120, 30, -30, 150, -150, 0, 180];
+  L.gates.forEach(g => {
+    const yaw = g.yaw_rad * R2D; let best = null;
+    const clearance = (cx, cy) => {
+      let c = Infinity;
+      pts.forEach(p => { c = Math.min(c, rectDist(p[0], p[1], cx, cy, BADGE_HW, BADGE_HH)); });
+      placed.forEach(q => { c = Math.min(c, Math.max(Math.abs(q[0] - cx) - 2 * BADGE_HW, Math.abs(q[1] - cy) - 2 * BADGE_HH)); });
+      return c;
+    };
+    outer:
+    for (const r of [0.66, 0.82, 1.0, 1.2, 1.45]) {
+      for (const rel of rels) {
+        const a = (yaw + rel) * D2R, cx = g.pos[0] + r * Math.cos(a), cy = g.pos[1] + r * Math.sin(a);
+        let c = clearance(cx, cy);
+        if (Math.abs(cx) > 3.15 || Math.abs(cy) > 3.2) c -= 1;
+        if (!best || c > best.c) best = { c, x: cx, y: cy };
+        if (c >= 0.12) break outer;
+      }
+    }
+    placed.push([best.x, best.y]); out.push({ x: best.x, y: best.y, clearance: best.c });
+  });
+  return out;
+}
+
+/* ---------- the right mouse button menu ---------- */
+function menuItems(L, target) {
+  if (!target) return [
+    { id: 'add:square', label: 'Add a square gate here' }, { id: 'add:triangle', label: 'Add a triangle gate here' },
+    { id: 'add:circle', label: 'Add a circle gate here' }, { id: 'add:pole', label: 'Add a pole here' },
+    { id: 'add:end', label: L.end ? 'Move the end pad here' : 'Add the end pad here' }, { id: 'add:start', label: 'Move the start pad here' }];
+  if (target.kind === 'gate') {
+    const cur = L.gates[target.i] ? L.gates[target.i].shape : '';
+    return [{ id: 'shape:square', label: 'Shape: square', cur: cur === 'square' }, { id: 'shape:triangle', label: 'Shape: triangle', cur: cur === 'triangle' },
+      { id: 'shape:circle', label: 'Shape: circle', cur: cur === 'circle' }, { id: 'turn', label: 'Turn around' },
+      { id: 'up', label: 'Raise by 0.1 m' }, { id: 'down', label: 'Lower by 0.1 m' }, { id: 'copy', label: 'Make a copy' }, { id: 'delete', label: 'Delete' }];
+  }
+  if (target.kind === 'pole') return [{ id: 'copy', label: 'Make a copy' }, { id: 'delete', label: 'Delete' }];
+  if (target.kind === 'start') return [{ id: 'turn', label: 'Turn around' }];
+  if (target.kind === 'point' || target.kind === 'end') return [{ id: 'up', label: 'Raise by 0.1 m' }, { id: 'down', label: 'Lower by 0.1 m' }, { id: 'delete', label: 'Delete' }];
+  if (target.kind === 'cp') return [{ id: 'delete', label: 'Delete this dot' }];
+  return [];
+}
+function applyMenu(L, id, target, wx, wy) {
+  if (id.indexOf('add:') === 0) { const r = dropObject(L, id.slice(4), wx, wy, false); return { sel: r, msg: id === 'add:pole' ? 'Pole added.' : id === 'add:end' ? 'End pad placed.' : id === 'add:start' ? 'Start pad moved.' : 'Gate added.' }; }
+  if (!target) return { sel: null, msg: '' };
+  const k = target.kind, i = target.i;
+  if (id.indexOf('shape:') === 0) { setShape(L, i, id.slice(6)); return { sel: target, msg: 'Shape changed.' }; }
+  if (id === 'turn') { turnAround(L, k, i); return { sel: target, msg: 'Turned around.' }; }
+  if (id === 'up') { bumpHeight(L, k, i, 0.1); return { sel: target, msg: 'Raised.' }; }
+  if (id === 'down') { bumpHeight(L, k, i, -0.1); return { sel: target, msg: 'Lowered.' }; }
+  if (id === 'copy') { const j = duplicate(L, k, i, 0.25, -0.25); return { sel: j >= 0 ? { kind: k, i: j } : target, msg: 'Copy made.' }; }
+  if (id === 'delete') { deleteObject(L, k, i); return { sel: null, msg: 'Deleted.' }; }
+  return { sel: target, msg: '' };
+}
+
+/* ---------- drawing: pure functions that return SVG text ---------- */
+function shapePic(shape) {   // centered on 0, about 0.32 wide
+  if (shape === 'circle') return '<circle class="picu" r="0.165"/><circle class="pic" r="0.14"/><circle class="pichole" r="0.065"/>';
+  if (shape === 'triangle') return '<polygon class="picu" points="-0.19,0.145 0.19,0.145 0,-0.185"/><polygon class="pic" points="-0.16,0.125 0.16,0.125 0,-0.15"/><polygon class="pichole" points="-0.075,0.075 0.075,0.075 0,-0.05"/>';
+  return '<rect class="picu" x="-0.165" y="-0.165" width="0.33" height="0.33"/><rect class="pic" x="-0.14" y="-0.14" width="0.28" height="0.28"/><rect class="pichole" x="-0.07" y="-0.07" width="0.14" height="0.14"/>';
+}
+/* the pad of the simulator, drawn flat on the floor: a dark disc 0.6 m across, a ring, a white H and the word */
+function padFace(kind) {
+  let s = '<circle class="padd" r="0.3"/>';
+  s += kind === 'start' ? '<circle class="padr" r="0.275"/>' : '<circle class="padw" r="0.275"/><circle class="padk" r="0.275"/>';
+  s += '<text class="padh" x="0" y="0.06" font-size="0.2" text-anchor="middle">H</text>';
+  s += '<text class="padt" x="0" y="0.19" font-size="0.085" text-anchor="middle">' + (kind === 'start' ? 'START' : 'END') + '</text>';
+  return s;
+}
+function toolPic(tool) {
+  let inner;
+  if (tool === 'pole') inner = '<line x1="0" y1="0.17" x2="0" y2="-0.14" stroke="#000" stroke-width="0.07" stroke-linecap="round"/><line x1="0" y1="0.17" x2="0" y2="-0.14" stroke="var(--pole)" stroke-width="0.04" stroke-linecap="round"/><circle cx="0" cy="-0.14" r="0.035" fill="var(--pole)" stroke="#000" stroke-width="0.015"/>';
+  else if (tool === 'end' || tool === 'start') return '<svg viewBox="-0.34 -0.34 0.68 0.68" aria-hidden="true">' + padFace(tool) + '</svg>';
+  else inner = shapePic(tool);
+  return '<svg viewBox="-0.2 -0.2 0.4 0.4" aria-hidden="true">' + inner + '</svg>';
+}
+function mapSvg(L, geo, sel, view, opts) {
+  view = view || newView(); opts = opts || {};
+  const k = viewScale(view), left = view.cx - view.half, right = view.cx + view.half, top = -view.cy - view.half, bottom = -view.cy + view.half;
+  const T = (cls, x, y, txt, size, anchor) => '<text class="' + cls + '" transform="translate(' + f3(x) + ',' + f3(y) + ') scale(' + f3(k) + ')" font-size="' + size + '" text-anchor="' + (anchor || 'start') + '">' + txt + '</text>';
+  let s = '<rect x="-3.45" y="-3.45" width="6.9" height="6.9" fill="var(--map)"/>';
+  for (let i = -6; i <= 6; i++) {
+    const v = i / 2, c = Number.isInteger(v) ? 'grid2' : 'grid';
+    s += '<line class="' + c + '" x1="' + v + '" y1="-3" x2="' + v + '" y2="3"/><line class="' + c + '" x1="-3" y1="' + v + '" x2="3" y2="' + v + '"/>';
+  }
+  for (let v = -3; v <= 3; v++) {
+    if (v >= left && v <= right) s += T('tick', v, bottom - 0.22 * k, v, 0.15, 'middle');
+    if (-v >= top && -v <= bottom) s += T('tick', left + 0.36 * k, -v + 0.05 * k, v, 0.15, 'end');
+  }
+  s += T('axt', right - 0.05 * k, bottom - 0.05 * k, 'x (m)', 0.16, 'end') + T('axt', left + 0.05 * k, top + 0.17 * k, 'y (m)', 0.16, 'start');
+  s += '<rect class="boxline" x="-3" y="-3" width="6" height="6"/>';
+  s += T('boxlbl', -2.94, -2.84, '6 m box: a flight ends outside it', 0.14);
+  s += '<rect class="safeline" x="-2.5" y="-1.5" width="5" height="3"/>';
+  s += T('safelbl', -2.44, -1.36, 'LSY safe area', 0.14);
+  // the grab area of a drawn curve lies under the pads, the gates and the dots, so that they stay reachable
+  if (L.path && geo && geo.samples.length > 1) s += '<polyline class="pathhit" data-kind="curve" data-i="0" stroke-width="' + f3(0.14 * k) + '" points="' + geo.samples.map(p => f3(p.x) + ',' + f3(-p.y)).join(' ') + '"/>';
+  // the pads lie on the floor, under everything else
+  if (L.end) {
+    const x = L.end.pos[0], y = L.end.pos[1];
+    s += '<g class="obj" data-kind="end" data-i="0" tabindex="0" role="button" aria-label="End pad" transform="translate(' + f3(x) + ',' + f3(-y) + ')"><circle class="hit" r="0.31"/>' + padFace('end') + '<circle class="hl" r="0.33"/></g>';
+    if (L.end.pos[2] > 0) s += T('endl', x, -y + 0.46 * k, 'height ' + f3(L.end.pos[2]) + ' m', 0.13, 'middle');
+    if (sel && sel.kind === 'end') s += '<circle class="selring" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="0.38"/>';
+  }
+  const st = L.start, sx0 = st.pos[0], sy0 = st.pos[1];
+  s += '<g class="obj" data-kind="start" data-i="0" tabindex="0" role="button" aria-label="Start pad" transform="translate(' + f3(sx0) + ',' + f3(-sy0) + ')"><circle class="hit" r="0.31"/>' + padFace('start');
+  s += '<g transform="rotate(' + f3(-st.yaw_rad * R2D) + ')"><line class="padarr" x1="0.09" y1="0" x2="0.2" y2="0"/><polygon class="padarr" points="0.28,0 0.19,0.06 0.19,-0.06"/>';
+  s += '<line class="rotstem" x1="0.3" y1="0" x2="0.42" y2="0"/><circle class="rot" cx="0.48" cy="0" r="' + f3(0.07 * k) + '"/><circle class="rothit" data-role="rot" cx="0.48" cy="0" r="' + f3(0.17 * k) + '"/></g>';
+  s += '<circle class="hl" r="0.33"/></g>';
+  if (sel && sel.kind === 'start') s += '<circle class="selring" cx="' + f3(sx0) + '" cy="' + f3(-sy0) + '" r="0.38"/>';
+  // route line, over the pads and under the gates
+  if (geo && geo.samples.length > 1) s += '<polyline class="routeline" stroke-width="' + f3(0.035 * k) + '" points="' + geo.samples.map(p => f3(p.x) + ',' + f3(-p.y)).join(' ') + '"/>';
+  // gates: the selected one is drawn last
+  const badges = badgePositions(L);
+  const gorder = L.gates.map((_, i) => i).sort((a, b) => ((sel && sel.kind === 'gate' && sel.i === a) ? 1 : 0) - ((sel && sel.kind === 'gate' && sel.i === b) ? 1 : 0));
+  gorder.forEach(i => {
+    const g = L.gates[i], x = g.pos[0], y = g.pos[1], deg = g.yaw_rad * R2D;
+    const isSel = sel && sel.kind === 'gate' && sel.i === i, b = badges[i];
+    s += '<line class="leader" x1="' + f3(b.x) + '" y1="' + f3(-b.y) + '" x2="' + f3(x) + '" y2="' + f3(-y) + '"/>';
+    s += '<g class="obj" data-kind="gate" data-i="' + i + '" tabindex="0" role="button" aria-label="Gate ' + (i + 1) + '" transform="translate(' + f3(x) + ',' + f3(-y) + ') rotate(' + f3(-deg) + ')">';
+    s += '<rect class="hit" x="-0.15" y="-0.42" width="0.3" height="0.84"/><rect class="hl" x="-0.12" y="-0.4" width="0.24" height="0.8"/>';
+    s += '<rect class="g-under" x="-0.05" y="-0.39" width="0.1" height="0.78"/>';
+    s += '<rect class="g-body" x="-0.03" y="-0.36" width="0.06" height="0.72"/>';
+    s += '<rect class="g-open" x="-0.022" y="-0.2" width="0.044" height="0.4"/>';
+    s += '<line class="g-tick" x1="-0.07" y1="-0.2" x2="0.07" y2="-0.2"/><line class="g-tick" x1="-0.07" y1="0.2" x2="0.07" y2="0.2"/>';
+    s += '<line class="g-arrow" x1="-0.3" y1="0" x2="0.24" y2="0"/><polygon class="g-arrowhead" points="0.33,0 0.2,0.07 0.2,-0.07"/>';
+    s += '<line class="rotstem" x1="0.33" y1="0" x2="0.42" y2="0"/><circle class="rot" cx="0.48" cy="0" r="' + f3(0.07 * k) + '"/><circle class="rothit" data-role="rot" cx="0.48" cy="0" r="' + f3(0.17 * k) + '"/>';
+    s += '</g>';
+    s += '<g class="obj" data-kind="gate" data-i="' + i + '" transform="translate(' + f3(b.x) + ',' + f3(-b.y) + ') scale(' + f3(k) + ')">';
+    s += '<rect class="hit" x="-0.37" y="-0.25" width="0.74" height="0.5"/>';
+    s += '<circle class="lblc" cx="-0.2" cy="-0.06" r="0.12"/><text class="lbl" x="-0.2" y="-0.006" font-size="0.15" text-anchor="middle">' + (i + 1) + '</text>';
+    s += '<g transform="translate(0.15,-0.06)">' + shapePic(g.shape) + '</g>';
+    s += '<text class="hlbl" x="0" y="0.2" font-size="0.13" text-anchor="middle">' + f3(g.pos[2]).replace(/^(-?\d+)$/, '$1.0').replace(/^(-?\d+\.\d)$/, '$10') + ' m</text>';
+    s += '<rect class="hl" x="-0.37" y="-0.25" width="0.74" height="0.5"/>';
+    if (isSel) s += '<rect class="selring" x="-0.41" y="-0.3" width="0.82" height="0.6"/>';
+    s += '</g>';
+    if (isSel) s += '<circle class="selring" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="0.58"/>';
+    if (opts.snapGate === i) s += '<circle class="snapring" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="0.5"/>';
+  });
+  // poles
+  L.obstacles.forEach((p, i) => {
+    const x = p.pos[0], y = p.pos[1];
+    s += '<g class="obj" data-kind="pole" data-i="' + i + '" tabindex="0" role="button" aria-label="Pole ' + (i + 1) + '"><circle class="hit" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.16 * k) + '"/><circle class="hl" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.11 * k) + '"/><circle class="pole" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.055 * k) + '"/></g>';
+    s += T('plbl', x + 0.1 * k, -y - 0.08 * k, 'P' + (i + 1) + ' ' + f3(p.pos[2]) + ' m', 0.13);
+    if (sel && sel.kind === 'pole' && sel.i === i) s += '<circle class="selring" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.2 * k) + '"/>';
+  });
+  // the dots of a drawn path (the first dot is the start pad and the last dot is the end pad: they are the pads)
+  if (L.path) {
+    for (let i = 1; i < L.path.points.length - 1; i++) {
+      const p = L.path.points[i], x = p[0], y = p[1];
+      s += '<g class="obj" data-kind="cp" data-i="' + i + '" tabindex="0" role="button" aria-label="Path dot ' + i + '"><circle class="hit" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.15 * k) + '"/><circle class="hl" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.11 * k) + '"/><circle class="cpdot" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.05 * k) + '"/></g>';
+      if (sel && sel.kind === 'cp' && sel.i === i) s += '<circle class="selring" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.2 * k) + '"/>' + T('rnum', x + 0.1 * k, -y - 0.08 * k, f3(p[2]) + ' m', 0.12);
+    }
+    (geo && geo.frames || []).forEach(c => { s += '<circle class="badx" cx="' + f3(c.x) + '" cy="' + f3(-c.y) + '" r="' + f3(0.07 * k) + '"/>' + T('badt', c.x + 0.1 * k, -c.y - 0.1 * k, 'frame of gate ' + c.gate, 0.12); });
+  }
+  if (opts.stroke && opts.stroke.length > 1) s += '<polyline class="pen" stroke-width="' + f3(0.035 * k) + '" points="' + opts.stroke.map(p => f3(p[0]) + ',' + f3(-p[1])).join(' ') + '"/>';
+  // route points
+  (L.path ? [] : pointIndices(L)).forEach((ix, m) => {
+    const p = L.route[ix].pos, x = p[0], y = p[1];
+    s += '<g class="obj" data-kind="point" data-i="' + m + '" tabindex="0" role="button" aria-label="Route point ' + (m + 1) + '"><circle class="hit" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.17 * k) + '"/><circle class="hl" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.13 * k) + '"/><circle class="rpt" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.08 * k) + '"/></g>';
+    s += T('rnum', x + 0.11 * k, -y + 0.05 * k, (m + 1) + ' (' + f3(p[2]) + ' m)', 0.12);
+    if (sel && sel.kind === 'point' && sel.i === m) s += '<circle class="selring" cx="' + f3(x) + '" cy="' + f3(-y) + '" r="' + f3(0.22 * k) + '"/>';
+  });
+  // route arrowheads and passage numbers, on top
+  if (geo && geo.samples.length > 1) {
+    const head = (m, sc) => '<polygon class="rarrow" transform="translate(' + f3(m.x) + ',' + f3(-m.y) + ') rotate(' + f3(-Math.atan2(m.dy, m.dx) * R2D) + ') scale(' + f3(sc * k) + ')" points="0.08,0 -0.06,0.055 -0.06,-0.055"/>';
+    geo.marks.forEach(m => { s += head(m, 1); });
+    geo.knots.forEach(kn => {
+      if (kn.type !== 'gate') return;
+      s += head(kn, 1.25);
+      s += T('rnum', kn.x + kn.dx * 0.24 - kn.dy * 0.1, -(kn.y + kn.dy * 0.24 + kn.dx * 0.1) + 0.05 * k, kn.passage, 0.14, 'middle');
+    });
+  }
+  return s;
+}
+
+/* ---------- the side view: drawn in pixels, x along, height up ---------- */
+const SIDE = { x0: -3.2, x1: 3.2, z0: -0.14, z1: 2.72, l: 46, r: 14, t: 18, b: 30 };
+function sideMap(W, H) {
+  const sx = (W - SIDE.l - SIDE.r) / (SIDE.x1 - SIDE.x0), sz = (H - SIDE.t - SIDE.b) / (SIDE.z1 - SIDE.z0);
+  return { sx, sz, px: x => SIDE.l + (x - SIDE.x0) * sx, py: z => H - SIDE.b - (z - SIDE.z0) * sz, ix: p => SIDE.x0 + (p - SIDE.l) / sx, iz: p => SIDE.z0 + (H - SIDE.b - p) / sz };
+}
+function sideSvg(L, geo, sel, W, H) {
+  W = W || 900; H = H || 300;
+  const M = sideMap(W, H), px = M.px, py = M.py, r1 = v => Math.round(v * 10) / 10;
+  let s = '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="var(--map)"/>';
+  for (let i = -6; i <= 6; i++) { const v = i / 2; s += '<line class="' + (Number.isInteger(v) ? 's-grid2' : 's-grid') + '" x1="' + r1(px(v)) + '" y1="' + r1(py(0)) + '" x2="' + r1(px(v)) + '" y2="' + r1(py(2.5)) + '"/>'; }
+  for (let i = 0; i <= 5; i++) { const v = i / 2; s += '<line class="' + (Number.isInteger(v) ? 's-grid2' : 's-grid') + '" x1="' + r1(px(-3)) + '" y1="' + r1(py(v)) + '" x2="' + r1(px(3)) + '" y2="' + r1(py(v)) + '"/>'; }
+  for (let v = -3; v <= 3; v++) s += '<text class="s-txt" x="' + r1(px(v)) + '" y="' + r1(py(0) + 17) + '" font-size="12" text-anchor="middle">' + v + '</text>';
+  for (let v = 0; v <= 2.5; v += 0.5) s += '<text class="s-txt" x="' + (SIDE.l - 7) + '" y="' + r1(py(v) + 4) + '" font-size="12" text-anchor="end">' + v + '</text>';
+  s += '<text class="s-txt" x="' + r1(px(3)) + '" y="' + r1(py(0) + 27) + '" font-size="12" font-style="italic" text-anchor="end">x (m)</text><text class="s-txt" x="6" y="12" font-size="12" font-style="italic">height (m)</text>';
+  s += '<line class="s-floor" x1="' + r1(px(-3)) + '" y1="' + r1(py(0)) + '" x2="' + r1(px(3)) + '" y2="' + r1(py(0)) + '"/>';
+  s += '<line class="s-ceil" x1="' + r1(px(-3)) + '" y1="' + r1(py(2.5)) + '" x2="' + r1(px(3)) + '" y2="' + r1(py(2.5)) + '"/><text class="s-boxl" x="' + r1(px(3) - 4) + '" y="' + r1(py(2.5) - 5) + '" font-size="12" text-anchor="end">top of the box, 2.5 m</text>';
+  s += '<line class="s-safe" x1="' + r1(px(-3)) + '" y1="' + r1(py(2)) + '" x2="' + r1(px(3)) + '" y2="' + r1(py(2)) + '"/><text class="s-safel" x="' + r1(px(3) - 4) + '" y="' + r1(py(2) - 5) + '" font-size="12" text-anchor="end">LSY safe height, 2 m</text>';
+  if (geo && geo.samples.length > 1) s += '<polyline class="s-route" points="' + geo.samples.map(p => r1(px(p.x)) + ',' + r1(py(p.z))).join(' ') + '"/>';
+  const items = [];
+  items.push({ kind: 'start', i: 0 });
+  if (L.end) items.push({ kind: 'end', i: 0 });
+  L.obstacles.forEach((p, i) => items.push({ kind: 'pole', i }));
+  L.gates.forEach((g, i) => items.push({ kind: 'gate', i }));
+  if (L.path) { for (let i = 1; i < L.path.points.length - 1; i++) items.push({ kind: 'cp', i }); }
+  else pointIndices(L).forEach((ix, m) => items.push({ kind: 'point', i: m }));
+  const isSel = it => sel && sel.kind === it.kind && sel.i === it.i;
+  const ordered = items.slice().sort((a, b) => (isSel(a) ? 1 : 0) - (isSel(b) ? 1 : 0));
+  const lab = (o, x, y) => '<text class="s-lab" x="' + r1(x) + '" y="' + r1(y) + '" font-size="13">' + f3(o.pos[2]) + ' m</text>';
+  // bodies first (bars, pole lines, pads), then the round handles, so a handle is never hidden under a bar
+  ordered.forEach(it => {
+    const o = getObj(L, it.kind, it.i), cx = px(o.pos[0]), on = isSel(it);
+    if (it.kind === 'gate') {
+      const w = Math.max(GATE_OUTER * Math.abs(Math.sin(o.yaw_rad)) * M.sx, 14), top = py(o.pos[2] + HALF), h = 2 * HALF * M.sz;
+      s += '<g class="obj" data-kind="gate" data-i="' + it.i + '"><rect class="s-hit" x="' + r1(cx - Math.max(w / 2, 19)) + '" y="' + r1(top - 4) + '" width="' + r1(Math.max(w, 38)) + '" height="' + r1(h + 8) + '"/>';
+      s += '<rect class="s-gate" x="' + r1(cx - w / 2) + '" y="' + r1(top) + '" width="' + r1(w) + '" height="' + r1(h) + '"/>';
+      s += '<rect class="s-hl" x="' + r1(cx - w / 2 - 4) + '" y="' + r1(top - 4) + '" width="' + r1(w + 8) + '" height="' + r1(h + 8) + '"/></g>';
+    } else if (it.kind === 'pole') {
+      s += '<g class="obj" data-kind="pole" data-i="' + it.i + '"><line class="s-hitline" x1="' + r1(cx) + '" y1="' + r1(py(0)) + '" x2="' + r1(cx) + '" y2="' + r1(py(o.pos[2])) + '"/>';
+      s += '<line class="s-pole" x1="' + r1(cx) + '" y1="' + r1(py(0)) + '" x2="' + r1(cx) + '" y2="' + r1(py(o.pos[2])) + '"/></g>';
+    } else if (it.kind === 'start' || it.kind === 'end') {
+      const w = 2 * PAD_R * M.sx, cy = py(it.kind === 'start' ? 0 : o.pos[2]);
+      s += '<g class="obj" data-kind="' + it.kind + '" data-i="0"><rect class="s-hit" x="' + r1(cx - Math.max(w / 2, 20)) + '" y="' + r1(cy - 16) + '" width="' + r1(Math.max(w, 40)) + '" height="32"/>';
+      s += '<rect class="' + (it.kind === 'start' ? 's-pad' : 's-padk') + '" x="' + r1(cx - w / 2) + '" y="' + r1(cy - 9) + '" width="' + r1(w) + '" height="9"/>';
+      s += '<text class="s-lab" x="' + r1(cx) + '" y="' + r1(cy - 14) + '" font-size="12" text-anchor="middle">' + (it.kind === 'start' ? 'START' : 'END') + '</text>';
+      s += '<rect class="s-hl" x="' + r1(cx - w / 2 - 4) + '" y="' + r1(cy - 13) + '" width="' + r1(w + 8) + '" height="17"/></g>';
+      if (on && it.kind === 'end') s += lab(o, cx + w / 2 + 6, cy - 2);
+    }
+  });
+  ordered.forEach(it => {
+    const o = getObj(L, it.kind, it.i), cx = px(o.pos[0]), cy = py(o.pos[2]), on = isSel(it);
+    if (it.kind === 'gate') {
+      s += '<g class="obj" data-kind="gate" data-i="' + it.i + '"><circle class="s-hit" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="17"/><circle class="s-badge" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="11"/>';
+      s += '<text class="s-badget" x="' + r1(cx) + '" y="' + r1(cy + 4.5) + '" font-size="13">' + (it.i + 1) + '</text><circle class="s-hl" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="15"/>';
+      if (on) s += '<circle class="s-sel" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="16"/>' + lab(o, cx + 22, cy + 5);
+      s += '</g>';
+    } else if (it.kind === 'pole') {
+      s += '<g class="obj" data-kind="pole" data-i="' + it.i + '"><circle class="s-hit" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="16"/><circle class="s-polecap" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="8"/><circle class="s-hl" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="13"/>';
+      s += '<text class="s-lab" x="' + r1(cx) + '" y="' + r1(cy - 14) + '" font-size="12" text-anchor="middle">P' + (it.i + 1) + '</text>';
+      if (on) s += '<circle class="s-sel" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="14"/>' + lab(o, cx + 18, cy + 5);
+      s += '</g>';
+    } else if (it.kind === 'point' || it.kind === 'cp') {
+      s += '<g class="obj" data-kind="' + it.kind + '" data-i="' + it.i + '"><circle class="s-hit" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="16"/><circle class="s-dot" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="8"/><circle class="s-hl" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="13"/>';
+      if (it.kind === 'point') s += '<text class="s-lab" x="' + r1(cx + 12) + '" y="' + r1(cy - 10) + '" font-size="12">' + (it.i + 1) + '</text>';
+      if (on) s += '<circle class="s-sel" cx="' + r1(cx) + '" cy="' + r1(cy) + '" r="14"/>' + lab(o, cx + 18, cy + 5);
+      s += '</g>';
+    }
+  });
+  return s;
+}
+
+/* ---------- the 3D view: plain perspective, drawn far to near ---------- */
+const FOV_H = 60, NEAR = 0.05;
+function newCamera() { return { mode: 'orbit', az: -90, pitch: 36, dist: 6.4, zoom: 1, yawOff: 0 }; }
+function norm3(v) { const n = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / n, v[1] / n, v[2] / n]; }
+function cross3(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function cameraFrame(cam, L) {
+  let eye, f;
+  if (cam.mode === 'start') {
+    const yaw = L.start.yaw_rad + cam.yawOff * D2R, p = cam.pitch * D2R;
+    eye = [L.start.pos[0], L.start.pos[1], L.start.pos[2] + 0.08];
+    f = [Math.cos(yaw) * Math.cos(p), Math.sin(yaw) * Math.cos(p), Math.sin(p)];
+  } else {
+    const az = cam.az * D2R, p = cam.pitch * D2R, t = [0, 0, 0.7];
+    eye = [t[0] + cam.dist * Math.cos(p) * Math.cos(az), t[1] + cam.dist * Math.cos(p) * Math.sin(az), t[2] + cam.dist * Math.sin(p)];
+    f = norm3([t[0] - eye[0], t[1] - eye[1], t[2] - eye[2]]);
+  }
+  const r = norm3(cross3(f, [0, 0, 1])), u = cross3(r, f);
+  return { eye, f, r, u };
+}
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+function focalPx(W, cam) { return (W / 2) / Math.tan(FOV_H / 2 * D2R) * cam.zoom; }
+function project(fr, p, W, H, zoom) {
+  const d = [p[0] - fr.eye[0], p[1] - fr.eye[1], p[2] - fr.eye[2]], zc = dot3(d, fr.f);
+  if (zc < NEAR - 1e-6) return null;     // a point cut exactly at the near plane still counts
+  const F = (W / 2) / Math.tan(FOV_H / 2 * D2R) * (zoom || 1);
+  return { x: W / 2 + F * dot3(d, fr.r) / zc, y: H / 2 - F * dot3(d, fr.u) / zc, depth: zc };
+}
+function depthOf(fr, p) { return dot3([p[0] - fr.eye[0], p[1] - fr.eye[1], p[2] - fr.eye[2]], fr.f); }
+function clipNear(fr, a, b) {
+  const za = depthOf(fr, a), zb = depthOf(fr, b);
+  if (za < NEAR && zb < NEAR) return null;
+  const lerp = t => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  if (za < NEAR) return [lerp((NEAR - za) / (zb - za)), b];
+  if (zb < NEAR) return [a, lerp((NEAR - za) / (zb - za))];
+  return [a, b];
+}
+function clipPolyNear(fr, pts) {
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length], za = depthOf(fr, a), zb = depthOf(fr, b);
+    if (za >= NEAR) out.push(a);
+    if ((za >= NEAR) !== (zb >= NEAR)) { const t = (NEAR - za) / (zb - za); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); }
+  }
+  return out;
+}
+function gateOutline(shape) {
+  const h = HALF;
+  if (shape === 'triangle') {
+    const outer = [[-h, -h], [h, -h], [0, h]], c = [0, -h / 3];
+    return { outer, inner: outer.map(p => [c[0] + (p[0] - c[0]) * 0.55, c[1] + (p[1] - c[1]) * 0.55]) };
+  }
+  if (shape === 'circle') {
+    const outer = [], inner = [];
+    for (let i = 0; i < 28; i++) { const a = i / 28 * 2 * Math.PI; outer.push([h * Math.cos(a), h * Math.sin(a)]); inner.push([0.2 * Math.cos(a), 0.2 * Math.sin(a)]); }
+    return { outer, inner };
+  }
+  return { outer: [[-h, -h], [h, -h], [h, h], [-h, h]], inner: [[-0.2, -0.2], [0.2, -0.2], [0.2, 0.2], [-0.2, 0.2]] };
+}
+function view3dSvg(L, geo, cam, W, H) {
+  const fr = cameraFrame(cam, L), F = focalPx(W, cam);
+  const P = p => project(fr, p, W, H, cam.zoom);
+  const pt = q => f3(q.x) + ',' + f3(q.y);
+  const line = (a, b, cls, extra) => {
+    const c = clipNear(fr, a, b); if (!c) return '';
+    const p = P(c[0]), q = P(c[1]); if (!p || !q) return '';
+    return '<line class="' + cls + '" x1="' + f3(p.x) + '" y1="' + f3(p.y) + '" x2="' + f3(q.x) + '" y2="' + f3(q.y) + '"' + (extra || '') + '/>';
+  };
+  const poly = (pts, cls) => {
+    const c = clipPolyNear(fr, pts).map(P).filter(Boolean); if (c.length < 3) return '';
+    return '<polygon class="' + cls + '" points="' + c.map(pt).join(' ') + '"/>';
+  };
+  let s = '<rect width="' + W + '" height="' + H + '" fill="var(--sky)"/>';
+  s += poly([[-3, -3, 0], [3, -3, 0], [3, 3, 0], [-3, 3, 0]], 'floor3d');
+  for (let i = -6; i <= 6; i++) { const v = i / 2; s += line([v, -3, 0], [v, 3, 0], 'g3') + line([-3, v, 0], [3, v, 0], 'g3'); }
+  [[-3, -3], [3, -3], [3, 3], [-3, 3]].forEach((c, i, a) => {
+    const n = a[(i + 1) % 4];
+    s += line([c[0], c[1], 0], [n[0], n[1], 0], 'box3') + line([c[0], c[1], 2.5], [n[0], n[1], 2.5], 'box3') + line([c[0], c[1], 0], [c[0], c[1], 2.5], 'box3');
+  });
+  const axl = (p, t) => { const q = P(p); return q ? '<text class="axl3" x="' + f3(q.x) + '" y="' + f3(q.y) + '">' + t + '</text>' : ''; };
+  s += axl([3.25, 0, 0], 'x') + axl([0, 3.25, 0], 'y');
+  const items = [];
+  const push = (d, str) => { if (str) items.push({ d, s: str }); };
+  L.gates.forEach((g, i) => {
+    const x = g.pos[0], y = g.pos[1], z = g.pos[2], d = gateDir(g), n = [-d[1], d[0]];
+    const o = gateOutline(g.shape);
+    const w = (u, v) => [x + n[0] * u, y + n[1] * u, z + v];
+    const outer = o.outer.map(p => w(p[0], p[1])), inner = o.inner.map(p => w(p[0], p[1]));
+    const po = outer.map(P), pi = inner.map(P);
+    const depth = depthOf(fr, [x, y, z]);
+    if (po.every(Boolean) && pi.every(Boolean))
+      push(depth, '<path class="frame3 gate3d" data-gate="' + (i + 1) + '" d="M' + po.map(pt).join(' L') + ' Z M' + pi.map(pt).join(' L') + ' Z"/>');
+    const base = P([x, y, 0]), bot = P([x, y, z - HALF]);
+    if (base && bot) push(depth + 0.3, '<line class="post3" x1="' + f3(base.x) + '" y1="' + f3(base.y) + '" x2="' + f3(bot.x) + '" y2="' + f3(bot.y) + '" stroke-width="' + f3(Math.max(1.5, 0.04 * F / Math.max(depth, NEAR))) + '"/>');
+    const tip = [x + d[0] * 0.55, y + d[1] * 0.55, 0.005], b1 = [x + d[0] * 0.35 + n[0] * 0.08, y + d[1] * 0.35 + n[1] * 0.08, 0.005], b2 = [x + d[0] * 0.35 - n[0] * 0.08, y + d[1] * 0.35 - n[1] * 0.08, 0.005];
+    const s0 = [x - d[0] * 0.2 + n[0] * 0.025, y - d[1] * 0.2 + n[1] * 0.025, 0.005], s1 = [x + d[0] * 0.35 + n[0] * 0.025, y + d[1] * 0.35 + n[1] * 0.025, 0.005],
+          s2 = [x + d[0] * 0.35 - n[0] * 0.025, y + d[1] * 0.35 - n[1] * 0.025, 0.005], s3 = [x - d[0] * 0.2 - n[0] * 0.025, y - d[1] * 0.2 - n[1] * 0.025, 0.005];
+    push(depth + 0.25, poly([s0, s1, s2, s3], 'arr3') + poly([tip, b1, b2], 'arr3'));
+    const lp = P([x, y, z + HALF + 0.14]);
+    if (lp) push(depth - 0.05, '<text class="lbl3" x="' + f3(lp.x) + '" y="' + f3(lp.y) + '">' + (i + 1) + '</text>');
+  });
+  L.obstacles.forEach((p, i) => {
+    const a = P([p.pos[0], p.pos[1], 0]), b = P([p.pos[0], p.pos[1], p.pos[2]]); if (!a || !b) return;
+    const depth = depthOf(fr, [p.pos[0], p.pos[1], p.pos[2] / 2]);
+    push(depth, '<line class="pole3" x1="' + f3(a.x) + '" y1="' + f3(a.y) + '" x2="' + f3(b.x) + '" y2="' + f3(b.y) + '" stroke-width="' + f3(Math.max(2.5, 0.05 * F / depth)) + '"/>');
+  });
+  // a pad lies flat: a dark disc, a ring, a white H, and (start) an arrow in the nose direction
+  const pad = (kind, pos, yaw) => {
+    const cx = pos[0], cy = pos[1], z = pos[2] + 0.006, c = Math.cos(yaw), sn = Math.sin(yaw);
+    const at = (u, v, r) => [cx + (u * c - v * sn) * (r || 1), cy + (u * sn + v * c) * (r || 1), z];
+    const ring = (r0, r1, a0, a1) => [at(r0 * Math.cos(a0), r0 * Math.sin(a0)), at(r1 * Math.cos(a0), r1 * Math.sin(a0)), at(r1 * Math.cos(a1), r1 * Math.sin(a1)), at(r0 * Math.cos(a1), r0 * Math.sin(a1))];
+    const disc = []; for (let i = 0; i < 28; i++) disc.push([cx + PAD_R * Math.cos(i / 28 * 2 * Math.PI), cy + PAD_R * Math.sin(i / 28 * 2 * Math.PI), z]);
+    let out = poly(disc, 'pad3');
+    if (kind === 'start') { const rg = []; for (let i = 0; i < 28; i++) rg.push([cx + 0.275 * Math.cos(i / 28 * 2 * Math.PI), cy + 0.275 * Math.sin(i / 28 * 2 * Math.PI), z + 0.001]); out += poly(rg, 'padring3'); }
+    else for (let i = 0; i < 16; i++) out += poly(ring(0.25, 0.3, i / 16 * 2 * Math.PI, (i + 1) / 16 * 2 * Math.PI), i % 2 ? 'endw3' : 'endk3');
+    out += line(at(-0.07, -0.1), at(-0.07, 0.1), 'padh3') + line(at(0.07, -0.1), at(0.07, 0.1), 'padh3') + line(at(-0.07, 0), at(0.07, 0), 'padh3');
+    if (kind === 'start') out += poly([at(0.26, 0), at(0.17, 0.055), at(0.17, -0.055)], 'padarr3') + poly([at(0.1, 0.012), at(0.17, 0.012), at(0.17, -0.012), at(0.1, -0.012)], 'padarr3');
+    const lp = P([cx, cy, z + 0.3]);
+    return { d: depthOf(fr, [cx, cy, z]), s: out + (lp ? '<text class="lbl3" x="' + f3(lp.x) + '" y="' + f3(lp.y) + '">' + (kind === 'start' ? 'START' : 'END') + '</text>' : '') };
+  };
+  { const p = pad('start', L.start.pos, L.start.yaw_rad); push(p.d + 0.1, p.s); }
+  if (L.end) { const p = pad('end', L.end.pos, 0); push(p.d + 0.1, p.s); }
+  if (L.path) {
+    for (let i = 1; i < L.path.points.length - 1; i++) { const p = L.path.points[i], q = P(p); if (q) push(depthOf(fr, p), '<circle class="pt3" cx="' + f3(q.x) + '" cy="' + f3(q.y) + '" r="3.5"/>'); }
+  } else pointIndices(L).forEach((ix, m) => {
+    const p = L.route[ix].pos, q = P(p); if (!q) return;
+    push(depthOf(fr, p), '<circle class="pt3" cx="' + f3(q.x) + '" cy="' + f3(q.y) + '" r="5"/><text class="lbl3" x="' + f3(q.x + 9) + '" y="' + f3(q.y - 6) + '">' + (m + 1) + '</text>');
+  });
+  if (geo && geo.samples.length > 1) {
+    for (let i = 0; i + 1 < geo.samples.length; i++) {
+      const a = geo.samples[i], b = geo.samples[i + 1];
+      push(depthOf(fr, [(a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2]), line([a.x, a.y, a.z], [b.x, b.y, b.z], 'route3'));
+    }
+  }
+  items.sort((a, b) => b.d - a.d);
+  return s + items.map(i => i.s).join('');
+}
+
+/* ---------- storage text ---------- */
+function layoutToText(L) { return JSON.stringify(toFile(L), null, 1); }
+function layoutFromText(t) { return fromFile(JSON.parse(t)); }
+
+return { VERSION, STORAGE_KEY, BOX, SAFE, SHAPES, TODAY_FILE, VIEW_MAX, PAD_R, clone, clamp, snap, normDeg, snapDeg, clampBoxXY, dragPosition,
+  fromFile, toFile, todayLayout, pointIndices, getObj, orderOf, routeFromOrder,
+  moveObject, dragSide, setYaw, setField, setShape, setHeight, bumpHeight, turnAround, addGate, addPole, dropObject, duplicate, deleteObject,
+  newHistory, snapshot, record, undo, redo,
+  parseRouteText, entriesToText, routeToText, appendPoint, applyRouteText, routeClick, clearRoute, routeLabel, routeKnots, gateDir,
+  routeGeometry,
+  rdpKeep, gateAt, snapSample, reduceStroke, strokeLength, syncPathEnds, cpTangents, findCrossings, pathCompute, pathGeometry, pathRoute, pathRefresh,
+  addStroke, cpInsert, cpDelete, pathClear, pathNotes, turnGatesToPath, SNAP_R, RDP_TOL,
+  newView, clampView, zoomAt, viewBoxText, viewScale, badgePositions, keepOutPoints, rectDist, BADGE_HW, BADGE_HH,
+  menuItems, applyMenu, shapePic, padFace, toolPic, mapSvg, sideMap, sideSvg,
+  newCamera, cameraFrame, project, clipNear, view3dSvg, focalPx, FOV_H,
+  layoutToText, layoutFromText, f3, D2R, R2D };
+})();
+if (typeof module !== 'undefined') module.exports = TD;
+</script>
+
+<script id="ui">
+(function () {
+'use strict';
+const $ = id => document.getElementById(id);
+const map = $('map'), side = $('side'), v3 = $('view3d'), statusEl = $('status'), routeIn = $('route'), hintEl = $('hint'), menuEl = $('menu'), trashEl = $('trash');
+let testMode = false;
+let h, sel = null, drag = null, builtSig = '', view = TD.newView(), cam = TD.newCamera(), routeMode = false, routeSnap = null;
+let lastDown = null, lastWheel = null, lastAdded = null, toolDrag = null, cdrag = null, menuTarget = null, pending = false;
+let sideW = 900, sideH = 300, routeTextBad = false;
+let penMode = false, penStroke = [], penSnap = -1;
+
+function say(text, bad) { statusEl.textContent = text; statusEl.className = bad ? 'bad' : ''; }
+function storeGet() { try { return window.localStorage.getItem(TD.STORAGE_KEY); } catch (e) { return null; } }
+function storeSet(t) { try { window.localStorage.setItem(TD.STORAGE_KEY, t); } catch (e) { /* works without it */ } }
+function startLayout() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('layout');
+    if (q) { testMode = true; return TD.fromFile(JSON.parse(q)); }
+  } catch (e) { say('The layout in the address could not be read: ' + e.message, true); }
+  const t = storeGet();
+  if (t) { try { return TD.layoutFromText(t); } catch (e) { /* ignore a bad saved copy */ } }
+  return TD.todayLayout();
+}
+const L = () => h.present;
+function fmt(v) { return String(Math.round(v * 1000) / 1000); }
+function fmtDeg(yaw) { return String(Math.round(yaw * TD.R2D * 10) / 10); }
+function labelOf(kind, i) { return { gate: 'Gate ' + (i + 1), pole: 'Pole ' + (i + 1), point: 'Point ' + (i + 1), cp: 'Path dot ' + i, start: 'Start pad', end: 'End pad' }[kind]; }
+
+/* ----- the toolbox and the shape buttons (built once) ----- */
+const TOOLS = [['start', 'Start pad'], ['end', 'End pad'], ['square', 'Square gate'], ['triangle', 'Triangle gate'], ['circle', 'Circle gate'], ['pole', 'Pole']];
+TOOLS.forEach(t => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tool'; b.dataset.tool = t[0];
+  b.setAttribute('aria-label', t[1] + ': drag it onto the map, or press Enter to add it');
+  b.innerHTML = TD.toolPic(t[0]) + '<span>' + t[1] + '</span>';
+  $('toolbox').appendChild(b);
+});
+TD.SHAPES.forEach(sh => {
+  const b = document.createElement('button'); b.type = 'button'; b.dataset.shape = sh; b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = TD.toolPic(sh) + '<span>' + sh + '</span>';
+  $('shapebar').appendChild(b);
+});
+
+/* ----- tables ----- */
+function numCell(kind, i, field, step) {
+  return '<td><input type="number" step="' + step + '" data-kind="' + kind + '" data-i="' + i + '" data-field="' + field + '" aria-label="' + labelOf(kind, i) + ' ' + ({ x: 'x', y: 'y', z: 'height', deg: 'direction in degrees' }[field]) + '"></td>';
+}
+function buildTables() {
+  const l = L();
+  const row = (kind, i, cells) => '<tr data-kind="' + kind + '" data-i="' + i + '"><th scope="row">' + labelOf(kind, i) + '</th>' + cells + '</tr>';
+  const xyz = (kind, i) => numCell(kind, i, 'x', 0.05) + numCell(kind, i, 'y', 0.05) + numCell(kind, i, 'z', 0.05);
+  $('tblGates').tBodies[0].innerHTML = l.gates.map((g, i) => row('gate', i, xyz('gate', i) + numCell('gate', i, 'deg', 5) +
+    '<td><select data-kind="gate" data-i="' + i + '" data-field="shape" aria-label="Gate ' + (i + 1) + ' shape">' +
+    TD.SHAPES.map(s => '<option value="' + s + '">' + s + '</option>').join('') + '</select></td>')).join('');
+  $('tblPoles').tBodies[0].innerHTML = l.obstacles.map((p, i) => row('pole', i, xyz('pole', i))).join('');
+  $('tblPoints').tBodies[0].innerHTML = l.path
+    ? '<tr><td colspan="4" style="cursor:default;color:var(--muted)">The drawn path has ' + (l.path.points.length - 2) + ' dots between the pads. Drag them on the map or in the side view; double-click the curve to add one.</td></tr>'
+    : TD.pointIndices(l).map((_, i) => row('point', i, xyz('point', i))).join('') || '<tr><td colspan="4" style="cursor:default;color:var(--muted)">None yet. Press "Route by clicking gates" and click the empty map.</td></tr>';
+  $('tblStart').tBodies[0].innerHTML = row('start', 0, xyz('start', 0) + numCell('start', 0, 'deg', 5)) + (l.end ? row('end', 0, xyz('end', 0)) : '');
+}
+function syncTables() {
+  const l = L(), sig = l.gates.length + '/' + l.obstacles.length + '/' + TD.pointIndices(l).length + '/' + (l.end ? 1 : 0) + '/' + (l.path ? l.path.points.length : -1);
+  if (sig !== builtSig) { buildTables(); builtSig = sig; }
+  document.querySelectorAll('#tables [data-field]').forEach(el => {
+    if (el === document.activeElement) return;
+    const o = TD.getObj(l, el.dataset.kind, +el.dataset.i); if (!o) return;
+    const f = el.dataset.field;
+    el.value = f === 'x' ? fmt(o.pos[0]) : f === 'y' ? fmt(o.pos[1]) : f === 'z' ? fmt(o.pos[2]) : f === 'deg' ? fmtDeg(o.yaw_rad) : o.shape;
+  });
+  document.querySelectorAll('#tables tbody tr[data-kind]').forEach(tr => {
+    const on = sel && tr.dataset.kind === sel.kind && +tr.dataset.i === sel.i;
+    tr.classList.toggle('rsel', !!on);
+    if (on) tr.setAttribute('aria-selected', 'true'); else tr.removeAttribute('aria-selected');
+  });
+}
+function syncShapeBar() {
+  const g = sel && sel.kind === 'gate' ? L().gates[sel.i] : null;
+  document.querySelectorAll('#shapebar button').forEach(b => { b.disabled = !g; b.setAttribute('aria-pressed', g && g.shape === b.dataset.shape ? 'true' : 'false'); });
+  $('shapeLabel').textContent = g ? 'Shape of gate ' + (sel.i + 1) + ':' : 'Gate shape:';
+  $('shapebar').title = g ? '' : 'Click a gate on the map first, then choose its shape here.';
+}
+
+/* ----- the whole page ----- */
+function currentRoute() {
+  const l = L();
+  const r = TD.parseRouteText(routeIn.value, l.gates.length);
+  if (!r.errors.length && TD.entriesToText(r.entries) !== TD.routeToText(l)) TD.applyRouteText(l, routeIn.value);
+  return r;
+}
+function sizeOf(svg, dw, dh) { const r = svg.getBoundingClientRect(); return [Math.max(120, Math.round(r.width) || dw), Math.max(120, Math.round(r.height) || dh)]; }
+function render() {
+  pending = false;
+  const l = L();
+  if (sel && !TD.getObj(l, sel.kind, sel.i)) sel = null;
+  const pathMode = !!l.path;
+  if (pathMode) TD.pathRefresh(l);                       // heights, the gates the curve passes, and the route follow the path
+  // a wrong route stays in the field (with its message) until it is fixed, so that Save can refuse it
+  if (pathMode || (document.activeElement !== routeIn && !routeTextBad)) routeIn.value = TD.routeToText(l);
+  routeIn.disabled = pathMode;
+  const r = pathMode ? { errors: [], entries: [], empty: false } : currentRoute();
+  const bad = r.errors.length > 0;
+  const geo = pathMode ? TD.pathGeometry(l) : (bad ? null : TD.routeGeometry(l));
+  map.setAttribute('viewBox', TD.viewBoxText(view));
+  map.classList.toggle('routemode', routeMode); map.classList.toggle('penmode', penMode);
+  map.innerHTML = TD.mapSvg(l, geo, sel, view, { snapGate: penSnap, stroke: penMode ? penStroke : null });
+  [sideW, sideH] = sizeOf(side, 900, 300); side.setAttribute('viewBox', '0 0 ' + sideW + ' ' + sideH);
+  side.innerHTML = TD.sideSvg(l, geo, sel, sideW, sideH);
+  const [w3, h3] = sizeOf(v3, 520, 340); v3.setAttribute('viewBox', '0 0 ' + w3 + ' ' + h3);
+  v3.innerHTML = TD.view3dSvg(l, geo, cam, w3, h3);
+  const rm = $('routeMsg'), npass = TD.orderOf(l).length, npts = TD.pointIndices(l).length;
+  if (pathMode) { rm.className = 'ok'; rm.textContent = 'The route comes from the drawn path (' + npass + ' passages). "Clear path" gives the route field back.'; }
+  else if (bad) { rm.className = r.empty ? '' : 'bad'; rm.textContent = r.errors.join(' '); }
+  else { rm.className = 'ok'; rm.textContent = 'The route is fine: ' + npass + ' passages' + (npts ? ', ' + npts + ' route points' : '') + (l.end ? ', and an end pad' : '') + '.'; }
+  $('routeList').textContent = 'Route: ' + TD.routeLabel(l);
+  const notes = $('pathNotes');
+  if (pathMode) { const pn = TD.pathNotes(l, geo); notes.innerHTML = pn.lines.map(t => '<div' + (/^Red mark/.test(t) ? ' class="red"' : '') + '>' + t + '</div>').join(''); }
+  else notes.innerHTML = '<div>' + (bad ? 'The route is not valid yet.' : 'Route: ' + TD.routeLabel(l) + '.') + '</div><div style="color:var(--muted)">Press "Draw flight path" and draw the line with the mouse: the gates it passes are found for you.</div>';
+  syncTables(); syncShapeBar();
+  $('btnUndo').disabled = !h.past.length;
+  $('btnRedo').disabled = !h.future.length;
+  $('btnDelete').disabled = !(sel && sel.kind !== 'start');
+  const b = $('btnDraw'); b.textContent = routeMode ? 'Finish route' : 'Route by clicking gates'; b.setAttribute('aria-pressed', routeMode ? 'true' : 'false'); b.classList.toggle('on', routeMode);
+  const bp = $('btnPen'); bp.textContent = penMode ? 'Finish path' : 'Draw flight path'; bp.setAttribute('aria-pressed', penMode ? 'true' : 'false'); bp.classList.toggle('on', penMode);
+  $('btnTurnGates').disabled = !pathMode; $('btnClearPath').disabled = !pathMode && !l.route.length;
+  const bn = $('banner'); bn.hidden = !(routeMode || penMode);
+  if (routeMode) bn.textContent = 'Route by clicking gates: click the gates in the order the drone must fly, and the empty map for a route point. Click the last gate again, double-click, press Esc or press Finish route to stop.';
+  if (penMode) bn.textContent = 'Drawing the flight path: press the mouse on the map and drag. Lift it and press again to go on. Alt switches the snap to the gates off. Double-click, Esc or "Finish path" ends.';
+  if (!testMode) storeSet(TD.layoutToText(l));
+}
+function req() { if (pending) return; pending = true; if (window.requestAnimationFrame) window.requestAnimationFrame(() => { if (pending) render(); }); else render(); }
+window.addEventListener('resize', req);
+function select(kind, i) { sel = kind ? { kind, i } : null; render(); }
+function act(fn) { routeTextBad = false; const before = TD.snapshot(h); fn(); TD.record(h, before); render(); }
+function blurActive() { const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); }
+
+/* ----- what is under the pointer, and the hint line ----- */
+function targetOf(e) {
+  const el = e.target && e.target.closest ? e.target.closest('[data-kind]') : null; if (!el) return null;
+  const role = e.target.closest('[data-role]');
+  return { kind: el.dataset.kind, i: +el.dataset.i, role: role ? role.dataset.role : null };
+}
+function hintFor(t) {
+  if (penMode) return 'Drawing: press and drag to draw the flight path. Near a gate the line is pulled through its opening (Alt: no pull).';
+  if (t && t.kind === 'curve') return 'Flight path: double-click on the line to add a dot there.';
+  if (t && t.kind === 'cp') return 'Path dot: drag to move, drop on the trash to delete, wheel for its height.';
+  if (routeMode) return 'Click a gate to add it to the route (Shift: the other way). Click the empty map to add a route point.';
+  if (!t) return 'Empty map: drag to move the view, wheel to zoom, right button to add a gate, pole or pad here.';
+  if (t.role === 'rot') return 'Drag this handle to turn it. Hold Alt to turn without snapping.';
+  if (t.kind === 'gate') return 'Gate: drag to move, double-click to turn around, Ctrl + drag to copy, wheel for height, right button for the menu.';
+  if (t.kind === 'pole') return 'Pole: drag to move, Ctrl + drag to copy, wheel for the height of its top, drop on the trash to delete.';
+  if (t.kind === 'point') return 'Route point: drag to move, wheel for its height, drop on the trash to delete.';
+  if (t.kind === 'end') return 'End pad: drag to move, wheel for its height, drop on the trash to delete.';
+  return 'Start pad: drag to move it, drag the round handle to turn it.';
+}
+map.addEventListener('pointermove', e => { if (!drag) hintEl.textContent = hintFor(targetOf(e)); });
+map.addEventListener('pointerleave', () => { if (!drag) hintEl.textContent = ''; });
+side.addEventListener('pointermove', e => { if (!drag) hintEl.textContent = targetOf(e) ? 'Drag up or down for the height, sideways to move along x. The wheel changes the height of the selected one.' : 'Side view: height against x.'; });
+
+function toWorld(e) {
+  const pt = map.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(map.getScreenCTM().inverse());
+  return { x: p.x, y: -p.y };            // the svg y axis points down, the world y axis points up
+}
+function toSide(e) {
+  const pt = side.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(side.getScreenCTM().inverse()), M = TD.sideMap(sideW, sideH);
+  return { x: M.ix(p.x), z: M.iz(p.y) };
+}
+function overTrash(e) { const r = trashEl.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; }
+
+/* ----- one wheel step on a selected object: its height (steps of one burst are one undo step) ----- */
+function wheelBump(t, up) {
+  const now = Date.now(), key = t.kind + t.i; let before = TD.snapshot(h);
+  if (lastWheel && lastWheel.key === key && now - lastWheel.t < 700 && lastWheel.pushed) { before = lastWheel.before; h.past.pop(); }
+  TD.bumpHeight(L(), t.kind, t.i, up ? 0.05 : -0.05);
+  lastWheel = { key, t: now, before, pushed: TD.record(h, before) };
+  say(labelOf(t.kind, t.i) + ' height ' + fmt(TD.getObj(L(), t.kind, t.i).pos[2]) + ' m.'); render();
+}
+
+/* ----- the map: pointer down, move, up ----- */
+map.addEventListener('pointerdown', e => {
+  hideMenu();
+  const t0 = targetOf(e);
+  if (e.button === 2) { if (t0 && !penMode && t0.kind !== 'curve') { sel = { kind: t0.kind, i: t0.i }; render(); } return; }
+  if (e.button !== 0) return;
+  blurActive();
+  const now = Date.now(), key = penMode ? 'pen' : t0 ? t0.kind + t0.i : 'empty';
+  const dbl = !!(lastDown && now - lastDown.t < 450 && lastDown.key === key && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 6);
+  lastDown = dbl ? null : { t: now, x: e.clientX, y: e.clientY, key };
+  const w = toWorld(e);
+  if (penMode) {                                   // the pen: press and drag draws the line
+    e.preventDefault();
+    if (dbl) { finishPen(); return; }
+    const sm = TD.snapSample(L(), w.x, w.y, e.altKey);
+    penStroke = [sm]; penSnap = sm[2]; drag = { mode: 'pen' };
+    try { map.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+    req(); return;
+  }
+  let t = t0;
+  if (t && t.kind === 'curve') {                   // a double-click on the curve adds a dot; one click is like the empty map
+    if (dbl) { e.preventDefault(); act(() => { const k = TD.cpInsert(L(), w.x, w.y); sel = k >= 0 ? { kind: 'cp', i: k } : null; say(k >= 0 ? 'Dot added to the flight path.' : 'No dot could be added there.'); }); return; }
+    t = null;
+  }
+  if (routeMode) {
+    e.preventDefault();
+    if (t && t.kind === 'gate') {
+      const res = TD.routeClick(L(), e.shiftKey ? -(t.i + 1) : t.i + 1);
+      if (res.finish) finishRoute(); else { render(); say('Passage ' + TD.orderOf(L()).length + ': gate ' + (t.i + 1) + '.'); }
+      return;
+    }
+    if (!t) {
+      if (dbl) {                                  // a double-click on the empty map ends the mode; drop the point its first click made
+        if (lastAdded && now - lastAdded.t < 700) { const r = L().route; if (r.length && r[r.length - 1].type === 'point') r.pop(); }
+        finishRoute(); return;
+      }
+      drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy, moved: false, addAt: w };
+      try { map.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+    }
+    return;
+  }
+  if (!t) {
+    drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy, moved: false };
+    try { map.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+    return;
+  }
+  e.preventDefault();
+  if (dbl && (t.kind === 'gate' || t.kind === 'start') && t.role !== 'rot') {
+    act(() => { TD.turnAround(L(), t.kind, t.i); sel = { kind: t.kind, i: t.i }; say(labelOf(t.kind, t.i) + ' turned around.'); });
+    return;
+  }
+  const before = TD.snapshot(h);
+  let i = t.i;
+  if (e.ctrlKey && (t.kind === 'gate' || t.kind === 'pole') && t.role !== 'rot') i = TD.duplicate(L(), t.kind, t.i, 0, 0);
+  const o = TD.getObj(L(), t.kind, i);
+  drag = { mode: t.role === 'rot' ? 'rot' : 'move', kind: t.kind, i, off: [w.x - o.pos[0], w.y - o.pos[1]], before };
+  sel = { kind: t.kind, i };
+  try { map.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+  render();
+});
+map.addEventListener('pointermove', e => {
+  if (!drag || drag.side) return;
+  if (drag.mode === 'pen') {                       // the line follows the pen; near a gate it is pulled to the middle of the opening
+    const w = toWorld(e), sm = TD.snapSample(L(), w.x, w.y, e.altKey), l = penStroke[penStroke.length - 1];
+    penSnap = sm[2];
+    if (!l || Math.hypot(sm[0] - l[0], sm[1] - l[1]) > 0.004 || sm[2] !== l[2]) penStroke.push(sm);
+    req(); return;
+  }
+  if (drag.mode === 'pan') {
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true; map.classList.add('panning');
+    const r = map.getBoundingClientRect(), wpp = 2 * view.half / Math.min(r.width, r.height);
+    view.cx = drag.cx - dx * wpp; view.cy = drag.cy + dy * wpp; TD.clampView(view); req(); return;
+  }
+  const w = toWorld(e), o = TD.getObj(L(), drag.kind, drag.i);
+  if (!o) return;
+  if (drag.mode === 'move') {
+    const p = TD.dragPosition(w.x, w.y, drag.off, e.altKey);
+    TD.moveObject(L(), drag.kind, drag.i, p[0], p[1]);
+    trashEl.classList.toggle('hot', drag.kind !== 'start' && overTrash(e));
+  } else {
+    const deg = Math.atan2(w.y - o.pos[1], w.x - o.pos[0]) * TD.R2D;
+    TD.setYaw(L(), drag.kind, drag.i, TD.snapDeg(deg, e.altKey) * TD.D2R);
+  }
+  req();
+});
+function endDrag(e) {
+  if (!drag || drag.side) return;
+  const d = drag; drag = null; map.classList.remove('panning'); trashEl.classList.remove('hot');
+  if (d.mode === 'pen') {                          // one stroke = one undo step
+    const raw = penStroke; penStroke = []; penSnap = -1;
+    if (TD.strokeLength(raw) < 0.1) { render(); return; }
+    act(() => { const ok = TD.addStroke(L(), raw); sel = null; say(ok ? 'Stroke added. The flight path has ' + (L().path.points.length - 2) + ' dots.' : 'That stroke was too short.'); }); return;
+  }
+  if (d.mode === 'pan') {
+    if (!d.moved) {
+      if (routeMode && d.addAt) {   // the whole drawn route is one undo step, taken when the mode ends
+        TD.appendPoint(L(), TD.snap(d.addAt.x, 0.05, e && e.altKey), TD.snap(d.addAt.y, 0.05, e && e.altKey));
+        lastAdded = { t: Date.now() }; say('Route point ' + TD.pointIndices(L()).length + ' added.'); render(); return;
+      }
+      if (!routeMode) select(null, 0);
+    }
+    render(); return;
+  }
+  if (d.mode === 'move' && d.kind !== 'start' && e && overTrash(e)) {
+    TD.deleteObject(L(), d.kind, d.i); sel = null; TD.record(h, d.before); say(labelOf(d.kind, d.i) + ' deleted.'); render(); return;
+  }
+  TD.record(h, d.before); render();
+}
+map.addEventListener('pointerup', endDrag);
+map.addEventListener('pointercancel', e => endDrag(null));
+map.addEventListener('keydown', e => {
+  const t = e.target.closest ? e.target.closest('[data-kind]') : null;
+  if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(t.dataset.kind, +t.dataset.i); }
+});
+map.addEventListener('wheel', e => {
+  e.preventDefault();
+  const t = targetOf(e), up = e.deltaY < 0, w = toWorld(e);
+  if (t && sel && t.kind === sel.kind && t.i === sel.i && t.kind !== 'start') { wheelBump(t, up); return; }
+  TD.zoomAt(view, w.x, w.y, up ? 1.2 : 1 / 1.2); render();
+}, { passive: false });
+map.addEventListener('contextmenu', e => { e.preventDefault(); if (penMode) return; let t = targetOf(e); if (t && t.kind === 'curve') t = null; if (t) sel = { kind: t.kind, i: t.i }; render(); openMenu(e.clientX, e.clientY, t, toWorld(e)); });
+
+/* ----- the right mouse button menu ----- */
+function openMenu(cx, cy, t, w) {
+  if (routeMode) return;
+  const items = TD.menuItems(L(), t ? { kind: t.kind, i: t.i } : null);
+  if (!items.length) return;
+  menuTarget = { t: t ? { kind: t.kind, i: t.i } : null, w };
+  menuEl.innerHTML = items.map(it => '<button type="button" role="menuitem" data-id="' + it.id + '"' + (it.cur ? ' class="cur" aria-current="true"' : '') + '>' + it.label + '</button>').join('');
+  menuEl.hidden = false;
+  const r = menuEl.getBoundingClientRect();
+  menuEl.style.left = Math.max(2, Math.min(cx, window.innerWidth - r.width - 4)) + 'px';
+  menuEl.style.top = Math.max(2, Math.min(cy, window.innerHeight - r.height - 4)) + 'px';
+  const first = menuEl.querySelector('button'); if (first) first.focus();
+}
+function hideMenu() { if (!menuEl.hidden) { menuEl.hidden = true; menuTarget = null; } }
+menuEl.addEventListener('click', e => {
+  const b = e.target.closest ? e.target.closest('button[data-id]') : null; if (!b || !menuTarget) return;
+  const mt = menuTarget; hideMenu();
+  act(() => { const r = TD.applyMenu(L(), b.dataset.id, mt.t, mt.w.x, mt.w.y); sel = r.sel ? { kind: r.sel.kind, i: r.sel.i } : null; if (r.msg) say(r.msg); });
+});
+document.addEventListener('pointerdown', e => { if (!menuEl.hidden && !menuEl.contains(e.target)) hideMenu(); }, true);
+
+/* ----- the side view: drag a handle up and down (height) and sideways (x) ----- */
+side.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const t = targetOf(e); if (!t) { if (sel) select(null, 0); return; }
+  blurActive(); e.preventDefault();
+  const o = TD.getObj(L(), t.kind, t.i), w = toSide(e);
+  drag = { mode: 'z', kind: t.kind, i: t.i, off: [w.x - o.pos[0], w.z - o.pos[2]], before: TD.snapshot(h), side: true };
+  sel = { kind: t.kind, i: t.i };
+  try { side.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+  render();
+});
+side.addEventListener('pointermove', e => {
+  if (!drag || drag.mode !== 'z') return;
+  const w = toSide(e); TD.dragSide(L(), drag.kind, drag.i, w.x, w.z, drag.off, e.altKey); req();
+});
+function endSide() { if (!drag || drag.mode !== 'z') return; const d = drag; drag = null; TD.record(h, d.before); render(); }
+side.addEventListener('pointerup', endSide);
+side.addEventListener('pointercancel', endSide);
+side.addEventListener('wheel', e => {
+  const t = targetOf(e);
+  if (t && sel && t.kind === sel.kind && t.i === sel.i && t.kind !== 'start') { e.preventDefault(); wheelBump(t, e.deltaY < 0); }
+}, { passive: false });
+
+/* ----- the toolbox: press, drag onto the map, let go ----- */
+function addTool(tool) {
+  act(() => {
+    let r;
+    if (tool === 'pole') r = { kind: 'pole', i: TD.addPole(L()) };
+    else if (tool === 'end' || tool === 'start') r = TD.dropObject(L(), tool, 0, 0, false);
+    else r = { kind: 'gate', i: TD.addGate(L(), tool) };
+    sel = r; say(labelOf(r.kind, r.i) + (tool === 'start' ? ' moved to the middle.' : ' added.'));
+  });
+}
+document.querySelectorAll('#toolbox .tool').forEach(btn => {
+  btn.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); blurActive(); hideMenu();
+    const ghost = document.createElement('div'); ghost.className = 'ghost'; ghost.innerHTML = TD.toolPic(btn.dataset.tool);
+    ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px'; document.body.appendChild(ghost);
+    toolDrag = { tool: btn.dataset.tool, ghost };
+    try { btn.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+    document.addEventListener('pointermove', onToolMove); document.addEventListener('pointerup', onToolUp); document.addEventListener('pointercancel', cancelTool);
+  });
+  btn.addEventListener('click', e => { if (e.detail === 0) addTool(btn.dataset.tool); else say('Press on it, drag it onto the map and let go.'); });
+});
+function onToolMove(e) { if (!toolDrag) return; toolDrag.ghost.style.left = e.clientX + 'px'; toolDrag.ghost.style.top = e.clientY + 'px'; }
+function cleanTool() { if (!toolDrag) return; toolDrag.ghost.remove(); toolDrag = null; document.removeEventListener('pointermove', onToolMove); document.removeEventListener('pointerup', onToolUp); document.removeEventListener('pointercancel', cancelTool); }
+function cancelTool() { cleanTool(); }
+function onToolUp(e) {
+  if (!toolDrag) return;
+  const tool = toolDrag.tool; cleanTool();
+  const r = map.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { say('Let go over the map to place it. Nothing was changed.'); return; }
+  const w = toWorld(e);
+  act(() => { const res = TD.dropObject(L(), tool, w.x, w.y, e.altKey); sel = res; say(labelOf(res.kind, res.i) + (tool === 'start' ? ' moved here.' : ' placed.')); });
+}
+
+/* ----- the shape buttons, and the tables ----- */
+$('shapebar').addEventListener('click', e => {
+  const b = e.target.closest ? e.target.closest('button[data-shape]') : null; if (!b || !sel || sel.kind !== 'gate') return;
+  act(() => { TD.setShape(L(), sel.i, b.dataset.shape); say('Gate ' + (sel.i + 1) + ' is now a ' + b.dataset.shape + ' gate.'); });
+});
+function applyTableEdit(el) {
+  const before = TD.snapshot(h);
+  if (el.dataset.field === 'shape') TD.setField(L(), el.dataset.kind, +el.dataset.i, 'shape', el.value);
+  else { const v = parseFloat(el.value); if (isFinite(v)) TD.setField(L(), el.dataset.kind, +el.dataset.i, el.dataset.field, v); }
+  TD.record(h, before); render();
+}
+$('tables').addEventListener('change', e => { const el = e.target; if (el.dataset && el.dataset.field) applyTableEdit(el); });
+$('tables').addEventListener('focusin', e => {
+  const tr = e.target.closest ? e.target.closest('tr[data-kind]') : null;
+  if (tr && !(sel && sel.kind === tr.dataset.kind && sel.i === +tr.dataset.i)) { sel = { kind: tr.dataset.kind, i: +tr.dataset.i }; render(); }
+});
+$('tables').addEventListener('click', e => {
+  const tr = e.target.closest ? e.target.closest('tr[data-kind]') : null;
+  if (tr && !(sel && sel.kind === tr.dataset.kind && sel.i === +tr.dataset.i)) { sel = { kind: tr.dataset.kind, i: +tr.dataset.i }; render(); }
+});
+
+/* ----- route text and route mode ----- */
+let routeBefore = null;
+routeIn.addEventListener('focus', () => { routeBefore = TD.snapshot(h); });
+routeIn.addEventListener('input', () => { routeTextBad = TD.parseRouteText(routeIn.value, L().gates.length).errors.length > 0; render(); });
+routeIn.addEventListener('change', () => { if (routeBefore !== null) TD.record(h, routeBefore); routeBefore = TD.snapshot(h); render(); });
+function startRoute() {
+  if (penMode) finishPen();
+  blurActive(); routeTextBad = false; routeMode = true; routeSnap = TD.snapshot(h); TD.clearRoute(L()); sel = null; lastAdded = null;
+  say('Drawing a new route. Click the gates in the order the drone must fly.'); render();
+}
+function finishRoute() {
+  if (!routeMode) return;
+  routeMode = false; TD.record(h, routeSnap); routeSnap = null; say('Route finished: ' + TD.routeLabel(L()) + '.'); render();
+}
+$('btnDraw').addEventListener('click', () => { if (routeMode) finishRoute(); else startRoute(); });
+function startPen() { if (routeMode) finishRoute(); blurActive(); penMode = true; sel = null; say('Draw the flight path: press the mouse on the map and drag.'); render(); }
+function finishPen() { if (!penMode) return; penMode = false; penStroke = []; penSnap = -1; say('Flight path finished. The gates it passes are listed beside the map.'); render(); }
+$('btnPen').addEventListener('click', () => { if (penMode) finishPen(); else startPen(); });
+$('btnClearPath').addEventListener('click', () => act(() => { TD.pathClear(L()); say('Path and route cleared.'); }));
+$('btnTurnGates').addEventListener('click', () => act(() => {
+  const r = TD.turnGatesToPath(L());
+  say(r.turned.length ? 'Turned gate ' + r.turned.join(', gate ') + ' to the path.' + (r.mixed.length ? ' Gate ' + r.mixed.join(', gate ') + ' is crossed both ways and was left alone.' : '') : (r.mixed.length ? 'Gate ' + r.mixed.join(', gate ') + ' is crossed both ways and was left alone.' : 'No gate is crossed against its arrow.'));
+}));
+$('btnWhole').addEventListener('click', () => { view = TD.newView(); render(); });
+
+/* ----- buttons ----- */
+$('btnAddGate').addEventListener('click', () => addTool('square'));
+$('btnAddPole').addEventListener('click', () => addTool('pole'));
+$('btnDelete').addEventListener('click', () => {
+  if (!sel || sel.kind === 'start') { say('Select a gate, a pole, a route point or the end pad first. The start pad cannot be deleted.', true); return; }
+  act(() => { const nm = labelOf(sel.kind, sel.i); TD.deleteObject(L(), sel.kind, sel.i); sel = null; say(nm + ' deleted.'); });
+});
+function doUndo() { if (TD.undo(h)) { routeTextBad = false; say('Undone.'); render(); } }
+function doRedo() { if (TD.redo(h)) { routeTextBad = false; say('Redone.'); render(); } }
+$('btnUndo').addEventListener('click', doUndo);
+$('btnRedo').addEventListener('click', doRedo);
+$('btnReset').addEventListener('click', () => act(() => { routeMode = false; h.present = TD.todayLayout(); sel = null; say("Started again from today's track. Undo brings your layout back."); }));
+$('btnSave').addEventListener('click', () => {
+  const r = TD.parseRouteText(routeIn.value, L().gates.length);
+  if (r.errors.length) { say('The layout was not saved. Fix the route first: ' + r.errors[0], true); return; }
+  const text = TD.layoutToText(L());
+  try {
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'track_layout.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    say('Saved as track_layout.json in your Downloads folder. If a file with that name was there, the browser may have added a number to the name.');
+  } catch (e) { say('The browser would not save the file: ' + e.message, true); }
+});
+$('btnLoad').addEventListener('click', () => $('fileLoad').click());
+$('fileLoad').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { const n = TD.layoutFromText(String(rd.result)); act(() => { routeMode = false; h.present = n; sel = null; say('Loaded ' + file.name + '.'); }); }
+    catch (x) { say('Could not load ' + file.name + ': ' + x.message, true); }
+  };
+  rd.onerror = () => say('Could not read ' + file.name + '.', true);
+  rd.readAsText(file); e.target.value = '';
+});
+
+/* ----- the 3D view ----- */
+$('btnOverview').addEventListener('click', () => { cam = TD.newCamera(); render(); });
+$('btnFromStart').addEventListener('click', () => { cam = TD.newCamera(); cam.mode = 'start'; cam.pitch = 10; render(); });
+v3.addEventListener('pointerdown', e => { if (e.button !== 0) return; cdrag = { x: e.clientX, y: e.clientY }; try { v3.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } });
+v3.addEventListener('pointermove', e => {
+  if (!cdrag) return;
+  const dx = e.clientX - cdrag.x, dy = e.clientY - cdrag.y; cdrag.x = e.clientX; cdrag.y = e.clientY;
+  if (cam.mode === 'orbit') { cam.az -= dx * 0.4; cam.pitch = TD.clamp(cam.pitch + dy * 0.3, 5, 85); }
+  else { cam.yawOff += dx * 0.2; cam.pitch = TD.clamp(cam.pitch + dy * 0.2, -60, 60); }
+  req();
+});
+v3.addEventListener('pointerup', () => { cdrag = null; });
+v3.addEventListener('pointercancel', () => { cdrag = null; });
+v3.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1 / 1.1 : 1.1;
+  if (cam.mode === 'orbit') cam.dist = TD.clamp(cam.dist * f, 2.5, 14); else cam.zoom = TD.clamp(cam.zoom / f, 0.5, 3);
+  render();
+}, { passive: false });
+
+/* ----- keyboard ----- */
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  const typing = tag === 'textarea' || (tag === 'input' && e.target.type === 'text');
+  if (e.key === 'Escape') { if (!menuEl.hidden) hideMenu(); else if (penMode) { if (drag && drag.mode === 'pen') { drag = null; penStroke = []; penSnap = -1; render(); } else finishPen(); } else if (routeMode) finishRoute(); else if (toolDrag) cancelTool(); return; }
+  if ((e.ctrlKey || e.metaKey) && !typing) {
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); doRedo(); }
+  } else if (e.key === 'Delete' && !typing && tag !== 'input' && tag !== 'select') {
+    if (sel && sel.kind !== 'start') $('btnDelete').click();
+  }
+});
+
+h = TD.newHistory(startLayout());
+{ // test addresses only: ?view=start shows the drone's view; ?demo=select picks gate 2; ?demo=menu opens the gate menu
+  const pq = new URLSearchParams(window.location.search);
+  if (pq.get('view') === 'start') { cam.mode = 'start'; cam.pitch = 10; }
+  if (pq.get('demo') === 'select') sel = { kind: 'gate', i: 1 };
+}
+render();
+if (new URLSearchParams(window.location.search).get('demo') === 'menu') {
+  sel = { kind: 'gate', i: 1 }; render();
+  const g = map.querySelector('[data-kind="gate"][data-i="1"] .hit').getBoundingClientRect();
+  openMenu(g.left + g.width / 2 + 14, g.top + g.height / 2, { kind: 'gate', i: 1 }, { x: 0, y: 0 });
+}
+if (testMode) say('Test mode: this layout came from the address and is not stored in the browser.');
+document.body.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>
