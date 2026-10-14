@@ -1,0 +1,13 @@
+Look "Violet on moss" (violet)
+Gate band (texture main color)   124 64 228
+Gate frame                       255 255 255
+Gate springs                     255 230 0
+Corner marks                     20 20 24 with 255 255 255 center
+Floor, two flat colors, no mirror  A 44 72 58   B 36 62 50   (0.5 m squares)
+Sky horizon                      232 146 96
+Sky top                          38 30 72
+Drone body / center propeller    255 95 0
+Drone nose plate                 255 255 255
+Drone rear wing / rear props     20 20 24
+Drone front propellers           255 255 255
+Drone arms 60 62 66, motors 90 92 96, guard rings and duct 30 32 36, cabin glass 20 22 26

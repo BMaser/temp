@@ -1,0 +1,13 @@
+Look "Cyan on charcoal" (cyan)
+Gate band (texture main color)   0 200 230
+Gate frame                       245 245 245
+Gate springs                     20 20 24
+Corner marks                     10 20 30 with 255 255 255 center
+Floor, two flat colors, no mirror  A 52 54 58   B 42 44 48   (0.5 m squares)
+Sky horizon                      40 52 72
+Sky top                          4 6 12
+Drone body / center propeller    255 95 0
+Drone nose plate                 255 255 255
+Drone rear wing / rear props     20 20 24
+Drone front propellers           255 255 255
+Drone arms 60 62 66, motors 90 92 96, guard rings and duct 30 32 36, cabin glass 20 22 26

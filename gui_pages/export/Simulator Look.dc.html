@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-5c7b8a67-9d02-423d-b7c4-bca946cee94e/styles.css">
+<script src="_ds/modernist-5c7b8a67-9d02-423d-b7c4-bca946cee94e/_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text)} a{color:var(--color-accent)} a:hover{color:var(--color-accent-700)}</style>
+</helmet>
+<div style="min-height:100vh;font-family:var(--font-body);color:var(--color-text)">
+  <div class="nav" style="gap:var(--space-6);padding:var(--space-2) var(--space-4);position:sticky;top:0;background:var(--color-bg);z-index:5">
+    <div class="nav-brand" style="margin-right:0;display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:14px;height:14px;background:var(--color-accent)"></span>Simulator look</div>
+    <div class="seg" style="flex:none">
+      <sc-for list="{{ palettes }}" as="p" hint-placeholder-count="4">
+        <button onClick="{{ p.onClick }}" style="font:inherit;font-size:13px;padding:7px 12px;border:0;border-left:1px solid var(--color-divider);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:8px;background:{{ p.bg }};color:{{ p.fg }}"><span style="display:inline-block;width:12px;height:12px;background:{{ p.swatch }}"></span>{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <span style="margin-left:auto;font-size:13px;color:var(--color-neutral-700)">Files for this look: <code style="font-size:12px">returned/{{ key }}/</code></span>
+  </div>
+
+  <sc-if value="{{ hasImgs }}" hint-placeholder-val="{{ false }}">
+  <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);border-bottom:2px solid var(--color-divider)">
+    <div style="padding:var(--space-4);border-right:2px solid var(--color-divider)">
+      <h6 style="margin:0 0 var(--space-2);font-size:11px">Scene — the gate in its room, from the drone's height</h6>
+      <div style="position:relative;aspect-ratio:16/9;overflow:hidden;background:linear-gradient(to bottom, {{ skyT }}, {{ skyH }} 62%, {{ floorA }} 62%, {{ floorA }})">
+        <div style="position:absolute;left:0;right:0;top:62%;bottom:0;background:repeating-linear-gradient(90deg, {{ floorA }} 0 12.5%, {{ floorB }} 12.5% 25%);opacity:.9"></div>
+        <div style="position:absolute;left:50%;top:14%;width:36%;aspect-ratio:1/1;transform:translateX(-50%)">
+          <div style="position:absolute;inset:0;border:5px solid {{ frame }}"></div>
+          <div style="position:absolute;left:8.3%;top:8.3%;width:83.4%;height:13.9%"><div style="width:100%;height:100%;display:block;background:url({{ imgTop }}) center / 100% 100% no-repeat"></div></div>
+          <div style="position:absolute;left:8.3%;bottom:8.3%;width:83.4%;height:13.9%"><div style="width:100%;height:100%;display:block;background:url({{ imgBottom }}) center / 100% 100% no-repeat"></div></div>
+          <div style="position:absolute;left:8.3%;top:22.2%;width:13.9%;height:55.6%"><div style="width:100%;height:100%;display:block;background:url({{ imgLeft }}) center / 100% 100% no-repeat"></div></div>
+          <div style="position:absolute;right:8.3%;top:22.2%;width:13.9%;height:55.6%"><div style="width:100%;height:100%;display:block;background:url({{ imgRight }}) center / 100% 100% no-repeat"></div></div>
+          <div style="position:absolute;left:2%;top:2%;width:6%;height:6%;border-left:3px solid {{ spring }};border-top:3px solid {{ spring }}"></div>
+          <div style="position:absolute;right:2%;top:2%;width:6%;height:6%;border-right:3px solid {{ spring }};border-top:3px solid {{ spring }}"></div>
+          <div style="position:absolute;left:2%;bottom:2%;width:6%;height:6%;border-left:3px solid {{ spring }};border-bottom:3px solid {{ spring }}"></div>
+          <div style="position:absolute;right:2%;bottom:2%;width:6%;height:6%;border-right:3px solid {{ spring }};border-bottom:3px solid {{ spring }}"></div>
+          <div style="position:absolute;left:43%;top:100%;width:14%;height:70%"><div style="width:100%;height:100%;display:block;background:url({{ imgPost }}) center / 100% 100% no-repeat;object-fit:cover"></div></div>
+        </div>
+        <div style="position:absolute;left:14%;bottom:6%;width:14%;aspect-ratio:1/1;border-radius:50%;overflow:hidden;transform:scaleY(.45)"><div style="width:100%;height:100%;display:block;background:url({{ imgStart }}) center / 100% 100% no-repeat"></div></div>
+        <div style="position:absolute;right:12%;bottom:12%;width:9%;aspect-ratio:1/1;border-radius:50%;overflow:hidden;transform:scaleY(.45)"><div style="width:100%;height:100%;display:block;background:url({{ imgEnd }}) center / 100% 100% no-repeat"></div></div>
+        <svg viewBox="0 0 140 140" style="position:absolute;left:26%;bottom:16%;width:12%;overflow:visible" data-td="droneScene"></svg>
+      </div>
+      <p style="margin:var(--space-2) 0 0;font-size:12px;color:var(--color-neutral-700)">Composite from the returned files. Floor: two flat colors in 0.5 m squares, no mirror. The simulator's own picture comes after the files are loaded.</p>
+    </div>
+    <div style="padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)">
+      <div style="display:flex;align-items:center;gap:var(--space-3)"><h6 style="margin:0;font-size:11px">Colors — colors.txt</h6><span style="font-size:12px;color:var(--color-neutral-700)">click a swatch to change it</span><button onClick="{{ download }}" class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:5px 10px">Download colors.txt</button><button onClick="{{ reset }}" class="btn btn-ghost" style="font-size:12px;padding:5px 10px">Reset</button></div>
+      <table class="table" style="font-size:13px">
+        <tbody>
+          <sc-for list="{{ colorRows }}" as="c" hint-placeholder-count="0">
+            <tr><td style="padding:6px 8px;width:28px"><input type="color" value="{{ c.hex }}" onInput="{{ c.onInput }}" style="width:22px;height:22px;padding:0;border:1px solid var(--color-divider);background:none;cursor:pointer;display:block"></td><td style="padding:6px 8px">{{ c.name }}</td><td style="padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums;color:var(--color-neutral-700)">{{ c.rgb }}</td></tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <p style="margin:0;font-size:12px;line-height:1.45;color:var(--color-neutral-700)">Textures (gate bands, pads, post) are baked PNGs in <code>returned/{{ key }}/</code>; the frame, springs, floor, sky and drone colors above update the scene live. Ask to regenerate textures once a color is settled. Why it works for the camera: the gate color appears nowhere else; every inner corner carries a black square with a white center, so the four corners of the opening are hard edges in both luminance and hue; the drone is a third hue not used by gate, floor or sky; everything is matte.</p>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:2px solid var(--color-divider)">
+    <div style="padding:var(--space-4);border-right:2px solid var(--color-divider)">
+      <h6 style="margin:0 0 var(--space-2);font-size:11px">Gate textures — exact sizes</h6>
+      <div style="display:grid;grid-template-columns:40px 1fr 40px;grid-template-rows:40px 1fr 40px;gap:4px;aspect-ratio:1/1;background:var(--color-surface);padding:4px">
+        <div></div><div style="width:100%;height:100%;display:block;background:url({{ imgTop }}) center / 100% 100% no-repeat;object-fit:fill"></div><div></div>
+        <div style="width:100%;height:100%;display:block;background:url({{ imgLeft }}) center / 100% 100% no-repeat;object-fit:fill"></div><div style="font-size:11px;color:var(--color-neutral-700);display:flex;align-items:center;justify-content:center;text-align:center">opening<br>0.40 m</div><div style="width:100%;height:100%;display:block;background:url({{ imgRight }}) center / 100% 100% no-repeat;object-fit:fill"></div>
+        <div></div><div style="width:100%;height:100%;display:block;background:url({{ imgBottom }}) center / 100% 100% no-repeat;object-fit:fill"></div><div></div>
+      </div>
+      <p style="margin:var(--space-2) 0 0;font-size:12px;color:var(--color-neutral-700)">gate_top / bottom 2048×341, gate_left / right 341×1366, gate_post_bark 256×2560. Left reads top→bottom, right bottom→top.</p>
+    </div>
+    <div style="padding:var(--space-4);border-right:2px solid var(--color-divider)">
+      <h6 style="margin:0 0 var(--space-2);font-size:11px">Floor pads — 1024×1024, 0.60 m</h6>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+        <div style="width:100%;aspect-ratio:1/1;display:block;background:url({{ imgStart }}) center / 100% 100% no-repeat;border-radius:50%"></div><div style="width:100%;aspect-ratio:1/1;display:block;background:url({{ imgEnd }}) center / 100% 100% no-repeat;border-radius:50%"></div>
+      </div>
+      <p style="margin:var(--space-2) 0 0;font-size:12px;color:var(--color-neutral-700)">Dark start with a forward chevron; light end with a dashed inner ring. Opposite value, so they are told apart from above at a glance.</p>
+    </div>
+    <div style="padding:var(--space-4);border-right:2px solid var(--color-divider)">
+      <h6 style="margin:0 0 var(--space-2);font-size:11px">Triangle and circle gates — 1000 px = 1 m</h6>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+        <div style="width:100%;aspect-ratio:14/17;display:block;background:url({{ imgTri }}) center / 100% 100% no-repeat"></div><div style="width:100%;aspect-ratio:14/17;display:block;background:url({{ imgCir }}) center / 100% 100% no-repeat"></div>
+      </div>
+    </div>
+    <div style="padding:var(--space-4)">
+      <h6 style="margin:0 0 var(--space-2);font-size:11px">Post</h6>
+      <div style="display:flex;gap:var(--space-3);align-items:flex-start">
+        <div style="flex:none;width:28px;height:280px;display:block;background:url({{ imgPost }}) center / 100% 100% no-repeat"></div>
+        <p style="margin:0;font-size:12px;line-height:1.45;color:var(--color-neutral-700)">Matte neutral grey with faint vertical grain and a cap stripe in the frame color. No bark, no wood: nothing in the room competes with the gate hue.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;border-bottom:2px solid var(--color-divider)">
+    <div style="padding:var(--space-4);border-right:2px solid var(--color-divider)">
+      <div style="display:flex;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-2)">
+        <h6 style="margin:0;font-size:11px">Drone — pentacopter “GT”</h6><a href="Drone GT.html" style="font-size:12px;font-weight:600">Open the 3D model (sculpted body, center EDF, color pickers, OBJ export) →</a>
+        <span style="font-size:12px;color:var(--color-neutral-700)">Layout plan · 10 mm grid · front = +X — the final shape is in the 3D page</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)">
+        <div><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);margin-bottom:4px">Top (nose up)</div><svg data-td="vTop" viewBox="-80 -80 160 160" style="width:100%;aspect-ratio:1/1;background:var(--color-neutral-100);border:1px solid var(--color-divider)"></svg></div>
+        <div><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);margin-bottom:4px">Front (seen from +X)</div><svg data-td="vFront" viewBox="-80 -80 160 160" style="width:100%;aspect-ratio:1/1;background:var(--color-neutral-100);border:1px solid var(--color-divider)"></svg></div>
+        <div><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);margin-bottom:4px">Side (nose right)</div><svg data-td="vSide" viewBox="-80 -80 160 160" style="width:100%;aspect-ratio:1/1;background:var(--color-neutral-100);border:1px solid var(--color-divider)"></svg></div>
+      </div>
+    </div>
+    <div style="padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);font-size:13px;line-height:1.45">
+      <h6 style="margin:0;font-size:11px">Drone notes</h6>
+      <p style="margin:0">Sports-car stance: low wide chassis, dark cabin glass, white nose plate and lens at the front, black rear wing at the back. 138 × 134 × 36 mm — inside the 140 × 140 × 40 mm box.</p>
+      <p style="margin:0">Five rotors: four 40 mm props in guard rings on swept arms (stability and steering) and a 56 mm ducted rotor on the roof, set back of center (main lifter).</p>
+      <p style="margin:0">Front ≠ back from every side: white nose and white front props vs. black wing, black rear props and the raised duct behind the cabin.</p>
+      <p style="margin:0">Camera cone kept clear: nothing ahead of x = 30 mm rises above z = −4 mm; the front guard rings only touch the upper corners of the picture, as today.</p>
+      <p style="margin:0;color:var(--color-neutral-700)">OBJ in meters with named groups and drone.mtl colors; about 1,900 triangles.</p>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  state = { key: 'magenta', data: null, over: {} };
+  paths = [['Gate band', 'gate'], ['Gate frame', 'frame'], ['Springs', 'spring'], ['Corner mark', 'markA'], ['Floor A', 'floor.0'], ['Floor B', 'floor.1'], ['Sky horizon', 'skyH'], ['Sky top', 'skyT'], ['Drone body', 'drone'], ['Drone nose', 'nose'], ['Rear wing', 'wing']];
+  merged() { const D = this.state.data; if (!D) return null; const P = JSON.parse(JSON.stringify(D[this.state.key])), O = this.state.over[this.state.key] || {}; for (const k in O) { const [a, b] = k.split('.'); if (b === undefined) P[a] = O[k]; else P[a][+b] = O[k]; } return P; }
+  async componentDidMount() { const r = await fetch('returned/palettes.json'); this.setState({ data: await r.json() }); }
+  componentDidUpdate() { this.paint(); }
+  rgb(c) { return 'rgb(' + c.join(',') + ')'; }
+  paint() {
+    const D = this.state.data; if (!D) return; const P = D[this.state.key], M = P.mats, prims = P.prims;
+    const S = 1000; // mm
+    const col = p => this.rgb(M[p.m]);
+    const rotPts = p => { const [sx, sy] = p.s, c = Math.cos(p.rz), s = Math.sin(p.rz); return [[-sx / 2, -sy / 2], [sx / 2, -sy / 2], [sx / 2, sy / 2], [-sx / 2, sy / 2]].map(([x, y]) => [p.c[0] + x * c - y * s, p.c[1] + x * s + y * c]); };
+    const grid = () => { let g = ''; for (let i = -70; i <= 70; i += 10) g += '<line x1="' + i + '" y1="-80" x2="' + i + '" y2="80" stroke="var(--color-neutral-300)" stroke-width=".4"/><line y1="' + i + '" x1="-80" y2="' + i + '" x2="80" stroke="var(--color-neutral-300)" stroke-width=".4"/>'; return g + '<rect x="-70" y="-70" width="140" height="140" fill="none" stroke="var(--color-neutral-500)" stroke-dasharray="2 2" stroke-width=".6"/>'; };
+    const draw = (view, sortKey) => {
+      const items = prims.slice().sort((a, b) => sortKey(a) - sortKey(b));
+      return grid() + items.map(p => {
+        const f = col(p), st = ' stroke="rgba(0,0,0,.35)" stroke-width=".3"';
+        if (view === 'top') {
+          if (p.t === 'box') return '<polygon points="' + rotPts(p).map(([x, y]) => (y * S).toFixed(1) + ',' + (-x * S).toFixed(1)).join(' ') + '" fill="' + f + '"' + st + '/>';
+          const r = p.t === 'ring' ? p.ro : p.r; let s = '<circle cx="' + (p.c[1] * S) + '" cy="' + (-p.c[0] * S) + '" r="' + (r * S) + '" fill="' + (p.t === 'ring' ? 'none' : f) + '" stroke="' + f + '" stroke-width="' + (p.t === 'ring' ? (p.ro - p.ri) * S : 0.3) + '"/>'; return s;
+        }
+        // front: horizontal = -y (left of drone appears on the right), vertical = z ; side: horizontal = x, vertical = z
+        const hAxis = view === 'front' ? 1 : 0, hSign = view === 'front' ? -1 : 1;
+        let h0, h1, z0 = p.c[2] - (p.h || p.s[2]) / 2, z1 = p.c[2] + (p.h || p.s[2]) / 2;
+        if (p.t === 'box') { const pts = rotPts(p).map(q => q[hAxis]); h0 = Math.min(...pts); h1 = Math.max(...pts); }
+        else if (p.ax === 'x') { if (view === 'side') { h0 = p.c[0] - p.h / 2; h1 = p.c[0] + p.h / 2; z0 = p.c[2] - p.r; z1 = p.c[2] + p.r; } else { return '<circle cx="' + (-p.c[1] * S) + '" cy="' + (-p.c[2] * S) + '" r="' + (p.r * S) + '" fill="' + f + '"' + st + '/>'; } }
+        else { const r = p.t === 'ring' ? p.ro : p.r; h0 = p.c[hAxis] - r; h1 = p.c[hAxis] + r; }
+        const a = hSign * h0 * S, b = hSign * h1 * S;
+        return '<rect x="' + Math.min(a, b).toFixed(1) + '" y="' + (-z1 * S).toFixed(1) + '" width="' + Math.abs(b - a).toFixed(1) + '" height="' + ((z1 - z0) * S).toFixed(1) + '" fill="' + f + '"' + st + '/>';
+      }).join('') + '<line x1="-78" y1="0" x2="78" y2="0" stroke="var(--color-accent)" stroke-width=".4" opacity=".6"/>';
+    };
+    const q = k => document.querySelector('[data-td="' + k + '"]');
+    const top = draw('top', p => p.c[2]); if (q('vTop')) q('vTop').innerHTML = top;
+    if (q('vFront')) q('vFront').innerHTML = draw('front', p => -p.c[0]);
+    if (q('vSide')) q('vSide').innerHTML = draw('side', p => p.c[1]);
+    if (q('droneScene')) q('droneScene').innerHTML = '<g transform="translate(70,70) rotate(-90) translate(-0,-0)">' + draw('top', p => p.c[2]).replace(/<line[^>]*stroke="var\(--color-neutral-300\)"[^>]*\/>/g, '').replace(/<rect x="-70"[^>]*\/>/, '') + '</g>';
+  }
+  renderVals() {
+    const D = this.state.data, key = this.state.key, P = this.merged();
+    const base = 'returned/' + key + '/';
+    const names = { magenta: 'Magenta', cyan: 'Cyan', red: 'Red', violet: 'Violet' };
+    const rgb = c => 'rgb(' + c.join(',') + ')';
+    const sw = { magenta: [216, 27, 140], cyan: [0, 200, 230], red: [226, 30, 36], violet: [124, 64, 228] };
+    const vals = {
+      key, hasImgs: !!P, palettes: Object.keys(names).map(k => ({ label: names[k], swatch: rgb(sw[k]), bg: k === key ? 'var(--color-accent)' : 'transparent', fg: k === key ? 'var(--color-bg)' : 'var(--color-text)', onClick: () => this.setState({ key: k }) })),
+      imgTop: base + 'gate_top.png', imgBottom: base + 'gate_bottom.png', imgLeft: base + 'gate_left.png', imgRight: base + 'gate_right.png', imgPost: base + 'gate_post_bark.png', imgStart: base + 'pad_start.png', imgEnd: base + 'pad_end.png', imgTri: base + 'gate_triangle.png', imgCir: base + 'gate_circle.png',
+      skyT: '#888', skyH: '#bbb', floorA: '#999', floorB: '#888', frame: '#000', spring: '#fff', colorRows: []
+    };
+    if (!P) return vals;
+    Object.assign(vals, { skyT: rgb(P.skyT), skyH: rgb(P.skyH), floorA: rgb(P.floor[0]), floorB: rgb(P.floor[1]), frame: rgb(P.frame), spring: rgb(P.spring) });
+    const get = p => { const [a, b] = p.split('.'); return b === undefined ? P[a] : P[a][+b]; };
+    const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+    vals.colorRows = this.paths.map(([name, p]) => { const c = get(p); return { name, css: rgb(c), hex: hex(c), rgb: c.join(' '), onInput: e => { const h = e.target.value, c2 = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); this.setState(s => ({ over: { ...s.over, [key]: { ...(s.over[key] || {}), [p]: c2 } } })); } }; });
+    vals.reset = () => this.setState(s => ({ over: { ...s.over, [key]: {} } }));
+    vals.download = () => { const txt = '# Simulator colors — ' + key + ' look (RGB 0-255)\n' + this.paths.map(([n, p]) => (n.toLowerCase().replace(/ /g, '_') + ' ').padEnd(14) + get(p).join(' ')).join('\n') + '\n'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' })); a.download = 'colors.txt'; a.click(); };
+    return vals;
+  }
+}
+</script>
+</body>
+</html>
