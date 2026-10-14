@@ -552,7 +552,8 @@ function el(tag, attrs, ...kids){
     else if (k === 'checked' || k === 'disabled' || k === 'selected' || k === 'value') e[k] = v;
     else e.setAttribute(k, v === true ? '' : v);
   }
-  kids.forEach(c => { if (c === null || c === undefined || c === false) return; e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  // a child may be a node, a string, a number, or an array of them (idList passes an array)
+  kids.flat(Infinity).forEach(c => { if (c === null || c === undefined || c === false) return; e.appendChild(c instanceof Node ? c : document.createTextNode(String(c))); });
   return e;
 }
 function clear(node){ while (node.firstChild) node.removeChild(node.firstChild); }
