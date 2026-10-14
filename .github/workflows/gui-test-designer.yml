@@ -1,0 +1,29 @@
+name: gui-test-designer
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versions
+        run: |
+          node --version
+          B=$(which google-chrome chromium chromium-browser chrome 2>/dev/null | head -1)
+          echo "BROWSER=$B" >> "$GITHUB_ENV"
+          "$B" --version
+      - name: Run the test
+        working-directory: gui_designer
+        env:
+          RESULT_DIR: ${{ github.workspace }}/gui_designer/result
+        run: |
+          node test_load_result_logic.mjs
+          node test_gui_trusted.mjs
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-test-designer
+          path: gui_designer/result
