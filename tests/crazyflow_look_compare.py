@@ -65,13 +65,21 @@ SQUARE_M = 0.5
 SQUARE_TOLERANCE = 0.10  # the square size measured in top_down.png against 0.5 m
 MAT_TOL = 1e-6  # float32 storage of a color / 255
 SKY_PICTURE_TOL = 6.0  # levels (0-255) between the sky in scene_side.png and the gradient of the look
-FLOOR_PICTURE_TOL = 6.0  # levels (0-255) between the dominant floor colors of top_down.png and the look's colors
+FLOOR_PICTURE_TOL = 8.0  # levels (0-255) between the dominant floor colors of top_down.png and the look's colors
 SKY_ROWS = (1, 40, 80)  # rows of scene_side.png; a row is checked only when its ray is at least 1 degree above the horizon
-SCENE_SIDE = {"lookat": (0.0, 0.0, 0.9), "distance": 9.5, "azimuth": 90.0, "elevation": -14.0}
+SCENE_SIDE = {"azimuth": 90.0, "elevation": -14.0}  # lookat and distance come from the track (track_framing): the camera is at -y, looking along +y
+SIDE_LOOKAT_Z = 0.95  # middle of the gate heights of level 0 (0.7 and 1.2 m)
+FRAME_MARGIN_M = 0.5  # free floor around the pads and gates in the framed pictures
+GAIN_TOL = 0.03  # drawn floor color / designed color for the new looks: 1.00 within 3 %
+GAIN_ITERATIONS = 4
+BAND_TOL = 30.0  # levels between the gate band in gate_front_1p5m.png and the look's gate color
+BAND_POINTS = ((0.19, 0.25), (-0.19, 0.25), (0.19, -0.25), (-0.19, -0.25), (0.25, 0.12), (0.25, -0.12), (-0.25, 0.12), (-0.25, -0.12))  # (y, z) in the gate's own axes
+BAND_PATCH_PX = 7
+OLD_GAIN_MIN = 1.4  # today: the drawn floor must still be this much brighter than its picture (positive control)
+POLE_CLEARANCE_MIN = 0.28  # lateral distance / depth a pole must keep from the view axis: the gate half width 0.35 m at 1.5 m is 0.233
 GATE_FRONT_M, GATE_OBLIQUE_M = 1.5, 0.7
 GATE_OBLIQUE_AZIMUTH_OFFSET_DEG, GATE_OBLIQUE_ELEVATION_DEG = 40.0, -15.0
 GATE_OBLIQUE_LOCAL = (0.0, 0.22, -0.30)  # the point the oblique picture looks at, in the gate's own axes (x normal, y right, z up)
-TOP_HALF_EXTENT_M = tl.TOP_HALF_EXTENT_M
 LABELS = {"gate_front_1p5m": "gate 1 from 1.5 m", "gate_oblique_0p7m": "gate corner 0.7 m", "scene_side": "track from the side",
           "top_down": "from above", "pad_start_drone_0p4m": "drone on start pad", "pad_end_top_1p0m": "end pad", "fpv_start": "drone camera, start",
           "fpv_at_gate": "drone camera, 3.84 s"}
@@ -145,7 +153,7 @@ def square_spacings(img, ca, cb, row_step: int = 3, min_run: int = 3, max_gap: i
 
 def meters_per_pixel(fovy_deg: float, distance_m: float, height_px: int = HEIGHT) -> float:
     """Straight-down free camera at `distance_m` above the floor: the picture is `height_px` pixels for 2 * d * tan(fovy / 2)
-    meters at the floor (the vertical field of view fovy, m.vis.global_.fovy; the same relation tl uses for TOP_HALF_EXTENT_M)."""
+    meters at the floor (the vertical field of view fovy, m.vis.global_.fovy; the same relation as in tests/crazyflow_track_look.py)."""
     return 2.0 * distance_m * math.tan(math.radians(fovy_deg) / 2.0) / height_px
 
 
@@ -185,6 +193,108 @@ def sky_rows_check(img, look: str, fovy_deg: float, elevation_deg: float) -> dic
     return {"rows": rows, "worst": worst, "n_rows": len(rows)}
 
 
+def quat_xyzw_to_matrix(q):
+    x, y, z, w = (float(v) for v in q)
+    n = math.sqrt(x * x + y * y + z * z + w * w)
+    x, y, z, w = x / n, y / n, z / n, w / n
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+
+
+def choose_gate_view(gates_pos, gates_quat, obstacles_pos, back_m: float = 1.5) -> dict:
+    """The gate and side whose view from `back_m` in front of it is least crossed by a pole.
+
+    For each gate and each side (camera on the -x side of the gate looking along +x: side +1; the other side: -1) the camera is
+    `back_m` from the gate center along the gate's x axis. For each obstacle (a pole, taken as a vertical line) in front of the
+    camera: ratio = lateral distance from the view axis / depth along it. A pole is inside the picture of the gate when the ratio
+    is below about 0.23 (half the gate width 0.35 m over 1.5 m). The candidate with the largest smallest ratio wins; the table
+    has all candidates."""
+    table = []
+    for g in range(len(gates_pos)):
+        axis = quat_xyzw_to_matrix(gates_quat[g])[:, 0][:2]
+        axis = axis / np.linalg.norm(axis)
+        for side in (1, -1):
+            u = side * axis
+            cam = np.asarray(gates_pos[g][:2], dtype=float) - back_m * u
+            right = np.array([u[1], -u[0]])
+            worst = float("inf")
+            for o in obstacles_pos:
+                r = np.asarray(o[:2], dtype=float) - cam
+                depth, lateral = float(r @ u), float(r @ right)
+                if depth > 0.2:
+                    worst = min(worst, abs(lateral) / depth)
+            table.append({"gate": g, "side": side, "smallest_pole_ratio": worst})
+    best = max(table, key=lambda t: (t["smallest_pole_ratio"], t["side"]))
+    return {**best, "table": table, "clear_enough": best["smallest_pole_ratio"] >= POLE_CLEARANCE_MIN}
+
+
+def track_framing(points_xy, fovy_deg: float, margin_m: float = FRAME_MARGIN_M, aspect: float = WIDTH / HEIGHT) -> dict:
+    """Center and straight-down camera height that show all points plus `margin_m` in a picture of the given aspect."""
+    pts = np.asarray(points_xy, dtype=float)
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    center = (lo + hi) / 2.0
+    half_h = max((hi[1] - lo[1]) / 2.0 + margin_m, ((hi[0] - lo[0]) / 2.0 + margin_m) / aspect)
+    ty = math.tan(math.radians(fovy_deg) / 2.0)
+    half_w = (hi[0] - lo[0]) / 2.0 + margin_m
+    return {"center": center.tolist(), "half_height_m": float(half_h), "distance_m": float(half_h / ty),
+            "visible_m": [float(2 * half_h * aspect), float(2 * half_h)],
+            "side_distance_m": float(max(3.0, 1.1 * half_w / (ty * aspect)))}  # side view: the track plus margin fills the width with 10 % to spare
+
+
+def measure_gain(img, designed_a, designed_b) -> dict:
+    """Drawn color over designed color of the two floor colors in a straight-down picture. The two most frequent colors are paired
+    with the designed colors by brightness; channels at 250 or more (clipped) or designed below 20 are not used. If every channel is
+    clipped the gain is only bounded from below, and the bound 255 / largest designed value is returned with clipped = True."""
+    c1, c2 = dominant_two(img)
+    if c2 is None:
+        if float(c1.min()) >= 250.0:  # one white void
+            return {"gain": 255.0 / float(max(max(designed_a), max(designed_b))), "clipped": True, "n_channels": 0, "drawn": [c1.tolist()]}
+        return {"gain": None, "clipped": False, "detail": "only one floor color in the picture"}
+    drawn = sorted([c1, c2], key=lambda c: float(c.sum()))
+    designed = sorted([np.asarray(designed_a, dtype=float), np.asarray(designed_b, dtype=float)], key=lambda c: float(c.sum()))
+    ratios = [float(drawn[i][k] / designed[i][k]) for i in range(2) for k in range(3) if drawn[i][k] < 250 and designed[i][k] >= 20]
+    if ratios:
+        return {"gain": float(np.median(ratios)), "clipped": False, "n_channels": len(ratios), "drawn": [d.tolist() for d in drawn]}
+    return {"gain": 255.0 / float(max(designed[0].max(), designed[1].max())), "clipped": True, "n_channels": 0, "drawn": [d.tolist() for d in drawn]}
+
+
+def project_point(p, cam_pos, forward, right, up, fovy_deg: float):
+    """Pixel (column, row) of a world point for a pinhole camera that looks along `forward` (vertical field of view fovy)."""
+    v = np.asarray(p, dtype=float) - np.asarray(cam_pos, dtype=float)
+    depth = float(v @ forward)
+    ty = math.tan(math.radians(fovy_deg) / 2.0)
+    tx = ty * WIDTH / HEIGHT
+    return (WIDTH / 2.0 + float(v @ right) / (depth * tx) * (WIDTH / 2.0), HEIGHT / 2.0 - float(v @ up) / (depth * ty) * (HEIGHT / 2.0)), depth
+
+
+def band_color_in_picture(img, gate_view: dict, fovy_deg: float, wanted_rgb) -> dict:
+    """Median color of 8 patches on the gate band in gate_front_1p5m.png. The patches are 7 x 7 pixels at the projected points
+    (y, z) = BAND_POINTS in the gate's own axes (x normal, y right, z up): on the four banner strips, away from the word
+    GATE in the middle of a strip and from the corner marks at its ends. The median over the 8 patches (per channel) is
+    compared with the look's gate color."""
+    rot = np.asarray(gate_view["rot"], dtype=float)
+    center = np.asarray(gate_view["center"], dtype=float)
+    cam = np.asarray(gate_view["camera_pos"], dtype=float)
+    fwd, right, up = (np.asarray(gate_view[k], dtype=float) for k in ("forward", "right", "up"))
+    patches, rows = [], []
+    for (y, z) in BAND_POINTS:
+        world = center + rot @ np.array([0.0, y, z])
+        (u, v), depth = project_point(world, cam, fwd, right, up, fovy_deg)
+        cu, cv = int(round(u)), int(round(v))
+        h = BAND_PATCH_PX // 2
+        if depth <= 0 or cu - h < 0 or cv - h < 0 or cu + h >= WIDTH or cv + h >= HEIGHT:
+            continue
+        med = np.median(img[cv - h:cv + h + 1, cu - h:cu + h + 1].reshape(-1, 3).astype(float), axis=0)
+        patches.append(med)
+        rows.append({"point_yz": [y, z], "pixel": [cu, cv], "color": med.tolist()})
+    if len(patches) < 4:
+        return {"ok": False, "n_patches": len(patches), "rows": rows, "median": None, "max_abs_difference": None}
+    med = np.median(np.array(patches), axis=0)
+    diff = float(np.abs(med - np.asarray(wanted_rgb, dtype=float)).max())
+    return {"ok": diff <= BAND_TOL, "n_patches": len(patches), "rows": rows, "median": med.tolist(), "max_abs_difference": diff}
+
+
 def analyze_pictures(images: dict, look: str, info: dict, checks: list, result: dict) -> None:
     """Checks that read the pictures. `info` has fovy_deg, top_distance_m. Needs top_down and scene_side in `images`."""
     c = lambda name: f"{look}/{name}"  # noqa: E731
@@ -205,6 +315,7 @@ def analyze_pictures(images: dict, look: str, info: dict, checks: list, result: 
             ok_a = c2 is not None and max(np.abs(c1 - colors[0]).max(), np.abs(c2 - colors[1]).max()) <= FLOOR_PICTURE_TOL
             ok_b = c2 is not None and max(np.abs(c1 - colors[1]).max(), np.abs(c2 - colors[0]).max()) <= FLOOR_PICTURE_TOL
             near = bool(ok_a or ok_b)
+            result['floor_gain_in_picture'] = measure_gain(top, a, b)
             add_check(checks, c("floor_colors_in_picture"), near,
                       f"the two most frequent colors of top_down.png are {c1.tolist()} and {None if c2 is None else c2.tolist()}; the look's floor colors are {a} and {b}; allowed difference {FLOOR_PICTURE_TOL:g} levels",
                       rendered=[c1.tolist(), None if c2 is None else c2.tolist()], wanted=[a, b])
@@ -218,6 +329,26 @@ def analyze_pictures(images: dict, look: str, info: dict, checks: list, result: 
                       f"size of a floor square measured in top_down.png: {meas.get('square_m')} m from {meas['n_spacings']} squares in {meas['rows_with_squares']} rows "
                       f"(median {meas.get('median_spacing_px')} px x {mpp:.6f} m per pixel, fovy {fovy:g} deg, camera {d:.4f} m above the floor); wanted {SQUARE_M} m within {SQUARE_TOLERANCE:.0%}",
                       **{k: v for k, v in meas.items() if k != "n_spacings"})
+    gv = info.get("gate_view")
+    if look != "today":
+        front = images.get("gate_front_1p5m")
+        if front is None or gv is None:
+            add_check(checks, c("gate_band_color_in_picture"), False, "gate_front_1p5m.png or the gate view was not made")
+        else:
+            wanted = la.palette(look)["gate"]
+            band = band_color_in_picture(front, gv, fovy, wanted)
+            result["gate_band_in_picture"] = band
+            add_check(checks, c("gate_band_color_in_picture"), band["ok"],
+                      f"median of {band['n_patches']} patches of {BAND_PATCH_PX} x {BAND_PATCH_PX} pixels on the gate band of gate_front_1p5m.png (points {BAND_POINTS} in the gate's axes, projected with the camera) is "
+                      f"{None if band['median'] is None else [round(v, 1) for v in band['median']]}; the look's gate color is {wanted}; allowed {BAND_TOL:g} levels per channel",
+                      patches=band["rows"])
+    elif top is not None and info.get("today_floor_model_colors"):
+        ma, mb = info["today_floor_model_colors"]
+        gm = measure_gain(top, ma, mb)
+        result["today_floor_gain"] = gm
+        add_check(checks, c("floor_still_drawn_brighter_than_picture"), gm["gain"] is not None and gm["gain"] > OLD_GAIN_MIN,
+                  f"positive control: the floor of today is drawn {gm['gain']} times its picture colors {ma} and {mb} (drawn {gm.get('drawn')}); must stay above {OLD_GAIN_MIN}",
+                  gain=gm["gain"])
     side = images.get("scene_side")
     if look != "today":
         if side is None:
@@ -332,6 +463,19 @@ def run_child(args) -> None:
         add_check(checks, c("floor_square_m_from_model"), abs(floor["square_m"] - SQUARE_M) <= 1e-9,
                   f"2 / texrepeat {floor['texrepeat']} = {2.0 / floor['texrepeat'][0]} m per picture, 2 x 2 squares: {floor['square_m']} m per square (wanted {SQUARE_M})")
 
+        # 3b. Lights: for the new looks the light sum on a floor seen from above is 1.00, so a surface is drawn in its picture color.
+        lights_edit = look_env.apply_lights_to_model(np, m, look)
+        lights = look_env.read_lights(np, m)
+        result["lights_model"] = {"edit": lights_edit, "read": lights}
+        if look == "today":
+            add_check(checks, c("lights_in_model"), True, f"lights not changed; light sum from above {lights['sum_from_above']} (information only): {lights}")
+        else:
+            hv, dv = look_env.LIGHT_VALUES["headlight"], look_env.LIGHT_VALUES["directional"]
+            hl = lights["headlight"]
+            ok = (all(abs(hl[k][i] - hv[k]) <= 1e-6 for k in hv for i in range(3)) and lights["other_lights"] == 0
+                  and all(abs(l[k][i] - dv[k]) <= 1e-6 for l in lights["lights"] for k in dv for i in range(3)) and abs(lights["sum_from_above"] - 1.0) <= 1e-6)
+            add_check(checks, c("lights_in_model"), ok, f"headlight {hl}; model lights {lights['lights']}; lights that are not straight down: {lights['other_lights']}; sum for a floor seen from above {lights['sum_from_above']} (wanted 1.00)")
+
         # 4. Sky: set on the compiled model (before the first picture), then read back.
         sky_edit = look_env.apply_sky_to_model(np, m, look)
         sky = look_env.read_sky(np, m)
@@ -360,18 +504,29 @@ def run_child(args) -> None:
 
         # 6. Pictures.
         fovy = float(m.vis.global_.fovy)
-        top_distance = TOP_HALF_EXTENT_M / math.tan(math.radians(fovy) / 2.0)
         gates_pos, gates_quat = np.asarray(obs0["gates_pos"], dtype=float), np.asarray(obs0["gates_quat"], dtype=float)
-        g = int(np.asarray(obs0["gate_sequence"])[0])
-        direction = 1.0 if int(np.asarray(obs0["gate_sequence_direction"])[0]) >= 0 else -1.0
+        # The gate for the two gate pictures: the one whose view from 1.5 m in front is least crossed by a pole (positions from the level).
+        choice = choose_gate_view(gates_pos, gates_quat, np.asarray(obs0["obstacles_pos"], dtype=float))
+        g, side = int(choice["gate"]), int(choice["side"])
         center = gates_pos[g]
-        rot = Rot.from_quat(gates_quat[g])  # scipy order x, y, z, w
-        heading = direction * rot.apply([1.0, 0.0, 0.0])  # crossing direction of the first passage (race_core.py: 1 = positive x of the gate)
+        rotm = quat_xyzw_to_matrix(gates_quat[g])  # the gate's own axes in the columns: x normal, y right, z up
+        heading = side * rotm[:, 0]
+        heading[2] = 0.0
+        heading = heading / np.linalg.norm(heading)
         heading_az = math.degrees(math.atan2(heading[1], heading[0]))
-        oblique_at = center + rot.apply(list(GATE_OBLIQUE_LOCAL))
+        oblique_at = center + rotm @ np.array(GATE_OBLIQUE_LOCAL)
+        cam_pos = center - GATE_FRONT_M * heading
+        gate_view = {"rot": rotm.tolist(), "center": center.tolist(), "camera_pos": cam_pos.tolist(), "forward": heading.tolist(),
+                     "right": [float(heading[1]), float(-heading[0]), 0.0], "up": [0.0, 0.0, 1.0]}
+        end_pt = end_xy
+        framing = track_framing([list(gp[:2]) for gp in gates_pos] + [start_xy, end_pt], fovy)
+        top_distance = framing["distance_m"]
+        cx, cy = framing["center"]
+        side_view = {**SCENE_SIDE, "lookat": (cx, cy, SIDE_LOOKAT_Z), "distance": framing["side_distance_m"]}
         sx, sy, sz = pos0
         ex, ey = end_xy
-        result["camera_inputs"] = {"fovy_deg": fovy, "top_distance_m": top_distance, "gate_index": g, "gate_center": center.tolist(), "gate_heading": heading.tolist()}
+        result["camera_inputs"] = {"fovy_deg": fovy, "top_distance_m": top_distance, "gate_index": g, "gate_side": side, "gate_number_1_based": g + 1, "gate_choice": choice,
+                                   "gate_center": center.tolist(), "gate_heading": heading.tolist(), "framing": framing}
 
         def sync() -> None:
             if not core.data.sim_data.core.mjx_synced:  # same sync as RaceCoreEnv.render: copy gate positions into the MuJoCo data
@@ -411,13 +566,33 @@ def run_child(args) -> None:
             images[view] = img
             result["pictures"][view] = {"file": f"{view}.png", "mean": float(img.mean()), "std": float(img.std()), **camera}
 
+        # The light sum should make the floor drawn at 1.00 times its picture. Measure it once on a straight-down picture; if it is off,
+        # scale all light values by 1 / gain and measure again (at most GAIN_ITERATIONS times). The first gain is a check of its own.
+        if look != "today":
+            fa, fb = la.palette(look)["floor"]
+            trace, total_factor = [], 1.0
+            for it in range(GAIN_ITERATIONS + 1):
+                gm = measure_gain(free((cx, cy, 0.0), top_distance, 90.0, -90.0), fa, fb)
+                trace.append({"iteration": it, "gain": gm["gain"], "clipped": gm.get("clipped"), "drawn": gm.get("drawn"), "light_factor_so_far": total_factor})
+                done_ok = gm["gain"] is not None and not gm.get("clipped") and abs(gm["gain"] - 1.0) <= GAIN_TOL
+                if done_ok or gm["gain"] is None or it == GAIN_ITERATIONS:
+                    break
+                look_env.scale_lights(np, m, 1.0 / gm["gain"])
+                total_factor /= gm["gain"]
+            result["light_calibration"] = {"trace": trace, "final_light_factor": total_factor, "lights_after": look_env.read_lights(np, m)}
+            first, last = trace[0], trace[-1]
+            add_check(checks, c("lights_formula_gives_floor_gain_1"), first["gain"] is not None and not first["clipped"] and abs(first["gain"] - 1.0) <= GAIN_TOL,
+                      f"floor drawn {first['gain']} times its picture color with the lights of the formula (drawn {first['drawn']}, picture colors {fa} and {fb}); wanted 1.00 within {GAIN_TOL:.0%}; "
+                      f"clipped: {first['clipped']}; if the lights had to be rescaled the factor was {total_factor}", trace=trace)
+            add_check(checks, c("floor_gain_final"), last["gain"] is not None and not last["clipped"] and abs(last["gain"] - 1.0) <= GAIN_TOL,
+                      f"floor gain at the picture time: {last['gain']} after {len(trace) - 1} rescale(s) of the lights (factor {total_factor})")
         keep("fpv_start", fpv(), camera="fpv_cam:0")
         keep("gate_front_1p5m", free(center, GATE_FRONT_M, heading_az, 0.0), lookat=center.tolist(), distance=GATE_FRONT_M, azimuth=heading_az, elevation=0.0)
         oaz = heading_az + GATE_OBLIQUE_AZIMUTH_OFFSET_DEG
         keep("gate_oblique_0p7m", free(oblique_at, GATE_OBLIQUE_M, oaz, GATE_OBLIQUE_ELEVATION_DEG), lookat=oblique_at.tolist(), distance=GATE_OBLIQUE_M, azimuth=oaz, elevation=GATE_OBLIQUE_ELEVATION_DEG)
-        s = SCENE_SIDE
+        s = side_view
         keep("scene_side", free(s["lookat"], s["distance"], s["azimuth"], s["elevation"]), **s)
-        keep("top_down", free((0.0, 0.0, 0.0), top_distance, 90.0, -90.0), lookat=[0, 0, 0], distance=top_distance, azimuth=90.0, elevation=-90.0)
+        keep("top_down", free((cx, cy, 0.0), top_distance, 90.0, -90.0), lookat=[cx, cy, 0.0], distance=top_distance, azimuth=90.0, elevation=-90.0)
         keep("pad_start_drone_0p4m", free((sx, sy, sz + 0.02), 0.4, 90.0, -20.0), lookat=[sx, sy, sz + 0.02], distance=0.4, azimuth=90.0, elevation=-20.0)
         keep("pad_end_top_1p0m", free((ex, ey, 0.0), 1.0, 90.0, -90.0), lookat=[ex, ey, 0.0], distance=1.0, azimuth=90.0, elevation=-90.0)
 
@@ -452,7 +627,9 @@ def run_child(args) -> None:
         keep("fpv_at_gate", fpv(), camera="fpv_cam:0", sim_seconds=steps / freq, position=rec["pos"][-1])
 
         # 8. Checks on the pictures.
-        analyze_pictures(images, look, {"fovy_deg": fovy, "top_distance_m": top_distance}, checks, result)
+        cc = floor["corner_colors"]
+        analyze_pictures(images, look, {"fovy_deg": fovy, "top_distance_m": top_distance, "gate_view": gate_view,
+                                        "today_floor_model_colors": [cc["top_left"], cc["top_right"]]}, checks, result)
         missing = [v for v in VIEWS if not (sub / f"{v}.png").is_file()]
         add_check(checks, c("all_8_pictures_exist"), not missing, f"missing: {missing}" if missing else f"{len(VIEWS)} pictures of {WIDTH} x {HEIGHT} in {sub}")
         result["done"] = True

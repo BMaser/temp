@@ -17,12 +17,13 @@ FLOOR  crazyflow/scene.xml line 15-16 makes the 2d texture "groundplane": builti
        `_load_track_into_sim`, as the pads do), through the MjSpec fields rgb1, rgb2, mark (mjspec.h mjsTexture, lines 578-612)
        and emission, specular, shininess, reflectance (mjsMaterial, lines 615-629):
          rgb1, rgb2 = the look's floor colors A and B     mark = none (no edge lines)     reflectance = 0 (no mirror)
-         emission = 1, specular = 0, shininess = 0, so the floor shows the picture colors as they are.
-       Why the emission: the renderer's light adds to the color. In the earlier cloud picture the floor texture (51, 76, 102)
-       was drawn as (87, 130, 174), a gain of 1.7 (results/2026-10-13_drone_drawing_scale/top_down.png). A floor of
-       (214, 198, 170) would be drawn white. With emission 1 and rgba 1 1 1 1 the lit color is clamped at white before the
-       picture multiplies it (render_gl3.c lines 253-259: glMaterialfv GL_EMISSION = emission * rgba; line 646: GL_MODULATE;
-       this is also why the pads show their own colors, assets/pads/pad_start.xml).
+         emission = 0, specular = 0, shininess = 0. The floor shows the picture colors times the light sum, and `apply_lights_to_model`
+         makes that sum 1.
+       Why not emission: the first cloud run (results in runs/2026-10-12_cloud_test/run_38500349252) drew the floor 1.70 times brighter
+       than its picture, for emission 0 (today) and for emission 1 (the new looks) alike: the emission had no visible effect. The
+       sources do set GL_EMISSION = emission * rgba (render_gl3.c lines 253-259) and GL_MODULATE (line 646), so I cannot explain
+       from the source why it made no difference; the measured gain is the fact. The look's lights are therefore set so that the
+       sum is 1 (see LIGHTS below) and the emission is 0.
        Squares: texrepeat and texuniform stay as they are (2 2, true). For an infinite plane the texture is mapped with
        S = 0.5 * texrepeat * x - 0.5 (render_gl3.c lines 122-123 take texrepeat, lines 135-143 multiply by size only when size > 0, lines
        146-149 set S and T; the grid of an infinite plane is in meters, render_context.c lines 147-166),
@@ -43,6 +44,21 @@ SKY    crazyflow/scene.xml line 14: skybox, builtin gradient, rgb1 (0.3 0.5 0.7)
        so the change must be made before the first picture and it stays after sim.close() (the model is kept). The skybox is drawn
        without light and with white color (render_gl3.c lines 1309-1338: GL_LIGHTING off, glColor4f(1,1,1,1)), so the picture
        shows the pixel colors.
+
+LIGHTS The drawn color of a surface is picture color times (emission + light sum), where the fixed-function pipeline adds, for each
+       light, ambient + diffuse * cos(angle between normal and light direction) (light colors set in render_gl3.c `initLights`,
+       lines 662-677; the material color follows glColor for ambient and diffuse, lines 655-656 and 255-259). The lights come from
+       mjvScene lights that `mjv_updateScene` fills at EVERY frame from the model: the headlight from `m.vis.headlight`
+       (visualize.c lines 2880-2904) and every model light from `m.light_ambient`, `m.light_diffuse`, `m.light_specular` (lines
+       2932-2934; mjmodel.h lines 528-530). Scene values (crazyflow scene.xml line 7 and line 21): headlight ambient 0.5, diffuse
+       0.6; one directional light pointing straight down with MuJoCo's default diffuse 0.7. A floor seen from straight above has
+       cos = 1 for both, so the sum is 0.5 + 0.6 + 0.7 = 1.8 (measured gain: 1.70, the cause of the gap of 0.1 is not known).
+       `apply_lights_to_model` sets, for the new looks only, on the compiled model (read at every frame, so no upload and no
+       spec edit are needed; the readback in `read_lights` proves it): headlight ambient 0.75, diffuse 0.10, specular 0; every
+       directional light ambient 0, diffuse 0.15, specular 0. Sum for a floor from above: 0.75 + 0.10 + 0.15 = 1.00; a wall seen
+       head on: 0.75 + 0.10 = 0.85; nothing is brighter than 1.00 and the specular light is off. `scale_lights` multiplies the
+       ambient and diffuse values by one factor; the cloud test uses it once to remove any gap that remains (a measured gain
+       other than 1 on the floor), and records the factor.
 
 Pure helper functions come first; they take `np` (numpy) and `m` (a compiled mjModel or anything with the same fields), so the
 local tests can run them on a fake model.
@@ -72,6 +88,7 @@ TEXTURE_2D, TEXTURE_SKYBOX = 0, 2
 TEXROLE_RGB = 1  # mjtTextureRole (mjtype.h line 160); mat_texid has one column per role
 SQUARE_M = 0.5  # the look's floor squares (colors.txt)
 SKY_FACES = 6
+LIGHT_DIRECTIONAL = 1  # mjtLightType (mjtype.h lines 144-147)
 
 
 def texel_float(v255: int) -> float:
@@ -100,10 +117,10 @@ def edit_floor_spec(spec, look: str) -> dict:
     tex.rgb2 = [texel_float(v) for v in b]
     tex.mark = MARK_NONE
     mat.reflectance = 0.0
-    mat.emission = 1.0
+    mat.emission = 0.0  # the look's lights add up to 1 (see apply_lights_to_model); emission would add to that
     mat.specular = 0.0
     mat.shininess = 0.0
-    return {"look": look, "changed": True, "rgb1": list(a), "rgb2": list(b), "mark": "none", "reflectance": 0.0, "emission": 1.0}
+    return {"look": look, "changed": True, "rgb1": list(a), "rgb2": list(b), "mark": "none", "reflectance": 0.0, "emission": 0.0}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -243,6 +260,67 @@ def read_sky(np, m) -> dict:
         "bottom_edge_of_side_face": pix[0, w - 1, mid].astype(int).tolist(),
         "top_edge_of_side_face": pix[0, 0, mid].astype(int).tolist(),
     }
+
+
+# ---------------------------------------------------------------------------------------------
+# Lights
+# ---------------------------------------------------------------------------------------------
+
+LIGHT_VALUES = {  # the new looks: ambient, diffuse, specular
+    "headlight": {"ambient": 0.75, "diffuse": 0.10, "specular": 0.0},
+    "directional": {"ambient": 0.0, "diffuse": 0.15, "specular": 0.0},
+}
+
+
+def _lights_of(np, m) -> list:
+    return list(range(int(m.nlight)))
+
+
+def read_lights(np, m) -> dict:
+    """Headlight and every model light as read from the compiled model, and the light sum for a surface seen from straight above
+    (headlight ambient + diffuse, plus ambient + diffuse of each directional light pointing straight down; other lights counted
+    in `other_lights`)."""
+    hl = {k: [float(v) for v in np.asarray(getattr(m.vis.headlight, k)).reshape(-1)[:3]] for k in ("ambient", "diffuse", "specular")}
+    amb = np.asarray(m.light_ambient).reshape(-1, 3)
+    dif = np.asarray(m.light_diffuse).reshape(-1, 3)
+    spe = np.asarray(m.light_specular).reshape(-1, 3)
+    directional = np.asarray(m.light_type).reshape(-1) == LIGHT_DIRECTIONAL  # mjmodel.h light_type, mjtype.h mjLIGHT_DIRECTIONAL = 1
+    dirs = np.asarray(m.light_dir).reshape(-1, 3)
+    lights, total_other = [], 0
+    for i in _lights_of(np, m):
+        down = bool(directional[i]) and abs(float(dirs[i][2]) + 1.0) < 1e-6
+        lights.append({"index": i, "directional": bool(directional[i]), "straight_down": down, "ambient": amb[i].tolist(),
+                       "diffuse": dif[i].tolist(), "specular": spe[i].tolist()})
+        total_other += 0 if down else 1
+    top_sum = hl["ambient"][0] + hl["diffuse"][0] + sum(l["ambient"][0] + l["diffuse"][0] for l in lights if l["straight_down"])
+    return {"headlight": hl, "lights": lights, "other_lights": total_other, "sum_from_above": float(top_sum)}
+
+
+def apply_lights_to_model(np, m, look: str) -> dict:
+    """Set the headlight and the directional lights of the compiled model for a new look (not for 'today')."""
+    la.check_look(look)
+    if look == "today":
+        return {"look": look, "changed": False}
+    h = LIGHT_VALUES["headlight"]
+    for k, v in h.items():
+        getattr(m.vis.headlight, k)[:] = [v, v, v]
+    d = LIGHT_VALUES["directional"]
+    arrays = {"ambient": m.light_ambient, "diffuse": m.light_diffuse, "specular": m.light_specular}
+    directional = np.asarray(m.light_type).reshape(-1) == LIGHT_DIRECTIONAL
+    for i in _lights_of(np, m):
+        if directional[i]:
+            for k, arr in arrays.items():
+                np.asarray(arr).reshape(-1, 3)[i, :] = d[k]
+    return {"look": look, "changed": True, "values": LIGHT_VALUES}
+
+
+def scale_lights(np, m, factor: float) -> None:
+    """Multiply ambient and diffuse of the headlight and of every model light by `factor` (specular is 0 and stays)."""
+    for k in ("ambient", "diffuse"):
+        getattr(m.vis.headlight, k)[:] = np.asarray(getattr(m.vis.headlight, k)).reshape(-1)[:3] * factor
+    for arr in (m.light_ambient, m.light_diffuse):
+        a = np.asarray(arr).reshape(-1, 3)
+        a[:, :] = a * factor
 
 
 # ---------------------------------------------------------------------------------------------
