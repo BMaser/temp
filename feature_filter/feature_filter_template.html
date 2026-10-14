@@ -216,7 +216,7 @@ details.lack ul{margin:4px 0 4px 18px;padding:0}
       <div class="controls">
         <b>Feature set</b>
         <span id="fsetImp"></span>
-        <label><input type="radio" name="fset" value="asked"> All 92 asked of every simulator</label>
+        <label><input type="radio" name="fset" value="asked"> <span id="fsetAskedText">All asked of every simulator</span></label>
         <label><input type="radio" name="fset" value="shown"> The features shown in the first tab</label>
       </div>
       <div class="small" id="fsetInfo"></div>
@@ -378,7 +378,7 @@ function rowInfo(data, key){
   data.sims.forEach(s => { const st = statusOf(data, s.id, key); if (st === 'yes') fullBy.push(s.id); else if (st === 'partial') partBy.push(s.id); });
   return {key:key, fullBy:fullBy, partBy:partBy, yesCount:fullBy.length};
 }
-// Keys shown in the first tab: 92 asked features, then the extras, after the filters.
+// Keys shown in the first tab: the features asked of every simulator, then the extras, after the filters.
 // opts.level: '' or undefined = all, 'none' = not ranked, '1'..'5' = that importance level (needs opts.ranks).
 function filterRows(data, opts){
   const ranks = opts.ranks || {};
@@ -1237,6 +1237,7 @@ function init(){
   if (stored === null) $('storeMsg').textContent = 'This browser blocks saving. Use "Save my choice to a file".';
   else { state.imp = stored; storeWriteImp(state.imp); }
   state.filter.set = 'imp' + state.imp.levels;
+  $('fsetAskedText').textContent = 'All ' + DATA.features.length + ' asked of every simulator';
   syncLevelControls();
   updateCounter();
   // tab 1 controls

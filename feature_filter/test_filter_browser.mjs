@@ -13,6 +13,9 @@ const PAGE = pathToFileURL(path.join(HERE, 'feature_filter.html')).href;
 const data = JSON.parse(fs.readFileSync(path.join(HERE, 'features_data.json'), 'utf8'));
 const F92 = data.features.map(f => f.id);
 const simIds = data.sims.map(s => s.id);
+// every expected number comes from the data file, never from a constant
+const N = F92.length, NX = data.extras.length, NS = simIds.length, NG = Object.keys(data.cats).length, NODES = NS + N + NG, TOTAL = N + NX;
+const cntStatus = st => simIds.reduce((a, s) => a + F92.filter(f => ans(s, f).s === st).length, 0);
 const ans = (s, f) => data.answers[s][f];
 
 const results = [];
@@ -20,6 +23,7 @@ const lines = [];
 const say = s => { lines.push(s); console.log(s); };
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok }); say((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  [' + detail + ']' : '')); };
 
+const sameRanks = (x, y) => JSON.stringify(Object.entries(x || {}).sort()) === JSON.stringify(Object.entries(y || {}).sort());
 const b = await launch(['--proxy-server=127.0.0.1:9', '--proxy-bypass-list=<-loopback>'], 1366, 768);
 await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
 
@@ -37,7 +41,7 @@ try {
   const ms = await b.waitFor("document.querySelectorAll('#allTable tbody tr').length>0", 40000);
   check('page opens from file:/// and the first tab draws rows', ms >= 0, ms + ' ms');
   const rows0 = await b.ev(`document.querySelectorAll('#allTable tbody tr').length`);
-  check('All features: 92 asked + 88 extras = 180 rows', rows0 === 180, String(rows0));
+  check('All features: ' + N + ' asked + ' + NX + ' extras = ' + TOTAL + ' rows', rows0 === TOTAL, String(rows0));
   const extraText = await b.ev(`document.querySelector('#allTable tbody tr.extra').innerText`);
   check('an extra row says "Asked of one simulator only"', /Asked of one simulator only: /.test(extraText), extraText.replace(/\s+/g, ' ').slice(0, 90));
   const how = await text('#how');
@@ -77,22 +81,22 @@ try {
   const selAfter = await b.ev(`[...document.querySelectorAll('#allTable select.rank')].filter(s=>s.value!=='0').map(s=>s.getAttribute('data-key')+'='+s.value)`);
   check('the levels survive a reload (localStorage feature_importance_v1)', cnt2 === '1: 2 · 2: 2 · 3: 2' && JSON.stringify(selAfter) === JSON.stringify(['A01=1', 'A02=1', 'A03=2', 'A04=3', 'A05=3', 'A06=2']), cnt2 + ' ' + selAfter.join());
   const stored = await b.ev(`window.localStorage.getItem('feature_importance_v1')`);
-  check('the stored value is {levels, ranks} under feature_importance_v1', stored && JSON.stringify(JSON.parse(stored)) === JSON.stringify({ levels: 3, ranks: { A01: 1, A02: 1, A03: 2, A04: 3, A05: 3, A06: 2 } }), String(stored));
+  check('the stored value is {levels, ranks} under feature_importance_v1', stored && JSON.parse(stored).levels === 3 && sameRanks(JSON.parse(stored).ranks, { A01: 1, A02: 1, A03: 2, A04: 3, A05: 3, A06: 2 }), String(stored));
   const rowKeys = async () => b.ev(`[...document.querySelectorAll('#allTable tbody tr[data-key]')].map(r=>r.getAttribute('data-key'))`);
   await setVal('#allLevel', '1'); await sleep(200);
   check('level filter "1" shows exactly the level-1 features', JSON.stringify(await rowKeys()) === JSON.stringify(['A01', 'A02']));
   await setVal('#allLevel', '3'); await sleep(200);
   check('level filter "3" shows exactly the level-3 features', JSON.stringify(await rowKeys()) === JSON.stringify(['A04', 'A05']));
   await setVal('#allLevel', 'none'); await sleep(200);
-  check('level filter "Not ranked" shows the other 174', (await rowKeys()).length === 180 - 6);
+  check('level filter "Not ranked" shows the other ' + (TOTAL - 6), (await rowKeys()).length === TOTAL - 6);
   await setVal('#allLevel', ''); await sleep(200);
   await clickSel('#allGroup'); await sleep(300);
-  const heads = await b.ev(`[...document.querySelectorAll('#allTable tbody tr.grouphead')].map(r=>r.innerText.replace(/\s+/g,' ').trim())`);
-  check('"Group by importance": headings with counts in order', JSON.stringify(heads) === JSON.stringify(['Importance 1 (highest): 2 features', 'Importance 2: 2 features', 'Importance 3 (lowest): 2 features', 'Not ranked: 174 features']), heads.join(' | '));
+  const heads = await b.ev(`[...document.querySelectorAll('#allTable tbody tr.grouphead')].map(r=>r.innerText.replace(/\\s+/g,' ').trim())`);
+  check('"Group by importance": headings with counts in order', JSON.stringify(heads) === JSON.stringify(['Importance 1 (highest): 2 features', 'Importance 2: 2 features', 'Importance 3 (lowest): 2 features', 'Not ranked: ' + (TOTAL - 6) + ' features']), heads.join(' | '));
   const order = await b.ev(`[...document.querySelectorAll('#allTable tbody tr')].filter(r=>r.getAttribute('data-key')&&['A01','A02','A03','A06','A04','A05'].includes(r.getAttribute('data-key'))).map(r=>r.getAttribute('data-key'))`);
   check('in the group view the features sit under their heading (1: A01 A02, 2: A03 A06, 3: A04 A05)', order.join() === 'A01,A02,A03,A06,A04,A05', order.join());
   await setVal('#allLevel', '2'); await sleep(200);
-  const heads2 = await b.ev(`[...document.querySelectorAll('#allTable tbody tr.grouphead')].map(r=>r.innerText.replace(/\s+/g,' ').trim())`);
+  const heads2 = await b.ev(`[...document.querySelectorAll('#allTable tbody tr.grouphead')].map(r=>r.innerText.replace(/\\s+/g,' ').trim())`);
   check('picking a level in the group view shows only that group', heads2.length === 1 && /^Importance 2: 2 features$/.test(heads2[0]) && (await rowKeys()).join() === 'A03,A06', heads2.join(' | '));
   await setVal('#allLevel', ''); await clickSel('#allGroup'); await sleep(200);
   // 5 levels and back to 3
@@ -121,7 +125,7 @@ try {
   const q1rows = await b.ev(`[...document.querySelectorAll('#q1Table tbody tr')].map(r=>({sim:r.getAttribute('data-sim'),has:+r.getAttribute('data-has'),all:r.getAttribute('data-hasall')==='1',sum:r.querySelector('.q1-sum').innerText}))`);
   const expQ1 = simIds.map(s => ({ sim: s, has: keys2.filter(k => ans(s, k).s === 'yes').length }));
   const q1bad = q1rows.filter(r => { const e = expQ1.find(x => x.sim === r.sim); return !e || e.has !== r.has || r.all !== (e.has === 2) || r.sum !== (e.has === 2 ? 'has all 2' : 'has ' + e.has + ' of 2'); });
-  check('Question 1: 22 simulators, each "has K of M" / "has all M" equals the data, "has all" first', q1rows.length === 22 && q1bad.length === 0 && q1rows.every((r, i) => i === 0 || q1rows[i - 1].all || !r.all), q1bad.map(r => r.sim).join());
+  check('Question 1: one row per simulator, each "has K of M" / "has all M" equals the data, "has all" first', q1rows.length === NS && q1bad.length === 0 && q1rows.every((r, i) => i === 0 || q1rows[i - 1].all || !r.all), q1bad.map(r => r.sim).join());
   // Question 2: default A = Crazyflow, B = all the others, in ALL of A / NONE of B
   const q2keys = await b.ev(`[...document.querySelectorAll('#q2Table tbody tr')].map(r=>r.getAttribute('data-key'))`);
   const expQ2 = F92.filter(f => ans('crazyflow', f).s === 'yes' && simIds.filter(s => s !== 'crazyflow').every(s => ans(s, f).s !== 'yes'));
@@ -136,10 +140,10 @@ try {
   const rank = await b.ev(`[...document.querySelectorAll('#rankTable tbody tr')].map(r=>({sim:r.getAttribute('data-sim'),yes:+r.querySelector('.n-yes').getAttribute('data-v'),part:+r.querySelector('.n-part').getAttribute('data-v'),lack:+r.querySelector('.n-lack').getAttribute('data-v')}))`);
   const expRank = simIds.map(s => ({ sim: s, yes: F92.filter(f => ans(s, f).s === 'yes').length, part: F92.filter(f => ans(s, f).s === 'partial').length, lack: F92.filter(f => ['no', 'not_found'].includes(ans(s, f).s)).length }));
   const mism = rank.filter(r => { const e = expRank.find(x => x.sim === r.sim); return !e || e.yes !== r.yes || e.part !== r.part || e.lack !== r.lack; });
-  check('Filter: ranking for "All 92" has 22 rows and every count equals the data', rank.length === 22 && mism.length === 0, mism.map(m => m.sim).join());
+  check('Filter: ranking for "All ' + N + '" has ' + NS + ' rows and every count equals the data', rank.length === NS && mism.length === 0, mism.map(m => m.sim).join());
   check('Filter: ranking is sorted by the first number', rank.every((r, i) => i === 0 || rank[i - 1].yes >= r.yes));
   const mxCells = await b.ev(`document.querySelectorAll('#matrix td.cell').length`);
-  check('Filter: the matrix has 92 x 22 cells', mxCells === 92 * 22, String(mxCells));
+  check('Filter: the matrix has ' + N + ' x ' + NS + ' cells', mxCells === N * NS, String(mxCells));
   const mxBad = await b.ev(`[...document.querySelectorAll('#matrix td.cell')].filter(c=>c.getAttribute('data-s')==='no').length`);
   const expNo = simIds.reduce((a, s) => a + F92.filter(f => ans(s, f).s === 'no').length, 0);
   check('Filter: the matrix keeps "no" (X) apart from "not found" (?)', mxBad === expNo && expNo > 0, mxBad + ' vs ' + expNo);
@@ -164,14 +168,14 @@ try {
     const sc = await b.ev(`[...document.querySelectorAll('#rankTable tbody tr')].map(r=>({sim:r.getAttribute('data-sim'),score:+r.querySelector('.n-score').getAttribute('data-v')}))`);
     const expScore = sim => Object.keys(setup).reduce((a, k) => a + (ans(sim, k).s === 'yes' ? weight(setup[k]) : (cp && ans(sim, k).s === 'partial' ? weight(setup[k]) / 2 : 0)), 0);
     const bad = sc.filter(r => r.score !== expScore(r.sim));
-    check('Filter: weighted score (3,2,1' + (cp ? ', part counts half' : '') + ') equals the data for all 22 simulators and the table is sorted by it', sc.length === 22 && bad.length === 0 && sc.every((r, i) => i === 0 || sc[i - 1].score >= r.score) && new Set(sc.map(r => r.score)).size > 1, bad.map(r => r.sim).join());
+    check('Filter: weighted score (3,2,1' + (cp ? ', part counts half' : '') + ') equals the data for all simulators and the table is sorted by it', sc.length === NS && bad.length === 0 && sc.every((r, i) => i === 0 || sc[i - 1].score >= r.score) && new Set(sc.map(r => r.score)).size > 1, bad.map(r => r.sim).join());
     if (cp) { await clickSel('#countPart'); await sleep(300); }
   }
   await reloadPage();
   await tab('Filter'); await sleep(300);
   const sc2 = await b.ev(`[...document.querySelectorAll('#rankTable tbody tr')].map(r=>({sim:r.getAttribute('data-sim'),score:+r.querySelector('.n-score').getAttribute('data-v')}))`);
   const expS2 = sim => Object.keys(setup).reduce((a, k) => a + (ans(sim, k).s === 'yes' ? weight(setup[k]) : 0), 0);
-  check('after a reload the weighted ranking is the same (levels were kept)', sc2.length === 22 && sc2.every(r => r.score === expS2(r.sim)) && sc2.every((r, i) => i === 0 || sc2[i - 1].score >= r.score));
+  check('after a reload the weighted ranking is the same (levels were kept)', sc2.length === NS && sc2.every(r => r.score === expS2(r.sim)) && sc2.every((r, i) => i === 0 || sc2[i - 1].score >= r.score));
   await clickSel('input[name=fset][value=asked]'); await sleep(300);
   // quick compare
   await b.ev(`(()=>{const a=document.getElementById('cmpA'),c=document.getElementById('cmpB');a.value='crazyflow';a.dispatchEvent(new Event('change'));c.value='airsim';c.dispatchEvent(new Event('change'))})()`);
@@ -200,9 +204,9 @@ try {
   const gms = await b.waitFor("document.querySelectorAll('#graph circle[data-node]').length>=120", 40000);
   const nodes = await b.ev(`document.querySelectorAll('#graph circle[data-node]').length`);
   const lines2 = await b.ev(`document.querySelectorAll('#graph line.edge').length`);
-  check('Graph draws at least 120 nodes (extras off: 121) and about 1,300 edges', gms >= 0 && nodes === 121 && lines2 === 851 + 349 + 92, nodes + ' nodes, ' + lines2 + ' edges');
+  check('Graph draws at least 120 nodes (extras off: ' + NODES + ') and the edges the data gives', gms >= 0 && nodes >= 120 && nodes === NODES && lines2 === cntStatus('yes') + cntStatus('partial') + N, nodes + ' nodes, ' + lines2 + ' edges');
   const dashed = await b.ev(`document.querySelectorAll('#graph line.edge.partial').length`);
-  check('Graph: partial edges are dashed (class partial, dash array) and counted', dashed === 349 && (await b.ev(`getComputedStyle(document.querySelector('#graph line.edge.partial')).strokeDasharray`)) !== 'none');
+  check('Graph: partial edges are dashed (class partial, dash array) and counted', dashed === cntStatus('partial') && (await b.ev(`getComputedStyle(document.querySelector('#graph line.edge.partial')).strokeDasharray`)) !== 'none');
   await b.shot('tab_graph.png', false);
   // zoom with the wheel and pan by dragging the background
   const svgBox = await b.ev(`(()=>{const r=document.getElementById('graph').getBoundingClientRect();return [r.left,r.top,r.width,r.height]})()`);
@@ -243,7 +247,7 @@ try {
   // extras toggle
   await clickSel('#gExtras'); await sleep(500);
   const nodesX = await b.ev(`document.querySelectorAll('#graph circle[data-node]').length`);
-  check('"Show extra features" adds the 88 extras', nodesX === 121 + 88, String(nodesX));
+  check('"Show extra features" adds the ' + NX + ' extras', nodesX === NODES + NX, String(nodesX));
   await clickSel('#gExtras'); await sleep(300);
   // only importance 1 to k
   await clickSel('#gVital'); await sleep(300);
@@ -278,10 +282,10 @@ try {
   let dlText = null, dlName = null;
   for (let i = 0; i < 60 && !dlText; i++) { const f = fs.readdirSync(dlDir).filter(x => !x.endsWith('.crdownload')); if (f.length) { dlName = f[0]; dlText = fs.readFileSync(path.join(dlDir, f[0]), 'utf8'); } else await sleep(250); }
   let dl = null; try { dl = JSON.parse(dlText); } catch (e) { }
-  check('"Save my choice to a file" downloads feature_importance.json with the levels and ranks', dlName === 'feature_importance.json' && dl && dl.levels === 3 && JSON.stringify(dl.ranks) === JSON.stringify({ A01: 1, A02: 1, A03: 2, A04: 3, A05: 3, A06: 2 }) && /^\d{4}-\d\d-\d\d$/.test(dl.saved), String(dlName));
+  check('"Save my choice to a file" downloads feature_importance.json with the levels and ranks', dlName === 'feature_importance.json' && dl && dl.levels === 3 && sameRanks(dl.ranks, { A01: 1, A02: 1, A03: 2, A04: 3, A05: 3, A06: 2 }) && /^\d{4}-\d\d-\d\d$/.test(dl.saved), String(dlName));
   fs.rmSync(dlDir, { recursive: true, force: true });
   // load: the old vital_features.json still works (ids become level 1); the new file restores levels and ranks
-  await b.ev(`loadChoiceText(JSON.stringify({app:'vital_features',version:1,saved:'2026-10-13',ids:['A20','A21','A22']}))`);
+  await b.ev(`loadChoiceText(JSON.stringify({app:'vital_features',version:1,saved:'2026-10-13',ids:['A10','A11','A12']}))`);
   check('loading an old vital_features.json makes its ids importance 1', (await counterNow()) === '1: 3 · 2: 0 · 3: 0');
   await b.ev(`loadChoiceText(${JSON.stringify(JSON.stringify(dl || {}))})`);
   check('loading the saved feature_importance.json restores the levels', (await counterNow()) === '1: 2 · 2: 2 · 3: 2');
@@ -291,7 +295,7 @@ try {
   // ---- 5b. the long explanation (the real data may not have it yet, so a fixture page adds it to A01 and one extra)
   // real data: every row has an explanation; the F04 toggle opens text with the word "policy"
   const realBtns = await b.ev(`document.querySelectorAll('#allTable [data-explain]').length`);
-  check('real data: every one of the 180 rows has an Explain toggle', realBtns === 180, String(realBtns));
+  check('real data: every one of the ' + TOTAL + ' rows has an Explain toggle', realBtns === TOTAL, String(realBtns));
   await clickSel('#allTable [data-explain="F04"]'); await sleep(300);
   const f04 = await b.ev(`(()=>{const r=document.querySelector('#allTable tr.explainrow');const prev=r&&r.previousElementSibling;return r?{txt:r.innerText,prevKey:prev&&prev.getAttribute('data-key')}:null})()`);
   check('real data: the Explain toggle of F04 opens text containing "policy"', !!f04 && f04.prevKey === 'F04' && /policy/i.test(f04.txt), f04 && f04.txt.slice(0, 80));

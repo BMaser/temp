@@ -21,7 +21,8 @@ const NAMES = ['simsHaving', 'featuresInAnotB', 'rankSims', 'simsWithAll', 'lack
 const load = code => new Function(code + '\nreturn {' + NAMES.join(',') + '};')();
 
 // ---- independent expectations, straight from the data
-const F92 = data.features.map(f => f.id);
+const F92 = data.features.map(f => f.id);   // the features asked of every simulator (92 today; the code never assumes a number)
+const N = F92.length, NX = data.extras.length, NS = data.sims.length, NG = Object.keys(data.cats).length, NODES = NS + N + NG;
 const simIds = data.sims.map(s => s.id);
 const ans = (sim, f) => data.answers[sim][f];
 const yesSet = sim => new Set(F92.filter(f => ans(sim, f).s === 'yes'));
@@ -33,14 +34,14 @@ function runAll(L) {
 
   // 1. ranking over the 92, toggle off and on
   const r0 = L.rankSims(data, simIds, F92, false);
-  check('rankSims returns one row per simulator', r0.length === 22);
+  check('rankSims returns one row per simulator', r0.length === NS);
   const bad0 = r0.filter(r => r.yes !== countOf(r.sim, 'yes') || r.partial !== countOf(r.sim, 'partial') || r.no !== countOf(r.sim, 'no') || r.notFound !== countOf(r.sim, 'not_found') || r.has !== countOf(r.sim, 'yes'));
   check('rankSims (part not counted): yes/partial/no/? per simulator equal the data, has = yes', bad0.length === 0, bad0.map(r => r.sim).join(','));
   check('rankSims sorted by the first number (descending)', r0.every((r, i) => i === 0 || r0[i - 1].has >= r.has));
   const r1 = L.rankSims(data, simIds, F92, true);
   const bad1 = r1.filter(r => r.has !== countOf(r.sim, 'yes') + countOf(r.sim, 'partial'));
   check('rankSims (part counted): has = yes + partial', bad1.length === 0, bad1.map(r => r.sim).join(','));
-  check('rankSims totals: yes+partial+no+? = 92 for each simulator', r0.every(r => r.yes + r.partial + r.no + r.notFound === 92 && r.unasked === 0));
+  check('rankSims totals: yes+partial+no+? = number of features for each simulator', r0.every(r => r.yes + r.partial + r.no + r.notFound === N && r.unasked === 0));
   const sumYes = r0.reduce((a, r) => a + r.yes, 0), sumPart = r0.reduce((a, r) => a + r.partial, 0);
   let dYes = 0, dPart = 0; for (const s of simIds) for (const f of F92) { if (ans(s, f).s === 'yes') dYes++; if (ans(s, f).s === 'partial') dPart++; }
   check('rankSims grand totals equal the data (yes ' + dYes + ', partial ' + dPart + ')', sumYes === dYes && sumPart === dPart, sumYes + '/' + sumPart);
@@ -67,14 +68,14 @@ function runAll(L) {
   check('simsWithAll strict and with-part differ as the data says for ' + pairP.join(','), JSON.stringify(L.simsWithAll(data, simIds, pairP, false)) === JSON.stringify(expS) && JSON.stringify(L.simsWithAll(data, simIds, pairP, true)) === JSON.stringify(expL) && expL.length > expS.length);
   check('simsWithAll with no chosen feature is empty', L.simsWithAll(data, simIds, [], false).length === 0);
   const unionStrict = L.simsWithAll(data, simIds, F92, false);
-  check('simsWithAll over all 92 equals the data', JSON.stringify(unionStrict) === JSON.stringify(simIds.filter(s => F92.every(f => ans(s, f).s === 'yes'))));
+  check('simsWithAll over all asked features equals the data', JSON.stringify(unionStrict) === JSON.stringify(simIds.filter(s => F92.every(f => ans(s, f).s === 'yes'))));
 
   // 4. lacks and takeFrom
   const lc = L.lacks(data, 'crazyflow', F92, false);
   const expLc = F92.filter(f => ans('crazyflow', f).s !== 'yes');
-  check('lacks(crazyflow, 92, part off) equals the data (' + expLc.length + ')', JSON.stringify(lc.map(x => x.key)) === JSON.stringify(expLc));
+  check('lacks(crazyflow, all asked, part off) equals the data (' + expLc.length + ')', JSON.stringify(lc.map(x => x.key)) === JSON.stringify(expLc));
   const lcP = L.lacks(data, 'crazyflow', F92, true);
-  check('lacks(crazyflow, 92, part on) drops the partial ones', JSON.stringify(lcP.map(x => x.key)) === JSON.stringify(F92.filter(f => !['yes', 'partial'].includes(ans('crazyflow', f).s))));
+  check('lacks(crazyflow, all asked, part on) drops the partial ones', JSON.stringify(lcP.map(x => x.key)) === JSON.stringify(F92.filter(f => !['yes', 'partial'].includes(ans('crazyflow', f).s))));
   const sample = expLc.slice(0, 12).concat(expLc.slice(-3));
   check('takeFrom equals the data for 15 lacking features of crazyflow', sample.every(f => JSON.stringify(L.takeFrom(data, f, 'crazyflow')) === JSON.stringify(simIds.filter(s => s !== 'crazyflow' && ans(s, f).s === 'yes'))));
   const f0 = F92.find(f => ans('crazyflow', f).s === 'yes' && ans('airsim', f).s === 'yes');
@@ -83,14 +84,14 @@ function runAll(L) {
   // 5. graph
   const g = L.graphModel(data, { showExtras: false });
   const types = t => g.nodes.filter(n => n.type === t).length;
-  check('graph with extras off: 22 sims + 92 features + 7 groups = 121 nodes', g.nodes.length === 121 && types('sim') === 22 && types('feature') === 92 && types('group') === 7, g.nodes.length + '');
+  check('graph with extras off: sims + features + groups = ' + NODES + ' nodes (' + NS + ' + ' + N + ' + ' + NG + ')', g.nodes.length === NODES && types('sim') === NS && types('feature') === N && types('group') === NG, g.nodes.length + '');
   const eY = g.edges.filter(x => x.kind === 'yes').length, eP = g.edges.filter(x => x.kind === 'partial').length, eG = g.edges.filter(x => x.kind === 'group').length;
-  check('graph edges: yes ' + dYes + ', partial ' + dPart + ', group 92', eY === dYes && eP === dPart && eG === 92 && g.edges.length === dYes + dPart + 92, eY + '/' + eP + '/' + eG);
+  check('graph edges: yes ' + dYes + ', partial ' + dPart + ', group ' + N, eY === dYes && eP === dPart && eG === N && g.edges.length === dYes + dPart + N, eY + '/' + eP + '/' + eG);
   check('graph has no edge for no or not_found', g.edges.every(x => { if (x.kind !== 'yes' && x.kind !== 'partial') return true; const s = x.from.slice(2), f = x.to.slice(2); return ans(s, f).s === x.kind; }));
   check('graph edges point to existing nodes', (() => { const ids = new Set(g.nodes.map(n => n.id)); return g.edges.every(x => ids.has(x.from) && ids.has(x.to)); })());
   const gx = L.graphModel(data, { showExtras: true });
   const exYes = data.extras.filter(x => x.s === 'yes').length, exPart = data.extras.filter(x => x.s === 'partial').length;
-  check('graph with extras on: 88 more nodes, 88 extra edges to their own simulator', gx.nodes.length === 121 + data.extras.length && gx.edges.filter(x => x.kind === 'extra').length === data.extras.length && data.extras.every(x => gx.edges.some(ed => ed.kind === 'extra' && ed.from === 's:' + x.sim && ed.to === 'f:' + x.key)) && gx.edges.filter(x => x.kind === 'extra' && x.status === 'yes').length === exYes && gx.edges.filter(x => x.kind === 'extra' && x.status === 'partial').length === exPart);
+  check('graph with extras on: one more node and one extra edge per extra (' + NX + ') to its own simulator', gx.nodes.length === NODES + data.extras.length && gx.edges.filter(x => x.kind === 'extra').length === data.extras.length && data.extras.every(x => gx.edges.some(ed => ed.kind === 'extra' && ed.from === 's:' + x.sim && ed.to === 'f:' + x.key)) && gx.edges.filter(x => x.kind === 'extra' && x.status === 'yes').length === exYes && gx.edges.filter(x => x.kind === 'extra' && x.status === 'partial').length === exPart);
   const gv = L.graphModel(data, { showExtras: false, maxLevel: 2, ranks: { A01: 1, C02: 2, B03: 3 } });
   check('graph only importance 1 to 2 keeps just those features (not the level-3 one)', gv.nodes.filter(n => n.type === 'feature').map(n => n.ref).join() === 'A01,C02' && gv.nodes.filter(n => n.type === 'group').length === 2);
   const gs = L.graphModel(data, { showExtras: false, simIds: ['crazyflow', 'airsim'] });
@@ -98,7 +99,7 @@ function runAll(L) {
 
   // 6. layout
   const lay = L.layoutGraph(g, 300, 1000, 640), lay2 = L.layoutGraph(g, 300, 1000, 640);
-  check('layout is finite and deterministic', lay.length === 121 && lay.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)) && JSON.stringify(lay) === JSON.stringify(lay2));
+  check('layout is finite and deterministic', lay.length === NODES && lay.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)) && JSON.stringify(lay) === JSON.stringify(lay2));
   const simPos = lay.filter((p, i) => g.nodes[i].type === 'sim');
   let minD = 1e9; for (let i = 0; i < simPos.length; i++) for (let j = i + 1; j < simPos.length; j++) minD = Math.min(minD, Math.hypot(simPos[i].x - simPos[j].x, simPos[i].y - simPos[j].y));
   check('layout keeps simulators apart (closest pair > 30 px)', minD > 30, 'closest pair ' + minD.toFixed(1));
@@ -115,13 +116,13 @@ function runAll(L) {
   // 8. search and filter rows
   check('searchMatch: all words must match name or definition, any case', L.searchMatch({ name: 'Open-source license', def: 'The code is published' }, 'LICENSE open') && !L.searchMatch({ name: 'Open-source license', def: 'x' }, 'license camera') && L.searchMatch({ name: 'a', def: 'b' }, ''));
   const rows = L.filterRows(data, { query: '', cat: '', level: '', noneFull: false, ranks: {} });
-  check('filterRows with no filter lists 92 + 88 rows', rows.length === 180 && rows.slice(0, 92).join() === F92.join());
+  check('filterRows with no filter lists the asked features, then the extras (' + (N + NX) + ' rows)', rows.length === N + NX && rows.slice(0, N).join() === F92.join());
   const none = L.filterRows(data, { noneFull: true, ranks: {} });
   check('filterRows "no simulator has it fully" equals the data', JSON.stringify(none.filter(k => !k.startsWith('x:'))) === JSON.stringify(F92.filter(f => simIds.every(s => ans(s, f).s !== 'yes'))) && none.filter(k => k.startsWith('x:')).every(k => data.extras.find(x => x.key === k).s !== 'yes'));
   const catB = L.filterRows(data, { cat: 'B', ranks: {} });
   check('filterRows by group equals the data', catB.length === data.features.filter(f => f.cat === 'B').length + data.extras.filter(x => x.cat === 'B').length);
   const rk = { A01: 1, A02: 2, A03: 2, B01: 3, 'x:crazyflow:0': 1 };
-  check('filterRows by level 1, 2, 3, none, and all', L.filterRows(data, { level: '1', ranks: rk }).join() === 'A01,x:crazyflow:0' && L.filterRows(data, { level: '2', ranks: rk }).join() === 'A02,A03' && L.filterRows(data, { level: '3', ranks: rk }).join() === 'B01' && L.filterRows(data, { level: 'none', ranks: rk }).length === 180 - 5 && L.filterRows(data, { level: '', ranks: rk }).length === 180);
+  check('filterRows by level 1, 2, 3, none, and all', L.filterRows(data, { level: '1', ranks: rk }).join() === 'A01,x:crazyflow:0' && L.filterRows(data, { level: '2', ranks: rk }).join() === 'A02,A03' && L.filterRows(data, { level: '3', ranks: rk }).join() === 'B01' && L.filterRows(data, { level: 'none', ranks: rk }).length === N + NX - 5 && L.filterRows(data, { level: '', ranks: rk }).length === N + NX);
 
   // 8b. Question 1: simsHaving
   const q1k = ['A01', 'B03', 'C05', 'D02', 'E04'];
@@ -129,7 +130,7 @@ function runAll(L) {
   for (const cp of [false, true]) {
     const rows1 = L.simsHaving(data, q1k, cp);
     const expRows = simIds.map(s => ({ sim: s, full: q1k.filter(f => st(s, f) === 'yes'), part: q1k.filter(f => st(s, f) === 'partial'), lack: q1k.filter(f => ['no', 'not_found'].includes(st(s, f))) }));
-    const okRows = rows1.length === 22 && rows1.every(r => { const e = expRows.find(x => x.sim === r.sim); const has = e.full.length + (cp ? e.part.length : 0); return JSON.stringify(r.full) === JSON.stringify(e.full) && JSON.stringify(r.part) === JSON.stringify(e.part) && JSON.stringify(r.lack) === JSON.stringify(e.lack) && r.has === has && r.hasAll === (has === q1k.length) && r.total === 5; });
+    const okRows = rows1.length === NS && rows1.every(r => { const e = expRows.find(x => x.sim === r.sim); const has = e.full.length + (cp ? e.part.length : 0); return JSON.stringify(r.full) === JSON.stringify(e.full) && JSON.stringify(r.part) === JSON.stringify(e.part) && JSON.stringify(r.lack) === JSON.stringify(e.lack) && r.has === has && r.hasAll === (has === q1k.length) && r.total === 5; });
     check('simsHaving (part ' + (cp ? 'counted' : 'not counted') + '): lists, has and hasAll equal the data for 5 features', okRows);
     const firstNon = rows1.findIndex(r => !r.hasAll);
     check('simsHaving (part ' + (cp ? 'counted' : 'not counted') + '): "has all" simulators come first, then by count', rows1.slice(0, firstNon < 0 ? rows1.length : firstNon).every(r => r.hasAll) && rows1.slice(firstNon < 0 ? rows1.length : firstNon).every(r => !r.hasAll) && rows1.every((r, i) => i === 0 || r.hasAll !== rows1[i - 1].hasAll || rows1[i - 1].has >= r.has));
@@ -200,7 +201,7 @@ function runAll(L) {
     const wr = L.weightedRank(data, simIds, keysW, impW, cp, true);
     const expScore = s => keysW.reduce((a, f) => a + (st(s, f) === 'yes' ? wfun(rkk[f]) : (st(s, f) === 'partial' && cp ? wfun(rkk[f]) / 2 : 0)), 0);
     const expMax = keysW.reduce((a, f) => a + wfun(rkk[f]), 0);
-    check('weightedRank (' + levels + ' levels, part ' + (cp ? 'half' : 'zero') + '): scores and max equal the data, sorted by score', wr.length === 22 && wr.every(r => r.score === expScore(r.sim) && r.maxScore === expMax) && wr.every((r, i) => i === 0 || wr[i - 1].score >= r.score));
+    check('weightedRank (' + levels + ' levels, part ' + (cp ? 'half' : 'zero') + '): scores and max equal the data, sorted by score', wr.length === NS && wr.every(r => r.score === expScore(r.sim) && r.maxScore === expMax) && wr.every((r, i) => i === 0 || wr[i - 1].score >= r.score));
     const wn = L.weightedRank(data, simIds, keysW, impW, cp, false);
     check('weightedRank (' + levels + ' levels, part ' + (cp ? 'half' : 'zero') + '): without byScore the order and counts are those of rankSims', JSON.stringify(wn.map(r => [r.sim, r.yes, r.partial, r.lacks])) === JSON.stringify(L.rankSims(data, simIds, keysW, cp).map(r => [r.sim, r.yes, r.partial, r.lacks])));
   }
@@ -210,13 +211,13 @@ function runAll(L) {
   check('explain: read from features and extras (trimmed); blank or missing gives an empty string', L.featureInfo(fix, fix.features[0].id).explain === 'A long plain explanation.' && L.featureInfo(fix, fix.extras[0].key).explain === 'Extra explanation.' && L.featureInfo(fix, fix.features[1].id).explain === '' && L.featureInfo(fix, fix.features[2].id).explain === '' && typeof L.featureInfo(data, 'A01').explain === 'string');
 
   const noExp = [...data.features, ...data.extras].filter(x => !(typeof x.explain === 'string' && x.explain.trim()));
-  check('real data: all 92 features and all 88 extras have a non-empty explain (' + (180 - noExp.length) + ' of 180)', noExp.length === 0 && data.features.length === 92 && data.extras.length === 88 && [...data.features.map(f => f.id), ...data.extras.map(e => e.key)].every(k => L.featureInfo(data, k).explain.length > 0), noExp.slice(0, 3).map(x => x.id || x.key).join());
+  check('real data: every feature and every extra has a non-empty explain (' + (N + NX - noExp.length) + ' of ' + (N + NX) + ')', noExp.length === 0 && [...data.features.map(f => f.id), ...data.extras.map(e => e.key)].every(k => L.featureInfo(data, k).explain.length > 0), noExp.slice(0, 3).map(x => x.id || x.key).join());
 
   // 9. extras are asked of one simulator only
   const ex = data.extras[0];
   check('extras: status is the data for its own simulator and "unasked" for the others', L.statusOf(data, ex.sim, ex.key) === ex.s && simIds.filter(s => s !== ex.sim).every(s => L.statusOf(data, s, ex.key) === 'unasked'));
   const rx = L.rankSims(data, simIds, [ex.key], false);
-  check('rankSims on one extra counts 21 simulators as "not asked"', rx.filter(r => r.unasked === 1).length === 21 && rx.find(r => r.sim === ex.sim).unasked === 0);
+  check('rankSims on one extra counts every other simulator as "not asked"', rx.filter(r => r.unasked === 1).length === NS - 1 && rx.find(r => r.sim === ex.sim).unasked === 0);
   const sm = L.summarizeSim(data, 'crazyflow');
   check('summarizeSim counts equal the data', sm.yes.length === countOf('crazyflow', 'yes') && sm.partial.length === countOf('crazyflow', 'partial') && sm.no.length === countOf('crazyflow', 'no') && sm.not_found.length === countOf('crazyflow', 'not_found') && sm.extras.yes.length + sm.extras.partial.length === data.extras.filter(x => x.sim === 'crazyflow').length);
   return out;
