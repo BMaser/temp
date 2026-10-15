@@ -7,8 +7,7 @@ Two sub-commands (python 3.9 with the airsim client; see the workflow and airsim
   merge                           reads all runs/*.json and writes results/airsim/gate.json
 
 Physics steps/s: AirSim's physics loop period is 3 ms (SimModeWorldBase.h: physics_loop_period_ = 3000000LL, saved in
-sources/airsim/src_SimModeWorldBase.h), so steps/s = (simulated seconds per wall second) / 0.003. The sim is started with
-ClockSpeed 50 so that the measurement shows what the machine can do, not the real-time cap.
+sources/airsim/src_SimModeWorldBase.h), so steps/s = (simulated seconds per wall second) / 0.003. The variants nullrhi_fast uses ClockSpeed 20 so that the measurement can show more than the real-time cap.
 """
 
 import argparse
@@ -127,29 +126,25 @@ def merge() -> int:
     ok = [r for r in runs if r.get("camera_ok")]
     world_rank = {"Africa_Savannah": 0, "LandscapeMountains": 1, "Blocks": 2}
     ok.sort(key=lambda r: (world_rank.get(r["world"], 9), r["variant"]))
-    nulls = [r for r in runs if r["variant"] == "nullrhi" and r.get("physics")]
     if ok:
         b = ok[0]
         g["camera_ok"] = True
         g["camera_size"] = b.get("camera_size")
         g["camera_frames_per_s"] = (b.get("camera") or {}).get("frames_per_s")
-        g["physics_steps_per_s"] = b["physics"]["physics_steps_per_s"]
-        g["real_time_factor"] = b["physics"]["real_time_factor"]
         g["world_used"] = f"{b['world']} (variant {b['variant']})"
         for i, p in enumerate(sorted(runs_dir().glob(f"{b['variant']}__{b['world']}_pic_*.png"))[:3], 1):
             (d / f"cam_{i}.png").write_bytes(p.read_bytes())
     else:
         g["camera_ok"] = False if runs else None
-        withphys = [r for r in runs if r.get("physics")]
-        if withphys:
-            b = max(withphys, key=lambda r: r["physics"]["physics_steps_per_s"])
-            g["physics_steps_per_s"] = b["physics"]["physics_steps_per_s"]
-            g["real_time_factor"] = b["physics"]["real_time_factor"]
-            g["world_used"] = f"{b['world']} (variant {b['variant']}); no picture was non-blank"
-    if nulls:
-        n = max(nulls, key=lambda r: r["physics"]["physics_steps_per_s"])
-        note_lines.append(f"-nullrhi run ({n['world']}): rtf {n['physics']['real_time_factor']:.2f}, physics steps/s {n['physics']['physics_steps_per_s']:.0f}")
-    g["notes"] = ("physics_steps_per_s = (sim seconds per wall second, from the vehicle-state timestamp, sim started with ClockSpeed 50) / 0.003 s "
+    withphys = [r for r in runs if r.get("physics")]
+    if withphys:
+        b2 = max(withphys, key=lambda r: r["physics"]["physics_steps_per_s"])
+        g["physics_steps_per_s"] = b2["physics"]["physics_steps_per_s"]
+        g["real_time_factor"] = b2["physics"]["real_time_factor"]
+        if not ok:
+            g["world_used"] = f"{b2['world']} (no variant gave a non-blank picture; physics from variant {b2['variant']})"
+        note_lines.append(f"physics_steps_per_s taken from the fastest connected run: {b2['variant']} / {b2['world']}")
+    g["notes"] = ("physics_steps_per_s = (sim seconds per wall second, from the vehicle-state timestamp, the sim was started with ClockSpeed 1, or 20 in the nullrhi_fast variant) / 0.003 s "
                   "(AirSim's fixed physics loop period). camera_frames_per_s = simGetImages(Scene, 640x480, uncompressed) calls per second over RPC. Runs: " + " || ".join(note_lines))
     if not g["camera_ok"]:
         g["log_excerpt"] = g.get("log_excerpt") or common.excerpt(d / "log.txt")

@@ -224,7 +224,7 @@ jobs:
       - name: Gate
         id: gate
         continue-on-error: true
-        run: bash tests/sim_gate/airsim_run.sh
+        run: bash tests/sim_gate/ue_run.sh airsim
       - name: Finalize
         if: always()
         run: python3 tests/sim_gate/common.py finalize airsim
@@ -279,7 +279,7 @@ jobs:
       - name: Gate
         id: gate
         continue-on-error: true
-        run: bash tests/sim_gate/projectairsim_run.sh
+        run: bash tests/sim_gate/ue_run.sh project_airsim
       - name: Finalize
         if: always()
         run: python3 tests/sim_gate/common.py finalize project_airsim

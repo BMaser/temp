@@ -83,6 +83,8 @@ def main() -> int:
         common.write_gate(g)
         return 1
     cam_topic = cam_m.group(1)
+    mm = re.search(r"/model/([^/]+)/", cam_topic)
+    model = mm.group(1) if mm else None
     notes.append(f"camera topic {cam_topic}; model {model}")
 
     node = Node()

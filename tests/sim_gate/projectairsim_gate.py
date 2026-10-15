@@ -169,19 +169,21 @@ def merge() -> int:
         g["camera_ok"] = True
         g["camera_size"] = b.get("camera_size")
         g["camera_frames_per_s"] = (b.get("camera") or {}).get("frames_per_s")
-        g["physics_steps_per_s"] = (b.get("physics_fast_clock") or b.get("physics_stepped") or {}).get("steps_per_s")
-        g["real_time_factor"] = (b.get("physics_as_shipped") or {}).get("real_time_factor")
         g["world_used"] = f"{b['world']} (variant {b['variant']}), scene_basic_drone.jsonc, sensor {b.get('camera_sensor_used')}"
         for i, p in enumerate(sorted(runs_dir().glob(f"{b['variant']}__{b['world']}_{b.get('camera_sensor_used')}_*.png"))[:3], 1):
             (d / f"cam_{i}.png").write_bytes(p.read_bytes())
     else:
         g["camera_ok"] = False if runs else None
-        withp = [r for r in runs if r.get("physics_stepped")]
-        if withp:
-            b = max(withp, key=lambda r: r["physics_stepped"]["steps_per_s"])
-            g["physics_steps_per_s"] = (b.get("physics_fast_clock") or b["physics_stepped"])["steps_per_s"]
-            g["real_time_factor"] = (b.get("physics_as_shipped") or {}).get("real_time_factor")
-            g["world_used"] = f"{b['world']} (variant {b['variant']}); no non-blank picture"
+    def best_steps(r):
+        return (r.get("physics_fast_clock") or r.get("physics_stepped") or {}).get("steps_per_s") or 0
+    withp = [r for r in runs if r.get("physics_stepped") or r.get("physics_fast_clock")]
+    if withp:
+        b2 = max(withp, key=best_steps)
+        g["physics_steps_per_s"] = best_steps(b2)
+        g["real_time_factor"] = (b2.get("physics_as_shipped") or {}).get("real_time_factor")
+        if not ok:
+            g["world_used"] = f"{b2['world']} (no variant gave a non-blank picture; physics from variant {b2['variant']})"
+        lines.append(f"physics_steps_per_s taken from the fastest connected run: {b2['variant']} / {b2['world']}")
     g["notes"] = ("physics_steps_per_s = sim steps (3 ms) per wall second when the scene clock is set to step every 0.1 ms of real time (scene_basic_drone_fast.jsonc, a copy of the shipped scene with only real-time-update-rate changed), see physics_fast_clock in runs/*.json; the shipped scene and continue_for_n_steps are both paced to ~333 steps/s; "
                   "real_time_factor = sim seconds per wall second when the sim runs on its own; camera_frames_per_s = drone.get_images(Scene) calls per second. Runs: " + " || ".join(lines))
     if not g["camera_ok"]:
