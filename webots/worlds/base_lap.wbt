@@ -7,7 +7,7 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
 
-WorldInfo { title "Base lap" basicTimeStep 4 }
+WorldInfo { title "Base lap" basicTimeStep 4 physicsDisableTime 1000000 physicsDisableLinearThreshold 0 physicsDisableAngularThreshold 0 }
 Viewpoint { orientation -0.25 0.25 0.93 1.6 position 3.8 -2.8 2.6 }
 TexturedBackground { }
 TexturedBackgroundLight { }

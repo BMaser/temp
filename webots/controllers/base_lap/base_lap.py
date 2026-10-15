@@ -111,10 +111,13 @@ def main():
         start_yaw = float(ny.yaw_from_quat_xyzw(lc.quat_xyzw_from_R(R)))
         plan = ny.plan_yaw(vel_xy, dt, YAW_RATE_MAX, V_MIN, start_yaw)
         yaw_fn = lambda t: float(plan[min(max(int(round(t / dt)), 0), len(plan) - 1)])
-        ctl = lc.LapController(dt, yaw_fn, spline)
+        attempt = int(os.environ.get("BASE_LAP_ATTEMPT", "0"))
+        gains = lc.GAIN_SETS[attempt % len(lc.GAIN_SETS)]
+        child["attempt"], child["gains"] = attempt, {k: list(v) if isinstance(v, tuple) else v for k, v in gains.items()}
+        ctl = lc.LapController(dt, yaw_fn, spline, **gains)
         pc = lc.PassageCounter()
 
-        rec = {k: [] for k in ("time", "pos", "vel", "quat", "ang_vel", "passed", "cmd_yaw", "motors")}
+        rec = {k: [] for k in ("time", "pos", "vel", "quat", "ang_vel", "passed", "cmd_yaw", "motors", "thrust_scale", "tau")}
         pic_step = []
         collisions = []  # (time, what)
         airborne = False
@@ -123,6 +126,7 @@ def main():
         geo_hits = []
         max_tilt = 0.0
         end, end_n = None, None
+        last_wm = np.zeros(4)
         n = 1 if child.get("extra_first_step") else 0
         wall0 = time.perf_counter()
         steps_loop = 0
@@ -139,12 +143,16 @@ def main():
                 rec["ang_vel"].append(w_body.tolist())
                 rec["passed"].append(int(pc.count))
                 rec["cmd_yaw"].append(yaw_fn(t))
+                rec["motors"].append(list(map(float, last_wm)))
+                rec["thrust_scale"].append(float(ctl.s))
+                rec["tau"].append([float(x) for x in ctl.last.get("tau", [0, 0, 0])])
             pc.update(t, p)
             if n % SAMPLE_EVERY == 0:
                 rec["passed"][-1] = int(pc.count)
             if p[2] > LIFTOFF_Z:
                 airborne = True
-            max_tilt = max(max_tilt, math.degrees(math.acos(float(np.clip(R[2, 2], -1, 1)))))
+            max_tilt_now = math.degrees(math.acos(float(np.clip(R[2, 2], -1, 1))))
+            max_tilt = max(max_tilt, max_tilt_now)
             d, gi = lc.distance_to_frame(p)
             if d < min_frame[0]:
                 min_frame = (d, gi, t)
@@ -180,10 +188,15 @@ def main():
                     end, end_n = "crash", n
                 elif t >= T_LIMIT:
                     end, end_n = "time", n
+                elif airborne and max_tilt_now > 75.0:
+                    end, end_n = "flip", n
+                elif not airborne and t > 6.0:
+                    end, end_n = "no_liftoff", n
             if end is not None and (n - end_n) * dt >= AFTER_END_S and n % SAMPLE_EVERY == 0:
                 break
             # control
             wm = ctl.step(t, p, v, R, w_body) if end is None else ctl.step(min(t, lc.T_TOTAL), p, v, R, w_body)
+            last_wm = wm
             for m, s, val in zip(motors, sign, wm):
                 m.setVelocity(float(s * val))
             if robot.step(dt_ms) == -1:
@@ -208,7 +221,8 @@ def main():
         total = len(lc.GATE_SEQUENCE)
         arrays = {
             "time": np.array(rec["time"]), "pos": np.array(rec["pos"]), "vel": np.array(rec["vel"]), "quat": np.array(rec["quat"]),
-            "ang_vel": np.array(rec["ang_vel"]), "cmd_yaw": np.array(rec["cmd_yaw"]), "passed": np.array(rec["passed"], dtype=np.int64),
+            "ang_vel": np.array(rec["ang_vel"]), "motors": np.array(rec["motors"]), "thrust_scale": np.array(rec["thrust_scale"]),
+            "tau": np.array(rec["tau"]), "cmd_yaw": np.array(rec["cmd_yaw"]), "passed": np.array(rec["passed"], dtype=np.int64),
             "pic_step": np.array(pic_step, dtype=np.int64), "pic_time": np.array([rec["time"][r] for r in pic_step]),
             "plan": plan, "planned_xy": spline(np.linspace(0, lc.T_TOTAL, 200))[:, :2], "start_yaw": np.array(start_yaw),
             "gates_pos": lc.GATES[:, :3].copy(),

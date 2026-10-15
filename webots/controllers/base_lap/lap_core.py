@@ -120,8 +120,10 @@ class LapController:
     """position P -> velocity PI -> thrust vector -> attitude P -> body-rate P -> torques -> four motor speeds."""
 
     def __init__(self, dt, yaw_plan_fn, spline, kp_pos=4.0, kp_vel=5.0, ki_vel=1.0, kp_att=(14.0, 14.0, 5.0), kp_rate=(45.0, 45.0, 25.0),
-                 v_max=3.0, tilt_max_deg=35.0):
+                 v_max=1.5, tilt_max_deg=25.0, ki_thrust=1.5, ground_tilt_deg=4.0):
         self.dt, self.yaw_plan, self.spline = dt, yaw_plan_fn, spline
+        self.ki_thrust, self.s = ki_thrust, 1.0  # s scales the thrust: it learns the real hover thrust (the model may be off)
+        self.ground_tilt = math.radians(ground_tilt_deg)
         self.kp_pos, self.kp_vel, self.ki_vel = kp_pos, kp_vel, ki_vel
         self.kp_att, self.kp_rate = np.array(kp_att), np.array(kp_rate)
         self.v_max, self.tilt_max = v_max, math.radians(tilt_max_deg)
@@ -140,15 +142,17 @@ class LapController:
         if n > self.v_max:
             v_sp *= self.v_max / n
         ev = v_sp - v
+        self.s = float(np.clip(self.s + self.ki_thrust * ev[2] * self.dt, 0.6, 3.0))
         self.int = np.clip(self.int + ev * self.dt, -1.0, 1.0)
         a_cmd = a_ref + self.kp_vel * ev + self.ki_vel * self.int
         F = MASS * (a_cmd + np.array([0.0, 0.0, G]))
         if F[2] < 1e-3:
             F[2] = 1e-3
+        tilt_lim = self.tilt_max if p[2] > 0.12 else self.ground_tilt  # stay level while still on the floor
         horiz = np.linalg.norm(F[:2])
-        if horiz > F[2] * math.tan(self.tilt_max):
-            F[:2] *= F[2] * math.tan(self.tilt_max) / horiz
-        T = max(float(F @ R[:, 2]), 0.0)
+        if horiz > F[2] * math.tan(tilt_lim):
+            F[:2] *= F[2] * math.tan(tilt_lim) / horiz
+        T = max(float(F @ R[:, 2]), 0.0) * self.s
         z_des = F / np.linalg.norm(F)
         yaw = self.yaw_plan(t)
         xc = np.array([math.cos(yaw), math.sin(yaw), 0.0])
@@ -160,7 +164,7 @@ class LapController:
         w_sp = -self.kp_att * e_R
         tau = INERTIA @ (self.kp_rate * (w_sp - w_body)) + np.cross(w_body, INERTIA @ w_body)
         w = mix(T, tau)
-        self.last = {"p_ref": p_ref, "v_ref": v_ref, "T": T, "yaw_cmd": yaw, "e_R": e_R}
+        self.last = {"p_ref": p_ref, "v_ref": v_ref, "T": T, "s": self.s, "yaw_cmd": yaw, "e_R": e_R, "tau": tau, "w_sp": w_sp}
         return w
 
 
@@ -198,3 +202,15 @@ def quat_xyzw_from_R(R):
         q = [(m[0, 2] + m[2, 0]) / s, (m[1, 2] + m[2, 1]) / s, 0.25 * s, (m[1, 0] - m[0, 1]) / s]
     q = np.array(q)
     return q / np.linalg.norm(q)
+
+
+# gain sets tried one after the other by tests/webots_base_run.py (index = BASE_LAP_ATTEMPT): the real inertia of the Webots
+# drone is not known, so the first sets are the safest ones
+GAIN_SETS = [
+    dict(kp_pos=3.0, kp_vel=4.0, ki_vel=1.0, kp_att=(8.0, 8.0, 3.0), kp_rate=(25.0, 25.0, 12.0)),
+    dict(kp_pos=2.5, kp_vel=3.0, ki_vel=0.8, kp_att=(5.0, 5.0, 2.0), kp_rate=(12.0, 12.0, 6.0)),
+    dict(kp_pos=4.0, kp_vel=5.0, ki_vel=1.0, kp_att=(14.0, 14.0, 5.0), kp_rate=(45.0, 45.0, 25.0)),
+    dict(kp_pos=2.0, kp_vel=2.5, ki_vel=0.5, kp_att=(3.5, 3.5, 1.5), kp_rate=(6.0, 6.0, 3.0)),
+    dict(kp_pos=2.0, kp_vel=2.5, ki_vel=0.5, kp_att=(2.5, 2.5, 1.0), kp_rate=(3.0, 3.0, 2.0)),
+    dict(kp_pos=1.5, kp_vel=2.0, ki_vel=0.4, kp_att=(2.0, 2.0, 1.0), kp_rate=(2.0, 2.0, 1.0)),
+]

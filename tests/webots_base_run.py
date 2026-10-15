@@ -32,12 +32,12 @@ WIDTH, HEIGHT, FPS = 640, 480, 25
 RUN_TIMEOUT_S = 50 * 60
 
 
-def run_webots(out: Path) -> dict:
+def run_one(out: Path, attempt: int) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     for f in ("states.npz", "child.json", "fpv.rgb", "chase.rgb"):
         (out / f).unlink(missing_ok=True)
     env = {**os.environ, "BASE_LAP_REPO": str(REPO), "BASE_LAP_OUT": str(out.resolve()), "LIBGL_ALWAYS_SOFTWARE": "1",
-           "WEBOTS_HOME": os.environ.get("WEBOTS_HOME", "/usr/local/webots"), "WEBOTS_VERSION": "R2025a"}
+           "WEBOTS_HOME": os.environ.get("WEBOTS_HOME", "/usr/local/webots"), "WEBOTS_VERSION": "R2025a", "BASE_LAP_ATTEMPT": str(attempt)}
     cmd = ["xvfb-run", "-a", "-s", "-screen 0 1280x1024x24 +extension GLX +render -noreset", "webots", "--mode=fast", "--batch",
            "--stdout", "--stderr", "--minimize", str(WORLD)]
     print("RUN:", " ".join(cmd), flush=True)
@@ -70,6 +70,52 @@ def run_webots(out: Path) -> dict:
         except subprocess.TimeoutExpired:
             os.killpg(p.pid, signal.SIGKILL)
     return {"status": status, "wall_s": time.perf_counter() - t0}
+
+
+def attempt_ok(child: dict) -> bool:
+    return bool(child) and child.get("end") == "finished" and child.get("passages") == 5 and child.get("collision_count") == 0
+
+
+def run_webots(out: Path) -> dict:
+    """Tries the gain sets of lap_core.GAIN_SETS one after the other (the inertia of the Webots drone is not known); stops at
+    the first lap that is flown cleanly, else keeps the attempt with the most passages. Each attempt is a fresh Webots start."""
+    import shutil
+
+    order = [int(x) for x in os.environ.get("BASE_LAP_ATTEMPTS", "0,1,2,3,4,5").split(",")]
+    log, best, best_key = [], None, None
+    t0 = time.perf_counter()
+    for attempt in order:
+        adir = out / "attempts" / f"a{attempt}"
+        info = run_one(adir, attempt)
+        cj = adir / "child.json"
+        child = json.loads(cj.read_text()) if cj.is_file() else {}
+        key = (child.get("passages", -1) if child else -1, -(child.get("collision_count") or 0))
+        row = {"attempt": attempt, "run": info, "end": child.get("end"), "passages": child.get("passages"), "max_tilt_deg": child.get("max_tilt_deg"),
+               "collisions": child.get("collision_count"), "sim_seconds": child.get("sim_seconds"), "gains": child.get("gains"), "traceback": child.get("traceback")}
+        log.append(row)
+        print("ATTEMPT", json.dumps(row, default=str), flush=True)
+        if best is None or key > best_key:
+            best, best_key = attempt, key
+        if attempt_ok(child):
+            best = attempt
+            break
+        if (adir / "fpv.rgb").is_file() and attempt != best:
+            pass
+        for raw in ("fpv.rgb", "chase.rgb"):
+            if attempt != best:
+                (adir / raw).unlink(missing_ok=True)
+        if time.perf_counter() - t0 > 80 * 60:
+            break
+    for a in log:  # raw pictures of attempts that were not chosen are not kept
+        if a["attempt"] != best:
+            for raw in ("fpv.rgb", "chase.rgb"):
+                (out / "attempts" / f"a{a['attempt']}" / raw).unlink(missing_ok=True)
+    bdir = out / "attempts" / f"a{best}"
+    for f in ("states.npz", "child.json", "fpv.rgb", "chase.rgb", "webots.log"):
+        if (bdir / f).is_file():
+            shutil.move(str(bdir / f), str(out / f))
+    (out / "attempts.json").write_text(json.dumps({"chosen": best, "log": log}, indent=2, default=str))
+    return {"status": f"attempt {best} chosen of {[a['attempt'] for a in log]}", "wall_s": time.perf_counter() - t0}
 
 
 def encode_raw(raw: Path, mp4: Path, w: int, h: int) -> int:
@@ -105,6 +151,9 @@ def post(out: Path, run_info: dict) -> dict:
     child = json.loads(child_p.read_text())
     res["child_traceback"] = child.get("traceback")
     child["controller_name"] = "cascaded lap controller (position, velocity, attitude, body rate, motors)"
+    if child.get("end") in ("flip", "no_liftoff"):
+        child["end_detail"] = child["end"]
+        child["end"] = "crash" if child["end"] == "flip" else "time"
     child_p.write_text(json.dumps(child, indent=2))
     npz = out / "states.npz"
     if not npz.is_file():

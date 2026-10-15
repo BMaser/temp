@@ -56,6 +56,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results
+          set -o pipefail
           /usr/bin/python3 tests/webots_base_check.py --out results 2>&1 | tee results/check.log
 
       - name: Job summary
