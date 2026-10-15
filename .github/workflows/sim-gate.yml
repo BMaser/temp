@@ -203,8 +203,8 @@ jobs:
               libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64
             python -m venv .airsim-venv
             .airsim-venv/bin/pip install --upgrade pip
-            .airsim-venv/bin/pip install msgpack-rpc-python numpy pillow opencv-python-headless
-            .airsim-venv/bin/pip install --no-deps airsim==1.8.1
+            .airsim-venv/bin/pip install setuptools wheel msgpack-rpc-python numpy pillow opencv-python-headless
+            .airsim-venv/bin/pip install --no-deps --no-build-isolation airsim==1.8.1
             .airsim-venv/bin/python -c "import airsim; print('airsim client', airsim.__version__)"
             echo "AirSim $AIRSIM_TAG (Blocks.zip, Africa_Savannah.zip), python client airsim 1.8.1" > results/airsim/version.txt
             for w in Blocks Africa_Savannah; do

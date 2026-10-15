@@ -50,7 +50,7 @@ def main() -> int:
     notes = []
     try:
         from gz.msgs10.image_pb2 import Image
-        from gz.msgs10.world_statistics_pb2 import WorldStatistics
+        from gz.msgs10.world_stats_pb2 import WorldStatistics
         from gz.msgs10.pose_pb2 import Pose
         from gz.msgs10.boolean_pb2 import Boolean
         from gz.transport13 import Node

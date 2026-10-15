@@ -11,6 +11,9 @@ set -u
 OUT=results/project_airsim
 mkdir -p "$OUT/runs"
 PY=.pasim-venv/bin/python
+# a copy of the shipped scene whose clock is stepped every 0.1 ms of real time instead of every 3 ms, to see how fast physics can go
+sed 's/"real-time-update-rate": 3000000/"real-time-update-rate": 100000/' ProjectAirSim_src/client/python/example_user_scripts/sim_config/scene_basic_drone.jsonc > ProjectAirSim_src/client/python/example_user_scripts/sim_config/scene_basic_drone_fast.jsonc
+grep -n "real-time-update-rate" ProjectAirSim_src/client/python/example_user_scripts/sim_config/scene_basic_drone_fast.jsonc
 SCRIPT=tests/sim_gate/projectairsim_gate.py
 SIMCFG=$(pwd)/ProjectAirSim_src/client/python/example_user_scripts/sim_config
 
@@ -22,6 +25,17 @@ sleep 3
 LVP=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -n 1)
 echo "lavapipe ICD file: ${LVP:-none}"
 { echo "== vulkaninfo --summary (lavapipe) =="; VK_ICD_FILENAMES="$LVP" vulkaninfo --summary 2>&1 | head -n 40; } >> "$OUT/log.txt" || true
+
+diag_logs() {   # diag_logs <world> <variant>: Unreal writes its own log files; show the newest ones
+  local world=$1 variant=$2 f
+  for f in $(find pasim_bin/$world -name "*.log" -newer "$OUT/xvfb.log" 2>/dev/null | head -n 3); do
+    echo "---- [$variant/$world] Unreal log $f (last 60 lines)" >> "$OUT/log.txt"
+    tail -n 60 "$f" >> "$OUT/log.txt"
+    cp "$f" "$OUT/unreal_${variant}__${world}_$(basename "$f")" 2>/dev/null
+  done
+  for f in $(find / -maxdepth 3 -name "core*" -newer "$OUT/xvfb.log" -type f 2>/dev/null | head -n 2); do echo "core file: $f" >> "$OUT/log.txt"; done
+  ls -la pasim_bin/$world | head -n 20 >> "$OUT/log.txt"
+}
 
 run_variant() {   # run_variant <variant> <world>
   local variant=$1 world=$2 sh args
@@ -45,7 +59,9 @@ run_variant() {   # run_variant <variant> <world>
     sleep 5
     if ! kill -0 "$simpid" 2>/dev/null && [ $(( $(date +%s) - t0 )) -gt 30 ]; then
       echo "[$variant/$world] the sim process ended early; stopping the client" | tee -a "$OUT/log.txt"
+      wait "$simpid" 2>/dev/null; echo "[$variant/$world] sim exit status $?" | tee -a "$OUT/log.txt"
       kill "$pypid" 2>/dev/null
+      diag_logs "$world" "$variant"
       break
     fi
   done

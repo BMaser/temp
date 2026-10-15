@@ -44,12 +44,14 @@ def build_project(proj: Path) -> Path:
 
 
 def run_webots(world: Path, mode: str, out: Path, log: Path, rendering: bool) -> dict:
+    out = out.resolve()
     result_json = out / f"controller_{mode}.json"
     result_json.unlink(missing_ok=True)
     env = {**os.environ, "GATE_MODE": mode, "GATE_OUT": str(result_json), "GATE_PIC_DIR": str(out),
            "GATE_MIN_WALL_S": "12" if mode == "physics" else "14", "LIBGL_ALWAYS_SOFTWARE": "1",
            "WEBOTS_HOME": str(WEBOTS_HOME)}
-    cmd = ["xvfb-run", "-a", "-s", "-screen 0 1280x1024x24 +extension GLX +render -noreset", "webots", "--mode=fast", "--batch",
+    port = "1240" if mode == "physics" else "1250"
+    cmd = ["xvfb-run", "-a", "-s", "-screen 0 1280x1024x24 +extension GLX +render -noreset", "webots", f"--port={port}", "--mode=fast", "--batch",
            "--stdout", "--stderr", "--minimize"] + (["--no-rendering"] if not rendering else []) + [str(world)]
     print("RUN:", " ".join(cmd), flush=True)
     t0 = time.perf_counter()
@@ -80,9 +82,9 @@ def run_webots(world: Path, mode: str, out: Path, log: Path, rendering: bool) ->
 
 
 def main() -> int:
-    out = common.results_dir("webots")
+    out = common.results_dir("webots").resolve()
     g = common.new_gate("webots")
-    ver = subprocess.run(["webots", "--version"], capture_output=True, text=True, env={**os.environ, "LIBGL_ALWAYS_SOFTWARE": "1"})
+    ver = subprocess.run(["xvfb-run", "-a", "webots", "--version"], capture_output=True, text=True, env={**os.environ, "LIBGL_ALWAYS_SOFTWARE": "1"})
     g["version_or_commit"] = (ver.stdout + ver.stderr).strip().replace("\n", "; ")[:200] or "unknown"
     g["world_used"] = "projects/robots/dji/mavic/worlds/mavic_2_pro.wbt (DJI Mavic 2 PRO over a rural area: windmills, pines, cherry-tree forest, road, small manor); camera 640x480; drone started at 5 m"
     try:

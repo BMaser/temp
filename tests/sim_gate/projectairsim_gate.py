@@ -127,6 +127,18 @@ async def measure(variant: str, world_name: str, sim_config: str) -> int:
             drone.disable_api_control()
         except Exception:
             pass
+
+        # (c) physics as fast as it goes: reload the scene with a copy whose clock steps every 0.1 ms of real time (3 ms of sim time per step)
+        try:
+            world = World(client, "scene_basic_drone_fast.jsonc", delay_after_load_sec=2, sim_config_path=sim_config)
+            time.sleep(1.0)
+            s0, w0 = world.get_sim_time(), time.perf_counter()
+            time.sleep(MEASURE_S)
+            s1, w1 = world.get_sim_time(), time.perf_counter()
+            res["physics_fast_clock"] = {"wall_s": w1 - w0, "sim_s": (s1 - s0) / 1e9, "real_time_factor": (s1 - s0) / 1e9 / (w1 - w0),
+                                         "steps_per_s": (s1 - s0) / 3e6 / (w1 - w0)}
+        except Exception:
+            res["physics_fast_error"] = traceback.format_exc()[-800:]
     except Exception:
         res["traceback"] = traceback.format_exc()
     finally:
@@ -148,7 +160,7 @@ def merge() -> int:
         cam = r.get("camera") or {}
         ps, pp = r.get("physics_stepped") or {}, r.get("physics_as_shipped") or {}
         lines.append(f"[{r['variant']} / {r['world']}] connected={r['connected']} camera_ok={r.get('camera_ok')} stds={r.get('stds')} "
-                     f"rtf_shipped={pp.get('real_time_factor')} stepped_steps/s={ps.get('steps_per_s')} cam_fps={cam.get('frames_per_s')} "
+                     f"rtf_shipped={pp.get('real_time_factor')} stepped_steps/s={ps.get('steps_per_s')} fast_clock_steps/s={(r.get('physics_fast_clock') or {}).get('steps_per_s')} cam_fps={cam.get('frames_per_s')} "
                      f"error={(r.get('traceback') or '').strip().splitlines()[-1][:160] if r.get('traceback') else None}")
     g["headless_ok"] = any(r["connected"] for r in runs) if runs else None
     ok = sorted([r for r in runs if r.get("camera_ok")], key=lambda r: ({"LandscapeMountains": 0, "Blocks": 1}.get(r["world"], 9), r["variant"]))
@@ -157,7 +169,7 @@ def merge() -> int:
         g["camera_ok"] = True
         g["camera_size"] = b.get("camera_size")
         g["camera_frames_per_s"] = (b.get("camera") or {}).get("frames_per_s")
-        g["physics_steps_per_s"] = (b.get("physics_stepped") or {}).get("steps_per_s")
+        g["physics_steps_per_s"] = (b.get("physics_fast_clock") or b.get("physics_stepped") or {}).get("steps_per_s")
         g["real_time_factor"] = (b.get("physics_as_shipped") or {}).get("real_time_factor")
         g["world_used"] = f"{b['world']} (variant {b['variant']}), scene_basic_drone.jsonc, sensor {b.get('camera_sensor_used')}"
         for i, p in enumerate(sorted(runs_dir().glob(f"{b['variant']}__{b['world']}_{b.get('camera_sensor_used')}_*.png"))[:3], 1):
@@ -167,10 +179,10 @@ def merge() -> int:
         withp = [r for r in runs if r.get("physics_stepped")]
         if withp:
             b = max(withp, key=lambda r: r["physics_stepped"]["steps_per_s"])
-            g["physics_steps_per_s"] = b["physics_stepped"]["steps_per_s"]
+            g["physics_steps_per_s"] = (b.get("physics_fast_clock") or b["physics_stepped"])["steps_per_s"]
             g["real_time_factor"] = (b.get("physics_as_shipped") or {}).get("real_time_factor")
             g["world_used"] = f"{b['world']} (variant {b['variant']}); no non-blank picture"
-    g["notes"] = ("physics_steps_per_s = steps per wall second with the clock paused and continue_for_n_steps(3000) (as fast as the machine goes, 3 ms per step); "
+    g["notes"] = ("physics_steps_per_s = sim steps (3 ms) per wall second when the scene clock is set to step every 0.1 ms of real time (scene_basic_drone_fast.jsonc, a copy of the shipped scene with only real-time-update-rate changed), see physics_fast_clock in runs/*.json; the shipped scene and continue_for_n_steps are both paced to ~333 steps/s; "
                   "real_time_factor = sim seconds per wall second when the sim runs on its own; camera_frames_per_s = drone.get_images(Scene) calls per second. Runs: " + " || ".join(lines))
     if not g["camera_ok"]:
         g["log_excerpt"] = g.get("log_excerpt") or common.excerpt(d / "log.txt")
