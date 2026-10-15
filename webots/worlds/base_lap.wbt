@@ -2,10 +2,10 @@
 # Base lap world: level 0 gates (our square model), poles, start and end pad, the Webots Crazyflie. Written by tools/make_webots_world.py; do not edit by hand.
 # The Crazyflie robot is the Webots one (Copyright Cyberbotics Ltd., Apache-2.0 for the code in the Webots repository; see webots/NOTICE.md).
 
-EXTERNPROTO "webots://projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
-EXTERNPROTO "webots://projects/objects/backgrounds/protos/TexturedBackground.proto"
-EXTERNPROTO "webots://projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
-EXTERNPROTO "webots://projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
 
 WorldInfo { title "Base lap" basicTimeStep 4 }
 Viewpoint { orientation -0.25 0.25 0.93 1.6 position 3.8 -2.8 2.6 }

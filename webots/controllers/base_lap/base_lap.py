@@ -83,7 +83,7 @@ def main():
 
         contact_api = "none"
         try:
-            node.enableContactPointsTracking(dt_ms, False)
+            node.enableContactPointsTracking(dt_ms, True)
             contact_api = "getContactPoints"
         except Exception as e:  # noqa: BLE001
             child["contact_enable_error"] = repr(e)

@@ -49,6 +49,9 @@ def run_webots(out: Path) -> dict:
             if p.poll() is not None:
                 status = f"webots exited with code {p.returncode}"
                 break
+            if time.perf_counter() - t0 > 90 and "Skipped unknown" in (out / "webots.log").read_text(errors="ignore"):
+                status = "the world did not load (Skipped unknown node or PROTO in the Webots log)"
+                break
             if (out / "child.json").is_file():
                 status = "controller finished"
                 for _ in range(30):  # give Webots a moment to quit by itself
