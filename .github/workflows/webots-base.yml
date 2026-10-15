@@ -1,0 +1,81 @@
+name: Webots base lap
+
+# One Crazyflie flies one lap through the four gates (5 passages) of the level 0 track in Webots R2025a on the free runner
+# (4 cores, no graphics card: Xvfb + Mesa software drawing). The job writes flight_result.json, three films, summary.md and
+# result.json. See tests/webots_base_run.py (run and outputs), tests/webots_base_check.py (pass rule),
+# webots/ (world and controllers).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webots-base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Webots R2025a (deb), software rendering, python packages and ffmpeg
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth mesa-utils libgl1-mesa-dri libglx-mesa0 libegl-mesa0 \
+            python3-numpy python3-scipy python3-pil ffmpeg wget
+          wget -nv -O webots.deb https://github.com/cyberbotics/webots/releases/download/R2025a/webots_2025a_amd64.deb
+          sudo apt-get install -y ./webots.deb
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a webots --version
+          ffmpeg -version | head -n 1
+          /usr/bin/python3 -c "import numpy, scipy, PIL; print('numpy', numpy.__version__, 'scipy', scipy.__version__, 'Pillow', PIL.__version__)"
+
+      - name: Offline checks (controller against a simple model, yaw plan, result writer)
+        id: unit
+        continue-on-error: true
+        run: |
+          mkdir -p results
+          set -o pipefail
+          {
+            /usr/bin/python3 tests/webots_controller_sim.py
+            /usr/bin/python3 tests/test_nose_yaw.py | tail -n 3
+            /usr/bin/python3 tests/test_flight_result.py | tail -n 3
+          } 2>&1 | tee results/offline_checks.log
+
+      - name: Fly the lap in Webots and make the films and the result file
+        id: fly
+        continue-on-error: true
+        run: |
+          mkdir -p results
+          set -o pipefail
+          /usr/bin/python3 tests/webots_base_run.py run --out results 2>&1 | tee results/run.log
+
+      - name: Apply pass rule
+        id: check
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p results
+          /usr/bin/python3 tests/webots_base_check.py --out results 2>&1 | tee results/check.log
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f results/summary.md ]; then cat results/summary.md >> "$GITHUB_STEP_SUMMARY"; else echo "No summary.md was written (fly step: ${{ steps.fly.outcome }})." >> "$GITHUB_STEP_SUMMARY"; fi
+          df -h / | tail -n 1
+
+      - name: Remove files that are not results
+        if: always()
+        run: rm -f results/*.rgb
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: webots-base-results
+          path: results/
+          if-no-files-found: warn
+
+      - name: Fail the job when the check failed
+        if: always()
+        run: |
+          test "${{ steps.check.outcome }}" = success
