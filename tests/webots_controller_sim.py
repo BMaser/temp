@@ -28,7 +28,7 @@ def _expm(W):
     return np.eye(3) + math.sin(th) / th * W + (1 - math.cos(th)) / th ** 2 * (W @ W)
 
 
-def run(rate=4.0, verbose=True, **gains):
+def run(rate=1.5, verbose=True, slew=None, inertia_scale=1.0, **gains):
     start = np.array([*lc.START_XY, lc.START_Z])
     sp = lc.build_spline(start)
     times = np.arange(0, lc.T_TOTAL + 5, DT)
@@ -36,23 +36,27 @@ def run(rate=4.0, verbose=True, **gains):
     plan = ny.plan_yaw(vel, DT, rate, 0.15, 0.0)
     yaw_fn = lambda t: float(plan[min(int(round(t / DT)), len(plan) - 1)])
     ctl = lc.LapController(DT, yaw_fn, sp, **gains)
+    slew = lc.SLEW_RAD_S2 if slew is None else slew
+    inertia = lc.INERTIA * inertia_scale
+    w_act = np.zeros(4)
     p, v, R, w = start.copy(), np.zeros(3), np.eye(3), np.zeros(3)
     pc = lc.PassageCounter()
     tilt, dmin = 0.0, 9.0
     t = 0.0
     log = []
-    while t < lc.T_TOTAL + 3 and pc.count < 5:
-        wm = ctl.step(t, p, v, R, w)
-        T, tau = lc.forces_from_speeds(wm)
+    while t < lc.T_SPIN + lc.T_TOTAL + 3 and pc.count < 5:
+        wm = ctl.step(t - lc.T_SPIN, p, v, R, w)
         for _ in range(4):
             h = DT / 4
+            w_act = w_act + np.clip(wm - w_act, -slew * h, slew * h)
+            T, tau = lc.forces_from_speeds(w_act)
             acc = R[:, 2] * T / lc.MASS - np.array([0, 0, lc.G])
             if p[2] <= lc.START_Z and acc[2] < 0:
                 acc[2] = 0.0
                 v[2] = max(v[2], 0.0)
             p = p + v * h + 0.5 * acc * h * h
             v = v + acc * h
-            wd = np.linalg.solve(lc.INERTIA, tau - np.cross(w, lc.INERTIA @ w))
+            wd = np.linalg.solve(inertia, tau - np.cross(w, inertia @ w))
             w = w + wd * h
             R = R @ _expm(hat(w * h))
         t += DT
@@ -61,7 +65,7 @@ def run(rate=4.0, verbose=True, **gains):
         dmin = min(dmin, lc.distance_to_frame(p)[0])
         log.append((t, *p))
     log = np.array(log)
-    err = np.linalg.norm(log[:, 1:] - sp(np.minimum(log[:, 0], lc.T_TOTAL)), axis=1)
+    err = np.linalg.norm(log[:, 1:] - sp(np.clip(log[:, 0] - lc.T_SPIN, 0, lc.T_TOTAL)), axis=1)
     out = {"passages": pc.count, "t_end": round(t, 2), "max_tilt": round(tilt, 1), "min_frame_dist": round(dmin, 3),
            "max_track_err": round(float(err.max()), 3), "passage_log": [(round(a, 2), b, c, round(d, 3), round(e, 3)) for a, b, c, d, e in pc.log]}
     if verbose:

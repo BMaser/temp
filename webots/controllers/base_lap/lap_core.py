@@ -131,6 +131,9 @@ class LapController:
         self.last = {}
 
     def reference(self, t):
+        """Reference at lap time t. Before the lap (t < 0, the rotors are spinning up on the floor) it is the start point at rest."""
+        if t < 0.0:
+            return self.spline(0.0), np.zeros(3), np.zeros(3)
         tt = min(t, T_TOTAL)
         return self.spline(tt), self.spline(tt, 1), self.spline(tt, 2)
 
@@ -142,7 +145,8 @@ class LapController:
         if n > self.v_max:
             v_sp *= self.v_max / n
         ev = v_sp - v
-        self.s = float(np.clip(self.s + self.ki_thrust * ev[2] * self.dt, 0.6, 3.0))
+        if p[2] > 0.05:  # learn the hover thrust only in the air (on the floor the rotors are still spinning up)
+            self.s = float(np.clip(self.s + self.ki_thrust * ev[2] * self.dt, 0.85, 1.3))
         self.int = np.clip(self.int + ev * self.dt, -1.0, 1.0)
         a_cmd = a_ref + self.kp_vel * ev + self.ki_vel * self.int
         F = MASS * (a_cmd + np.array([0.0, 0.0, G]))
@@ -154,7 +158,7 @@ class LapController:
             F[:2] *= F[2] * math.tan(tilt_lim) / horiz
         T = max(float(F @ R[:, 2]), 0.0) * self.s
         z_des = F / np.linalg.norm(F)
-        yaw = self.yaw_plan(t)
+        yaw = self.yaw_plan(max(t, 0.0))
         xc = np.array([math.cos(yaw), math.sin(yaw), 0.0])
         y_des = np.cross(z_des, xc)
         y_des /= np.linalg.norm(y_des)
@@ -204,13 +208,14 @@ def quat_xyzw_from_R(R):
     return q / np.linalg.norm(q)
 
 
-# gain sets tried one after the other by tests/webots_base_run.py (index = BASE_LAP_ATTEMPT): the real inertia of the Webots
-# drone is not known, so the first sets are the safest ones
+# The rotors of the Webots Crazyflie cannot change speed faster than about 30 rad/s^2 (measured from the first cloud runs:
+# the speed estimated from the vertical acceleration ramps at +-30 rad/s^2 whatever the command). So the loops are slow.
+T_SPIN = 2.4  # s on the floor before the lap starts: the rotors need 55 / 30 = 1.9 s to reach the hover speed
+SLEW_RAD_S2 = 30.0
+# gain sets tried one after the other by tests/webots_base_run.py (index = BASE_LAP_ATTEMPT)
 GAIN_SETS = [
-    dict(kp_pos=3.0, kp_vel=4.0, ki_vel=1.0, kp_att=(8.0, 8.0, 3.0), kp_rate=(25.0, 25.0, 12.0)),
-    dict(kp_pos=2.5, kp_vel=3.0, ki_vel=0.8, kp_att=(5.0, 5.0, 2.0), kp_rate=(12.0, 12.0, 6.0)),
-    dict(kp_pos=4.0, kp_vel=5.0, ki_vel=1.0, kp_att=(14.0, 14.0, 5.0), kp_rate=(45.0, 45.0, 25.0)),
-    dict(kp_pos=2.0, kp_vel=2.5, ki_vel=0.5, kp_att=(3.5, 3.5, 1.5), kp_rate=(6.0, 6.0, 3.0)),
-    dict(kp_pos=2.0, kp_vel=2.5, ki_vel=0.5, kp_att=(2.5, 2.5, 1.0), kp_rate=(3.0, 3.0, 2.0)),
-    dict(kp_pos=1.5, kp_vel=2.0, ki_vel=0.4, kp_att=(2.0, 2.0, 1.0), kp_rate=(2.0, 2.0, 1.0)),
+    dict(kp_pos=1.5, kp_vel=2.5, ki_vel=0.5, kp_att=(3.0, 3.0, 1.5), kp_rate=(8.0, 8.0, 4.0)),
+    dict(kp_pos=1.2, kp_vel=2.0, ki_vel=0.4, kp_att=(2.2, 2.2, 1.2), kp_rate=(5.0, 5.0, 3.0)),
+    dict(kp_pos=2.0, kp_vel=3.0, ki_vel=0.6, kp_att=(4.0, 4.0, 2.0), kp_rate=(12.0, 12.0, 6.0)),
+    dict(kp_pos=1.0, kp_vel=1.5, ki_vel=0.3, kp_att=(1.6, 1.6, 1.0), kp_rate=(3.5, 3.5, 2.0)),
 ]

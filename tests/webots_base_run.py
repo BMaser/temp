@@ -205,7 +205,8 @@ def write_summary(out: Path, child: dict, res: dict) -> None:
     s = json.loads(fr.read_text())["summary"] if fr.is_file() else {}
     L = ["### Webots base lap", ""]
     L.append(f"- Gates passed: **{child.get('passages')} of {child.get('gates_total')}** (end: {child.get('end')})")
-    L.append(f"- Lap time: {s.get('lap_time_s')} s (flight time {s.get('flight_time_s')} s)")
+    lap = s.get("lap_time_s")
+    L.append(f"- Lap time: {None if lap is None else round(lap - (child.get('spin_up_s') or 0), 3)} s from the start of the planned path (the file's lap_time_s = {lap} s also counts the {child.get('spin_up_s')} s on the floor while the rotors spin up; flight time {s.get('flight_time_s')} s)")
     L.append(f"- Largest tilt: {child.get('max_tilt_deg')} deg (flight_result: {s.get('max_tilt_deg')} deg)")
     L.append(f"- Closest distance of the drone center to a gate frame (collision box): {child.get('closest_frame_distance_m')} m, gate {child.get('closest_frame_gate')}, at {child.get('closest_frame_time')} s (the drone body is about 0.05 m in radius)")
     L.append(f"- Steps per second of wall time: {child.get('steps_per_s')} (steps of {child.get('basic_time_step_ms')} ms; {child.get('steps')} steps in {child.get('wall_s')} s with 2 cameras of 640 x 480)")

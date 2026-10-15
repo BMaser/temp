@@ -27,12 +27,12 @@ import nose_yaw as ny  # noqa: E402
 
 from controller import Supervisor  # noqa: E402
 
-YAW_RATE_MAX = 4.0  # rad/s, the rate run A chose
+YAW_RATE_MAX = 1.5  # rad/s (run A chose 4; the Webots rotors cannot change speed fast, see lap_core.SLEW_RAD_S2)
 V_MIN = 0.15
 SAMPLE_EVERY = 5  # steps of 4 ms -> 50 Hz rows
 PICTURE_EVERY = 10  # steps -> 25 pictures per second
 AFTER_END_S = 0.4
-T_LIMIT = lc.T_TOTAL + 10.0
+T_LIMIT = lc.T_SPIN + lc.T_TOTAL + 10.0
 LIFTOFF_Z = 0.06
 
 
@@ -142,7 +142,7 @@ def main():
                 rec["quat"].append(lc.quat_xyzw_from_R(R).tolist())
                 rec["ang_vel"].append(w_body.tolist())
                 rec["passed"].append(int(pc.count))
-                rec["cmd_yaw"].append(yaw_fn(t))
+                rec["cmd_yaw"].append(yaw_fn(t - lc.T_SPIN))
                 rec["motors"].append(list(map(float, last_wm)))
                 rec["thrust_scale"].append(float(ctl.s))
                 rec["tau"].append([float(x) for x in ctl.last.get("tau", [0, 0, 0])])
@@ -190,12 +190,12 @@ def main():
                     end, end_n = "time", n
                 elif airborne and max_tilt_now > 75.0:
                     end, end_n = "flip", n
-                elif not airborne and t > 6.0:
+                elif not airborne and t > lc.T_SPIN + 6.0:
                     end, end_n = "no_liftoff", n
             if end is not None and (n - end_n) * dt >= AFTER_END_S and n % SAMPLE_EVERY == 0:
                 break
             # control
-            wm = ctl.step(t, p, v, R, w_body) if end is None else ctl.step(min(t, lc.T_TOTAL), p, v, R, w_body)
+            wm = ctl.step(t - lc.T_SPIN, p, v, R, w_body)
             last_wm = wm
             for m, s, val in zip(motors, sign, wm):
                 m.setVelocity(float(s * val))
@@ -235,7 +235,7 @@ def main():
         child.update(
             end=end, rows_saved=int(rows), passages=int(rec["passed"][-1]), gates_total=total, steps=steps_loop, wall_s=wall,
             steps_per_s=steps_loop / wall if wall else None, sim_seconds=float(rec["time"][-1]), pictures=n_pic,
-            max_tilt_deg=max_tilt, closest_frame_distance_m=min_frame[0], closest_frame_gate=min_frame[1], closest_frame_time=min_frame[2],
+            max_tilt_deg=max_tilt, spin_up_s=lc.T_SPIN, closest_frame_distance_m=min_frame[0], closest_frame_gate=min_frame[1], closest_frame_time=min_frame[2],
             closest_pole_surface_distance_m=min_pole[0], closest_pole=min_pole[1],
             passage_log=[{"time": a, "passage": b, "gate": c, "ly": d, "lz": e} for a, b, c, d, e in pc.log],
             wrong_crossings=[{"time": a, "gate": b, "ly": c, "lz": d} for a, b, c, d in pc.wrong],
