@@ -71,6 +71,13 @@ def ss_at(sec):
     ev("ss", at=sec, listening_41451=any(":41451 " in l for l in r.stdout.splitlines()), lines=listening, sim_alive=sim.poll() is None)
 for s in (2, 5, 10, 20, 40):
     threading.Thread(target=ss_at, args=(s,), daemon=True).start()
+def shot_at(sec):
+    time.sleep(max(0, sec - (time.time() - T0)))
+    r = subprocess.run(["import", "-window", "root", str(out / f"shot_{sec}s.png")], capture_output=True, text=True,
+                       env={**os.environ, "DISPLAY": ":99"})
+    ev("screenshot", at=sec, rc=r.returncode, err=r.stderr[:200])
+for s in (2, 5, 10):
+    threading.Thread(target=shot_at, args=(s,), daemon=True).start()
 
 import airsim
 first_open = None; connected = False; tries = 0; sim_exit = None

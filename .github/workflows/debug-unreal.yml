@@ -12,6 +12,9 @@ on:
       airsim_variants:
         description: "AirSim variants to run"
         default: "A1,A2,A3,A4"
+      p5:
+        description: "Project AirSim: run P5 (AllowCPUDevices + client pictures)"
+        default: "false"
       skip_p1:
         description: "Project AirSim: skip the P1 run (true/false)"
         default: "false"
@@ -38,7 +41,7 @@ jobs:
           mkdir -p ev
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1 libgl1-mesa-dri libglu1-mesa \
-            libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64
+            libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64 imagemagick
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install setuptools wheel msgpack-rpc-python numpy
@@ -99,7 +102,7 @@ jobs:
           mkdir -p ev
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1 libgl1-mesa-dri libglu1-mesa \
-            libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64 strace binutils
+            libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64 strace binutils imagemagick
           curl -fL --retry 5 -o Blocks.zip "https://github.com/iamaisim/ProjectAirSim/releases/download/$PASIM_TAG/Blocks-Linux-1.0.1.zip"
           mkdir -p pasim_bin && unzip -q Blocks.zip -d pasim_bin && rm Blocks.zip
           find pasim_bin -maxdepth 3 | head -n 20
@@ -132,6 +135,22 @@ jobs:
           Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb.log 2>&1 &
           sleep 3
           bash debug_unreal/pasim_probe.sh "$PWD/pasim_bin" "$PWD/ev" P1 -RenderOffScreen -ResX=640 -ResY=480 -nosound -windowed || true
+      - name: P1w, windowed on Xvfb (no RenderOffScreen) so that a message box can show
+        if: inputs.skip_p1 != 'true'
+        continue-on-error: true
+        run: |
+          pgrep Xvfb >/dev/null || { Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb_w.log 2>&1 & sleep 3; }
+          bash debug_unreal/pasim_probe.sh "$PWD/pasim_bin" "$PWD/ev" P1w -ResX=640 -ResY=480 -nosound -windowed || true
+      - name: P5, AllowCPUDevices plus a Python client (pictures)
+        if: inputs.p5 == 'true'
+        continue-on-error: true
+        run: |
+          pgrep Xvfb >/dev/null || { Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb_p5.log 2>&1 & sleep 3; }
+          git clone --depth 1 --branch "$PASIM_TAG" https://github.com/iamaisim/ProjectAirSim.git ProjectAirSim_src
+          python3 -m venv .pa
+          .pa/bin/pip install -q projectairsim==1.0.1 numpy pillow
+          export PA_CLIENT=1 PA_PY=$PWD/.pa/bin/python PA_SIMCFG=$PWD/ProjectAirSim_src/client/python/example_user_scripts/sim_config SIM_TIMEOUT=170
+          bash debug_unreal/pasim_probe.sh "$PWD/pasim_bin" "$PWD/ev" P5 -RenderOffScreen -ResX=640 -ResY=480 -nosound -windowed -AllowCPUDevices || true
       - name: P3 one extra run
         if: inputs.p3_args != ''
         continue-on-error: true
