@@ -461,7 +461,7 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
                 p0 = smp[0]
                 dist = [math.hypot(x["n"] - p0["n"], x["e"] - p0["e"]) for x in smp]
                 plen = sum(math.hypot(b["n"] - a["n"], b["e"] - a["e"]) for a, b in zip(smp[:-1], smp[1:]))
-                result["route_check"] = {"max_height_above_first_sample_m": round(max(-(x["d"] - p0["d"]) for x in smp), 2),
+                result["route_check"] = {"rise_from_lowest_to_highest_m": round(max(-x["d"] for x in smp) - min(-x["d"] for x in smp), 2),
                                          "farthest_from_start_m": round(max(dist), 2), "end_distance_from_start_m": round(dist[-1], 2),
                                          "horizontal_path_length_m": round(plen, 1)}
     result["flight"] = flight
@@ -474,6 +474,9 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
     if TEST:
         if flight.get("stage") == "done":
             verdict = "TEST RUN: the flight route was flown (stage done). No pictures, as expected with -nullrhi."
+        elif flight.get("stage") == "no_connection" and kind == "airsim":
+            verdict = ("TEST RUN: AirSim never opened its remote-control port with -nullrhi (the same happened in the earlier gate run), "
+                       "so the flight could not be tested against the real simulator.")
         else:
             verdict = f"TEST RUN FAILED: the flight stopped at stage '{flight.get('stage')}'. No pictures, as expected with -nullrhi."
     elif good:
@@ -487,7 +490,7 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
     lines = [f"# {title}: first camera films", "", f"**Result: {verdict}**", ""]
     lines += ["## In plain English", ""]
     if used:
-        lines.append(f"- The simulator drew its pictures in graphics mode **{used['variant']}** (modes tried, in order: "
+        lines.append(f"- The graphics mode that worked was **{used['variant']}** (modes tried, in order: "
                      + ", ".join(f"{a['variant']} ({'worked' if a.get('used') else 'failed'})" for a in attempts) + ").")
     else:
         lines.append("- No graphics mode gave pictures. Modes tried: " + (", ".join(a["variant"] for a in attempts) or "none") + ".")
@@ -512,7 +515,7 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
     if flight.get("start"):
         rc_ = result.get("route_check", {})
         lines.append(f"- Route: take off to about 3 m, one figure eight (12 m long, 6 m wide) with the nose along the direction of flight, then hover. "
-                     f"Measured: highest point {rc_.get('max_height_above_first_sample_m')} m above the first sample, farthest from the start {rc_.get('farthest_from_start_m')} m, "
+                     f"Measured: rise from the lowest to the highest point {rc_.get('rise_from_lowest_to_highest_m')} m, farthest from the start {rc_.get('farthest_from_start_m')} m, "
                      f"{rc_.get('end_distance_from_start_m')} m from the start at the end, path length {rc_.get('horizontal_path_length_m')} m. "
                      f"Collision checks that reported a hit: {t.get('collision_checks_with_hit', 'not measured')}.")
     lines += ["", "## Files in this folder", ""]

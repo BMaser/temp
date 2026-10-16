@@ -18,8 +18,10 @@ jobs:
         run: |
           mkdir -p out
           python colab_unreal/check_notebook.py racing_drone_unreal_films.ipynb /tmp/script.py 2>&1 | tee out/check_notebook.log
-      - name: Python packages for the film code
-        run: pip install numpy pillow
+      - name: Python packages and ffmpeg for the film code
+        run: |
+          pip install numpy pillow
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - name: MOCK test of the AirSim flight program and the film code (a toy client, not AirSim)
         id: mock
         continue-on-error: true
