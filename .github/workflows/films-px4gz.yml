@@ -1,0 +1,95 @@
+name: PX4 Gazebo feature films
+
+# Feature films of PX4 v1.17.0 SITL + Gazebo Harmonic (world baylands, x500 with a nose camera and a chase camera) on the free runner
+# (4 cores, no graphics card: Xvfb + Mesa software drawing). One job makes any subset of the films F01 to F11 (FILMS, default F05,F06 =
+# slice 1: night, clouds and rain). See tests/px4_gazebo_films_run.py (run, films, film_result.json) and px4_gazebo/films_core.py (conditions).
+# Runs on push to the branch films-px4gz only (and by hand).
+
+on:
+  push:
+    branches: [films-px4gz]
+  workflow_dispatch:
+    inputs:
+      films:
+        description: "films to make, for example F05,F06"
+        required: false
+        default: "F05,F06"
+
+permissions:
+  contents: read
+
+env:
+  PX4_TAG: v1.17.0
+  FILMS: ${{ inputs.films || 'F05,F06' }}
+
+jobs:
+  films:
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get PX4-Autopilot, install its tools, Gazebo Harmonic, ffmpeg and MAVSDK, build SITL
+        run: |
+          set -e
+          mkdir -p results
+          sudo apt-get update
+          git clone --branch "$PX4_TAG" --depth 1 --recurse-submodules --shallow-submodules https://github.com/PX4/PX4-Autopilot.git px4
+          git -C px4 rev-parse HEAD | tee results/px4_version.txt
+          sudo apt-get install -y --no-install-recommends xvfb xauth mesa-utils libgl1-mesa-dri libglx-mesa0 libegl-mesa0 ffmpeg
+          bash px4/Tools/setup/ubuntu.sh --no-nuttx
+          sudo apt-get install -y python3-gz-transport13 python3-gz-msgs10 python3-numpy python3-scipy python3-pil python3-venv
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install 'mavsdk<4' numpy scipy pillow
+          .venv/bin/python -c "import mavsdk, numpy, scipy, PIL; from gz.transport13 import Node; from gz.msgs10.pose_v_pb2 import Pose_V; from gz.msgs10.image_pb2 import Image; print('mavsdk', mavsdk.__file__, 'numpy', numpy.__version__, 'scipy', scipy.__version__, 'pillow', PIL.__version__, 'gz bindings ok')" | tee results/python_versions.txt
+          gz sim --versions | tee results/gz_version.txt
+          ffmpeg -version | head -n 1
+          (cd px4 && make px4_sitl_default) > results/build.log 2>&1 || { tail -n 80 results/build.log; exit 1; }
+          tail -n 3 results/build.log
+
+      - name: Offline checks (conditions, world patch)
+        run: |
+          set -o pipefail
+          .venv/bin/python tests/test_px4_gazebo_films.py 2>&1 | tee results/offline_checks.log
+
+      - name: License of the Fuel model Fog Generator and the files of the stock world
+        continue-on-error: true
+        run: |
+          mkdir -p results
+          curl -sS --max-time 60 "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fog%20Generator" -o results/fuel_fog_generator.json || true
+          cp px4/Tools/simulation/gz/worlds/baylands.sdf results/baylands_stock.sdf
+          cat px4/src/modules/simulation/gz_bridge/server.config > results/server.config || true
+
+      - name: Make the films
+        id: films
+        continue-on-error: true
+        run: |
+          mkdir -p results
+          set -o pipefail
+          .venv/bin/python tests/px4_gazebo_films_run.py all --films "$FILMS" --out results --px4 px4 2>&1 | tee results/run.log
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f results/summary.md ]; then cat results/summary.md >> "$GITHUB_STEP_SUMMARY"; else echo "No summary.md (films step: ${{ steps.films.outcome }})." >> "$GITHUB_STEP_SUMMARY"; fi
+          df -h / | tail -n 1
+
+      - name: Remove files that are not results
+        if: always()
+        run: |
+          rm -f results/conds/*/*.rgb
+          for f in results/conds/*/sim.log; do [ -f "$f" ] && tail -n 300 "$f" > "${f%.log}_tail.log" && if [ "$(stat -c %s "$f")" -gt 3000000 ]; then rm -f "$f"; fi; done
+          true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: px4-gazebo-films-results
+          path: results/
+          if-no-files-found: warn
+
+      - name: Fail the job when a film is missing
+        if: always()
+        run: |
+          test "${{ steps.films.outcome }}" = success
+          python3 -c "import json,sys; c=json.load(open('results/films_check.json')); bad=[x for x in c if not x['ok']]; print(c); sys.exit(1 if bad else 0)"
