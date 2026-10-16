@@ -1,0 +1,135 @@
+name: Debug Unreal simulators
+
+on:
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: "airsim, pasim or both (comma separated)"
+        default: "airsim,pasim"
+      p3_args:
+        description: "Project AirSim: extra Unreal arguments for one more run (P3); empty = skip"
+        default: ""
+      airsim_variants:
+        description: "AirSim variants to run"
+        default: "A1,A2,A3,A4"
+
+permissions:
+  contents: read
+
+env:
+  AIRSIM_TAG: v1.8.1
+  PASIM_TAG: v1.0.1
+
+jobs:
+  airsim:
+    if: contains(inputs.jobs, 'airsim')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install
+        run: |
+          mkdir -p ev
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1 libgl1-mesa-dri libglu1-mesa \
+            libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install setuptools wheel msgpack-rpc-python numpy
+          .venv/bin/pip install --no-deps --no-build-isolation airsim==1.8.1
+          .venv/bin/pip freeze > ev/pip_freeze.txt
+          .venv/bin/python -c "import msgpackrpc,inspect; print(inspect.signature(msgpackrpc.Client.__init__))" | tee ev/msgpackrpc_signature.txt
+          curl -fL --retry 5 -o Blocks.zip "https://github.com/microsoft/AirSim/releases/download/$AIRSIM_TAG/Blocks.zip"
+          mkdir -p airsim_bin && unzip -q Blocks.zip -d airsim_bin && rm Blocks.zip
+          find airsim_bin -maxdepth 3 | head -n 20
+          ls /usr/share/vulkan/icd.d/
+          VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -n 1) vulkaninfo --summary > ev/vulkaninfo_summary.txt 2>&1 || true
+      - name: Variants
+        continue-on-error: true
+        run: |
+          set -u
+          Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb.log 2>&1 &
+          sleep 3
+          export DISPLAY=:99
+          LVP=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -n 1)
+          BIN=$PWD/airsim_bin
+          PY=$PWD/.venv/bin/python
+          V="${{ inputs.airsim_variants }}"
+          run() { # name settings args user
+            echo "################ $1"
+            if [ "$4" = "root" ]; then
+              id simuser >/dev/null 2>&1 || sudo useradd -m simuser
+              sudo rm -rf /opt/airsim_bin; sudo cp -r "$BIN" /opt/airsim_bin; sudo chown -R simuser:simuser /opt/airsim_bin
+              sudo chmod a+rx /home/runner /home/runner/work 2>/dev/null || true
+              sudo env DISPLAY=:99 "$PY" debug_unreal/airsim_variant.py --name "$1" --bin /opt/airsim_bin --out "$PWD/ev/$1" \
+                --args "$3" --settings "$2" --user simuser --home /home/simuser --vk "$LVP" --cap 150
+            else
+              $PY debug_unreal/airsim_variant.py --name "$1" --bin "$BIN" --out "$PWD/ev/$1" \
+                --args "$3" --settings "$2" --home "/tmp/home_$1" --vk "$LVP" --cap 150
+            fi
+            echo "---- $1 summary"; cat "ev/$1/summary.txt" 2>/dev/null
+            pkill -9 -f Blocks 2>/dev/null; sleep 3
+          }
+          VK="-RenderOffScreen -ResX=640 -ResY=480 -nosound -windowed"
+          case ",$V," in *,A1,*) run A1 minimal "$VK" runner ;; esac
+          case ",$V," in *,A2,*) run A2 notebook "$VK" runner ;; esac
+          case ",$V," in *,A3,*) run A3 minimal "-nullrhi -nosound" runner ;; esac
+          case ",$V," in *,A4,*) run A4 minimal "$VK" root ;; esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-airsim
+          path: ev
+          if-no-files-found: warn
+
+  pasim:
+    if: contains(inputs.jobs, 'pasim')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          mkdir -p ev
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1 libgl1-mesa-dri libglu1-mesa \
+            libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64 strace binutils
+          curl -fL --retry 5 -o Blocks.zip "https://github.com/iamaisim/ProjectAirSim/releases/download/$PASIM_TAG/Blocks-Linux-1.0.1.zip"
+          mkdir -p pasim_bin && unzip -q Blocks.zip -d pasim_bin && rm Blocks.zip
+          find pasim_bin -maxdepth 3 | head -n 20
+          LVP=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -n 1)
+          echo "$LVP" > ev/lvp_icd_path.txt; cat "$LVP" >> ev/lvp_icd_path.txt
+          VK_ICD_FILENAMES="$LVP" vulkaninfo > ev/vulkaninfo_full_lavapipe.txt 2>&1 || true
+          dpkg -l | grep -i -E "mesa|vulkan" > ev/packages_mesa_vulkan.txt || true
+          uname -a > ev/uname.txt; lsb_release -a >> ev/uname.txt 2>&1 || true
+      - name: P3 prework, strings of the binary
+        run: |
+          B=$(find pasim_bin -type f -path "*Binaries/Linux/*" ! -name "*.so*" ! -name "*.sym" | head -n 1)
+          echo "$B" > ev/binary_path.txt; ls -la "$B" >> ev/binary_path.txt
+          strings -a -n 6 "$B" > /tmp/strings_all.txt || true
+          wc -l /tmp/strings_all.txt | tee ev/strings_count.txt
+          grep -i -E "profile|compatible Vulkan|VulkanProfile|SkipProfile|AllowCPU" /tmp/strings_all.txt | head -n 400 > ev/strings_profile_grep.txt || true
+          grep -i "vulkan" /tmp/strings_all.txt | grep -i -E "device|select|physical|cpu|software|llvmpipe|lavapipe|r\.vulkan" | head -n 1500 > ev/strings_vulkan_device.txt || true
+          grep -E "^-[A-Za-z0-9_]+" /tmp/strings_all.txt | grep -i -E "vulkan|vk|rhi|opengl|sm5|sm6|nullrhi|offscreen" | head -n 200 > ev/strings_switches.txt || true
+          wc -l ev/strings_*.txt
+      - name: P1 and P2, start under strace
+        continue-on-error: true
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb.log 2>&1 &
+          sleep 3
+          bash debug_unreal/pasim_probe.sh "$PWD/pasim_bin" "$PWD/ev" P1 -RenderOffScreen -ResX=640 -ResY=480 -nosound -windowed || true
+      - name: P3 one extra run
+        if: inputs.p3_args != ''
+        continue-on-error: true
+        run: |
+          pgrep Xvfb >/dev/null || { Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb_p3.log 2>&1 & sleep 3; }
+          bash debug_unreal/pasim_probe.sh "$PWD/pasim_bin" "$PWD/ev" P3 ${{ inputs.p3_args }} || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-pasim
+          path: ev
+          if-no-files-found: warn
