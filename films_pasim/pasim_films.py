@@ -26,15 +26,19 @@ SCENE_SHIPPED, SCENE_FILMS = "scene_basic_drone.jsonc", "scene_films.jsonc"
 ROBOT_SHIPPED, ROBOT_FILMS = "robot_quadrotor_fastphysics.jsonc", "robot_quadrotor_fastphysics_films.jsonc"
 DAY = "2021-09-20"  # the date used by the shipped time_of_day.py example
 
-# (label, caption) in the order they are filmed. The setup of each is in apply_condition().
+# (label, caption[, pairs]) in the order they are filmed. The setup of each is in apply_condition().
 FILM_DEFS = {
     "F05": {"short": "night", "title": "Night: day, dusk and night at the same place",
-            "conditions": [("day", "12:00 (noon)"), ("dusk", "18:45 (dusk)"), ("night", "23:30 (night)")]},
+            "conditions": [("day", "12:00 (noon)"), ("dusk", "18:45 (sun at the horizon)"), ("twilight", "19:30 (twilight)"),
+                           ("night", "20:30 (night)"), ("midnight", "23:30 (deep night)", 15)]},
     "F06": {"short": "clouds_rain", "title": "Clouds, fog, rain and snow",
-            "conditions": [("clear", "no weather"), ("fog", "fog 0.6"), ("rain", "rain 0.9"), ("snow", "snow 0.9"),
-                           ("overcast_try", "cloud shadows 1.0 + sun 0.5")]},
+            "conditions": [("clear", "no weather"), ("fog", "fog 0.6"), ("rain", "rain 1.0 + wet ground 1.0"), ("snow", "snow 0.9"),
+                           ("storm", "fog 0.35 + rain 1.0 + wet ground 1.0"),
+                           ("overcast_try", "overcast try: fog 0.3 + sun 1.0 (default 2.75) + cloud shadows 1.0")]},
 }
-TIMES = {"day": f"{DAY} 12:00:00", "dusk": f"{DAY} 18:45:00", "night": f"{DAY} 23:30:00"}
+TIMES = {"day": f"{DAY} 12:00:00", "dusk": f"{DAY} 18:45:00", "twilight": f"{DAY} 19:30:00", "night": f"{DAY} 20:30:00",
+         "midnight": f"{DAY} 23:30:00"}
+CAL_TIMES = ["19:00", "19:15", "19:30", "19:45", "20:00", "20:15", "20:30", "21:00", "22:00"]  # calibration of the evening light (F05)
 
 
 def log(*a):
@@ -234,6 +238,51 @@ async def amain(a) -> int:
             return 3
         cams = {"fpv": "FrontCamera" if "FrontCamera" in got else None, "chase": "Chase" if "Chase" in got else None}
 
+        # ---- what the scene has: objects, assets, lights (for the film notes; never needed for the film itself) ----
+        def names(x, cap_n=600):
+            try:
+                return [str(i) for i in x][:cap_n]
+            except Exception:  # noqa: BLE001
+                return [repr(x)[:300]]
+        ex = {}
+        for nm, fn in (("objects", lambda: world.list_objects(".*")), ("assets", lambda: world.list_assets(".*")),
+                       ("sunlight_intensity", world.get_sunlight_intensity), ("time_of_day", world.get_time_of_day)):
+            try:
+                v = fn()
+                ex[nm] = names(v) if nm in ("objects", "assets") else v
+                if nm in ("objects", "assets"):
+                    ex[nm + "_count"] = len(v)
+            except Exception as e:  # noqa: BLE001
+                ex[nm] = f"error: {type(e).__name__}: {e}"[:200]
+        cap["scene_exploration"] = ex
+        lamp_names = [o for o in ex.get("objects", []) if isinstance(o, str) and re.search(r"light|lamp|lantern|street", o, re.I)]
+        cap["lamp_objects"] = lamp_names
+        log("scene objects:", ex.get("objects_count"), "assets:", ex.get("assets_count"), "lamp-like:", lamp_names[:10])
+
+        # ---- F05 only: the evening light at several times, one pair each, so that the right times can be chosen ----
+        if a.film == "F05" and not a.no_calibration:
+            cap["stage"] = "calibration"
+            cap["calibration"] = []
+            for hhmm in CAL_TIMES:
+                call(f"world.set_time_of_day(cal {hhmm})", world.set_time_of_day, status=True, datetime=f"{DAY} {hhmm}:00", is_dst=False,
+                     clock_speed=1.0, update_interval=1.0, move_sun=False)
+                row = {"time": hhmm}
+                for rep in range(2):  # the first picture after a change may still show the old light
+                    for cam, sensor in cams.items():
+                        if sensor is None:
+                            continue
+                        try:
+                            img = grab(drone, sensor)
+                        except Exception as ex2:  # noqa: BLE001
+                            row[f"{cam}_error"] = repr(ex2)[-120:]
+                            continue
+                        if rep == 1:
+                            Image.fromarray(img).save(frames_dir / f"cal_{hhmm.replace(':', '')}_{cam}.jpg", quality=92)
+                            row[f"{cam}_mean"], row[f"{cam}_std"] = round(float(img.mean()), 2), round(float(img.std()), 2)
+                cap["calibration"].append(row)
+                log("calibration", row)
+            save()
+
         # ---- takeoff (pictures are asked for meanwhile so that the renderer stays awake) ----
         cap["stage"] = "takeoff"
         take = await drone.takeoff_async()
@@ -257,15 +306,17 @@ async def amain(a) -> int:
         wall_start = time.perf_counter()
         idx = 0
         fails = {"fpv": 0, "chase": 0}
-        for ci, (label, caption) in enumerate(film["conditions"]):
-            apply_condition(call, world, WeatherParameter, a.film, label)
+        for ci, cond in enumerate(film["conditions"]):
+            label, caption = cond[0], cond[1]
+            n_pairs = cond[2] if len(cond) > 2 else a.frames
+            apply_condition(call, world, WeatherParameter, a.film, label, lamp_names)
             seg = {"label": label, "caption": caption, "first_frame": idx, "wall_start_s": round(time.perf_counter() - wall_start, 1),
                    "sim_start_s": round((world.get_sim_time() - sim_start) / 1e9, 3)}
-            for k in range(a.settle_frames + a.frames):
+            for k in range(a.settle_frames + n_pairs):
                 if time.perf_counter() - wall_start > a.max_wall:
                     cap["stop_reason"] = f"wall time limit reached in condition {label} at pair {k}"
                     break
-                yaw = yaw0 + math.radians(a.yaw_amp_deg) * math.sin(2 * math.pi * k / max(1, a.frames))
+                yaw = yaw0 + math.radians(a.yaw_amp_deg) * math.sin(2 * math.pi * k / max(1, n_pairs))
                 await drone.move_by_velocity_z_async(0.0, 0.0, d0, 2.0, YawControlMode.MaxDegreeOfFreedom, False, yaw)
                 rec = {"i": idx, "cond": label, "k": k, "settle": k < a.settle_frames, "fpv": None, "chase": None}
                 t_a = time.perf_counter()
@@ -292,7 +343,7 @@ async def amain(a) -> int:
                 cap["frames"].append(rec)
                 idx += 1
                 if idx % 10 == 0:
-                    log(f"{label} pair {k}/{a.settle_frames + a.frames} sim t={t_sim:.1f}s wall={rec['wall_s']:.0f}s failures {fails}")
+                    log(f"{label} pair {k}/{a.settle_frames + n_pairs} sim t={t_sim:.1f}s wall={rec['wall_s']:.0f}s failures {fails}")
                     save()
             seg.update({"last_frame": idx - 1, "wall_end_s": round(time.perf_counter() - wall_start, 1),
                         "sim_end_s": round((world.get_sim_time() - sim_start) / 1e9, 3)})
@@ -324,7 +375,7 @@ async def amain(a) -> int:
     return rc
 
 
-def apply_condition(call, world, WP, film, label):
+def apply_condition(call, world, WP, film, label, lamp_names=()):
     """The simulator calls that make one condition. Each goes through `call` so that name, arguments, result and line are recorded."""
     if film == "F05":
         call(f"world.set_time_of_day({label})", world.set_time_of_day, status=True, datetime=TIMES[label], is_dst=False,
@@ -333,17 +384,24 @@ def apply_condition(call, world, WP, film, label):
     # F06
     call("world.reset_weather_effects", world.reset_weather_effects)
     call("world.enable_weather_visual_effects", world.enable_weather_visual_effects)
-    if label == "clear":
-        call("world.set_cloud_shadow_strength(0.0)", world.set_cloud_shadow_strength, 0.0)
-    elif label == "fog":
-        call("world.set_weather_visual_effects_param(FOG, 0.6)", world.set_weather_visual_effects_param, param=WP.FOG, value=0.6)
+    call("world.set_cloud_shadow_strength(0.0)", world.set_cloud_shadow_strength, 0.0)
+    call("world.set_sunlight_intensity(2.75)", world.set_sunlight_intensity, 2.75)  # the documented default
+    P = world.set_weather_visual_effects_param
+    if label == "fog":
+        call("world.set_weather_visual_effects_param(FOG, 0.6)", P, param=WP.FOG, value=0.6)
     elif label == "rain":
-        call("world.set_weather_visual_effects_param(RAIN, 0.9)", world.set_weather_visual_effects_param, param=WP.RAIN, value=0.9)
+        call("world.set_weather_visual_effects_param(RAIN, 1.0)", P, param=WP.RAIN, value=1.0)
+        call("world.set_weather_visual_effects_param(ROAD_WETNESS, 1.0)", P, param=WP.ROAD_WETNESS, value=1.0)
     elif label == "snow":
-        call("world.set_weather_visual_effects_param(SNOW, 0.9)", world.set_weather_visual_effects_param, param=WP.SNOW, value=0.9)
+        call("world.set_weather_visual_effects_param(SNOW, 0.9)", P, param=WP.SNOW, value=0.9)
+    elif label == "storm":
+        call("world.set_weather_visual_effects_param(FOG, 0.35)", P, param=WP.FOG, value=0.35)
+        call("world.set_weather_visual_effects_param(RAIN, 1.0)", P, param=WP.RAIN, value=1.0)
+        call("world.set_weather_visual_effects_param(ROAD_WETNESS, 1.0)", P, param=WP.ROAD_WETNESS, value=1.0)
     elif label == "overcast_try":
+        call("world.set_weather_visual_effects_param(FOG, 0.3)", P, param=WP.FOG, value=0.3)
         call("world.set_cloud_shadow_strength(1.0)", world.set_cloud_shadow_strength, 1.0)
-        call("world.set_sunlight_intensity(0.5)", world.set_sunlight_intensity, 0.5)
+        call("world.set_sunlight_intensity(1.0)", world.set_sunlight_intensity, 1.0)
     call("world.get_weather_visual_effects_param", world.get_weather_visual_effects_param)
 
 
@@ -360,6 +418,7 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=0.05, help="camera capture interval in simulated seconds")
     ap.add_argument("--yaw-amp-deg", type=float, default=40.0)
     ap.add_argument("--shipped-chase", action="store_true", help="keep the shipped Chase camera position (10 m behind)")
+    ap.add_argument("--no-calibration", action="store_true", help="F05: skip the evening-light calibration")
     ap.add_argument("--connect-wait", type=float, default=180.0)
     ap.add_argument("--picture-wait", type=float, default=120.0)
     ap.add_argument("--takeoff-sim-max", type=float, default=30.0)

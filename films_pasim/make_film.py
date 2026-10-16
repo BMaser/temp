@@ -140,52 +140,88 @@ def main():
     res["addability"] = {"tried": False, "donor": None,
                          "note": "nothing had to be added: the simulator's own calls were used (see settings_used)."}
 
-    # ---- verdict, from measurements ----
+    # ---- verdict, from measurements (the main session reviews the pictures afterwards and may correct it) ----
     if film_id == "F05":
         calls_ok = all(v for k, v in api_ok.items() if k.startswith("world.set_time_of_day"))
-        day, night = stats.get("day", {}), stats.get("night", {})
-        dusk = stats.get("dusk", {})
-        ratio = None
-        if day and night and day["fpv_mean"] > 0:
-            ratio = round(night["fpv_mean"] / day["fpv_mean"], 3)
-        res["numbers"]["night_over_day_brightness_fpv"] = ratio
-        res["numbers"]["dusk_over_day_brightness_fpv"] = round(dusk["fpv_mean"] / day["fpv_mean"], 3) if dusk and day and day["fpv_mean"] else None
-        if calls_ok and ratio is not None and ratio <= 0.6:
-            res["verdict"], why = "native", "the three time-of-day calls were accepted and the picture is clearly darker at night."
-        elif calls_ok and ratio is not None and ratio <= 0.85:
-            res["verdict"], why = "partly", f"the calls were accepted; the night picture is only a little darker (ratio {ratio})."
+        day = stats.get("day", {})
+        ratios = {c: (round(stats[c]["fpv_mean"] / day["fpv_mean"], 3) if c in stats and day and day["fpv_mean"] else None)
+                  for c in ("dusk", "twilight", "night", "midnight")}
+        res["numbers"]["fpv_brightness_over_day"] = ratios
+        visible_dark = [c for c in ("night", "midnight") if ratios.get(c) is not None and stats[c]["fpv_std"] > 4.0]
+        res["numbers"]["dark_conditions_with_visible_scene_(fpv_std>4)"] = visible_dark
+        darkest = min([r for r in ratios.values() if r is not None] or [1.0])
+        if calls_ok and darkest <= 0.6 and visible_dark:
+            res["verdict"], why = "native", "the time-of-day calls were accepted, the picture gets darker and a night scene is still visible."
+        elif calls_ok and darkest <= 0.85:
+            res["verdict"], why = "partly", f"the calls were accepted and the picture gets darker (darkest ratio {darkest}), but the night pictures show no scene."
         else:
-            res["verdict"], why = "not_shown", f"calls accepted={calls_ok}, night/day brightness ratio={ratio}: no clear change seen."
-        res["lights"] = "not evaluated in slice 1 (no lamp objects were switched on; the Blocks scene was not searched for lamps)"
+            res["verdict"], why = "not_shown", f"calls accepted={calls_ok}, darkest brightness ratio={darkest}: no clear change seen."
+        res["calibration_evening"] = cap.get("calibration")
+        res["lamp_objects_found_in_scene"] = cap.get("lamp_objects")
+        res["scene_exploration"] = {k: (v[:40] if isinstance(v, list) else v) for k, v in (cap.get("scene_exploration") or {}).items()}
+        res["lights"] = ("no lamp switched on: " + ("lamp-like objects found: %s" % cap.get("lamp_objects")[:10]
+                         if cap.get("lamp_objects") else "no object with light/lamp/lantern/street in its name in the Blocks scene"))
+        # contact sheet of the calibration pictures
+        cal = [(row["time"], frames_dir / f"cal_{row['time'].replace(':', '')}_fpv.jpg") for row in cap.get("calibration", [])]
+        cal = [(t, p_) for t, p_ in cal if p_.is_file()]
+        if cal:
+            uf.contact_sheet([load(p_) for _, p_ in cal], [f"calibration {t} (mean {next(r for r in cap['calibration'] if r['time'] == t).get('fpv_mean')})" for t, _ in cal],
+                             cols=3, max_width=1920).save(out / f"{film_id}_calibration.png")
     else:
         clear = [r for r in recs if r["cond"] == "clear"]
-        kinds = {}
-        for c in ("fog", "rain", "snow", "overcast_try"):
-            rs = [r for r in recs if r["cond"] == c]
-            diffs = {"fpv": [], "chase": []}
-            for r in rs:
-                base = next((q for q in clear if q["k"] == r["k"]), None)
+
+        def mean_diff(rs_a, rs_b_by_k, shift=0):
+            out_d = {"fpv": [], "chase": []}
+            for r in rs_a:
+                base = rs_b_by_k.get((r["k"] + shift) % max(1, len(rs_b_by_k)))
                 if base is None:
                     continue
                 for cam in ("fpv", "chase"):
                     if r.get(cam) and base.get(cam):
                         d = region_diff(load(frames_dir / r[cam]), load(frames_dir / base[cam]))
                         if d is not None:
-                            diffs[cam].append(d)
-            kinds[c] = {cam: (round(float(np.mean(v)), 2) if v else None) for cam, v in diffs.items()}
+                            out_d[cam].append(d)
+            return {cam: (round(float(np.mean(v)), 2) if v else None) for cam, v in out_d.items()}
+
+        by_k = {i: q for i, q in enumerate(clear)}
+        # control: the clear pictures against the clear pictures 5 pairs later (the drone has turned a little) - what no weather change gives
+        control = mean_diff(clear, by_k, shift=5)
+        res["numbers"]["control_clear_vs_clear_5_pairs_later_0_255"] = control
+        kinds = {}
+        for c in ("fog", "rain", "snow", "storm", "overcast_try"):
+            rs = [r for r in recs if r["cond"] == c]
+            kinds[c] = mean_diff(rs, by_k)
         res["numbers"]["mean_abs_diff_to_clear_same_swing_phase_0_255"] = kinds
-        visible = {c: any((v or 0) > 3.0 for v in kinds[c].values()) for c in kinds}
-        res["numbers"]["visible_change_over_3_levels"] = visible
+        # sky blueness (blue minus red in the top 12 % of the drone-camera picture): an overcast sky is grey
+        def sky_blue(rs):
+            vals = []
+            for r in rs:
+                if r.get("fpv"):
+                    im = load(frames_dir / r["fpv"]).astype(float)
+                    top = im[: max(1, im.shape[0] // 8)]
+                    vals.append(float((top[..., 2] - top[..., 0]).mean()))
+            return round(float(np.mean(vals)), 1) if vals else None
+        sky = {c: sky_blue([r for r in recs if r["cond"] == c]) for c in ("clear", "fog", "rain", "snow", "storm", "overcast_try")}
+        res["numbers"]["sky_blue_minus_red_top_eighth_fpv"] = sky
+        ctl = max([v for v in control.values() if v] or [3.0])
+        visible = {c: any((v or 0) > ctl * 1.15 for v in kinds[c].values()) for c in kinds}
+        res["numbers"]["visible_change_over_control"] = visible
         accepted = {k: v for k, v in api_ok.items() if "set_weather_visual_effects_param" in k}
-        if all(visible.get(c) for c in ("fog", "rain", "snow")) and all(accepted.values()):
-            res["verdict"], why = "native", "fog, rain and snow each changed the picture and every call was accepted."
+        overcast_sky = bool(sky.get("clear") and sky.get("overcast_try") is not None and sky["overcast_try"] < 0.5 * sky["clear"])
+        res["numbers"]["overcast_sky_seen"] = overcast_sky
+        fr_ok = all(visible.get(c) for c in ("fog", "rain", "snow")) and all(accepted.values())
+        if fr_ok and overcast_sky:
+            res["verdict"], why = "native", "fog, rain, snow and a grey overcast sky were each seen and every call was accepted."
+        elif fr_ok:
+            res["verdict"] = "partly"
+            why = "fog, rain and snow changed the picture and every call was accepted; no overcast (grey) sky could be made with the documented calls."
         elif any(visible.get(c) for c in ("fog", "rain", "snow")):
             res["verdict"] = "partly"
             why = "visible change for: " + ", ".join(c for c in ("fog", "rain", "snow") if visible.get(c)) + "; not seen for the others."
         else:
             res["verdict"], why = "not_shown", "no measurable change from fog, rain or snow."
-        res["overcast"] = ("no sky-cover or cloud-cover call exists in the documented API; the cloud-shadow strength and the sun intensity "
-                           "were tried (condition overcast_try) and measured above")
+        res["overcast"] = ("the documented API has no sky-cover or cloud-cover call (docs_api.md lists set_cloud_shadow_strength, set_sunlight_intensity, "
+                           "fog); condition overcast_try combines them and its sky is measured above")
     res["verdict_reason"] = why
     res["verdict_is_automatic"] = True
 
