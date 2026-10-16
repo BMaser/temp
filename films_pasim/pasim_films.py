@@ -135,9 +135,9 @@ class Calls:
         self.last_value = None
 
     def __call__(self, name, fn, *args, **kw):
-        line = sys._getframe(1).f_lineno
+        fr = sys._getframe(1)
         rec = {"api": name, "args": [repr(a) for a in args] + [f"{k}={v!r}" for k, v in kw.items()],
-               "where": f"films_pasim/pasim_films.py:{line}", "t_wall": round(time.time(), 1)}
+               "where": f"films_pasim/{Path(fr.f_code.co_filename).name}:{fr.f_lineno}", "t_wall": round(time.time(), 1)}
         try:
             value = fn(*args, **kw)
             self.last_value = value

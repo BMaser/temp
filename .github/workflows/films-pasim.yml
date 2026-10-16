@@ -28,11 +28,11 @@ permissions:
 
 env:
   PASIM_TAG: v1.0.1
-  FILMS: ${{ github.event.inputs.films || '' }}
+  FILMS: ${{ github.event.inputs.films || 'F01@hide,F01@grass,F02@neighborhood,F02@cityenviron,F03,F04,F07,F08,F09,F10,F11' }}
   RTF: ${{ github.event.inputs.rtf || '0.03' }}
-  FRAMES: ${{ github.event.inputs.frames || '40' }}
+  FRAMES: ${{ github.event.inputs.frames || '90' }}
   EXTRA: ${{ github.event.inputs.extra || '' }}
-  RT15: ${{ github.event.inputs.rt15 || 'true' }}
+  RT15: ${{ github.event.inputs.rt15 || 'false' }}
 
 jobs:
   plan:
@@ -48,8 +48,18 @@ jobs:
           inc = []
           for it in [x.strip() for x in os.environ["FILMS"].split(",") if x.strip()]:
               fid, _, var = it.partition("@")   # "F05@gain" = film F05, variant gain
-              pkg = "LandscapeMountains" if "mountains" in var.split("_") else "Blocks"
-              inc.append({"film": fid, "variant": var or "default", "key": fid + ("-" + var if var else ""), "pkg": pkg})
+              flags = var.split("_")
+              pkg = "Blocks"
+              if "mountains" in flags or fid == "F01":
+                  pkg = "LandscapeMountains"
+              if "neighborhood" in flags:
+                  pkg = "Neighborhood"
+              if "cityenviron" in flags:
+                  pkg = "CityEnviron"
+              rtf = {"F11": "0.0125", "F07": "0.05", "F10": "0.05"}.get(fid, os.environ["RTF"])
+              frames = {"F11": "150", "F07": "80", "F08": "100", "F09": "50", "F10": "60", "F04": "60"}.get(fid, os.environ["FRAMES"])
+              speed = {"F11": "3.0", "F10": "8.0"}.get(fid, "1.5")
+              inc.append({"film": fid, "variant": var or "default", "key": fid + ("-" + var if var else ""), "pkg": pkg, "rtf": rtf, "frames": frames, "speed": speed})
           print("matrix=" + json.dumps({"include": inc}))
           print("has_films=" + ("true" if inc else "false"))
           EOF
@@ -58,7 +68,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.has_films == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 85
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -71,12 +81,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1 libgl1-mesa-dri libglu1-mesa \
             libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64 ffmpeg
           python3 -m venv .pa
-          .pa/bin/pip install -q projectairsim==1.0.1 numpy pillow
+          .pa/bin/pip install -q projectairsim==1.0.1 numpy pillow matplotlib
           .pa/bin/pip freeze > ev/pip_freeze.txt
           git clone --depth 1 --branch "$PASIM_TAG" https://github.com/iamaisim/ProjectAirSim.git ProjectAirSim_src
-          curl -fL --retry 5 -sS -o Blocks.zip "https://github.com/iamaisim/ProjectAirSim/releases/download/$PASIM_TAG/${{ matrix.pkg }}-Linux-1.0.1.zip"
-          ls -la Blocks.zip | tee ev/zip_size.txt
-          mkdir -p pasim_bin && unzip -q Blocks.zip -d pasim_bin && rm Blocks.zip
+          GH_TOKEN="${{ github.token }}" bash films_pasim/fetch_pkg.sh "${{ matrix.pkg }}" "$PWD/pasim_bin" "$PWD/ev"
           df -h / | tee ev/disk.txt
           python3 --version | tee ev/python_version.txt
           ffmpeg -version | head -n 1 | tee ev/ffmpeg_version.txt
@@ -87,17 +95,25 @@ jobs:
         continue-on-error: true
         run: |
           SIMCFG="$PWD/ProjectAirSim_src/client/python/example_user_scripts/sim_config"
-          bash films_pasim/launch_film.sh "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python" \
-            --rtf "$RTF" --frames "$FRAMES" --variant "${{ matrix.variant }}" $EXTRA
+          if [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
+            bash films_pasim/launch_film.sh "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --rtf "$RTF" --frames "$FRAMES" --variant "${{ matrix.variant }}" $EXTRA
+          else
+            CLIENT_SCRIPT=films2.py CLIENT_TIMEOUT=5600 bash films_pasim/launch_film.sh "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --film "${{ matrix.film }}" --variant "${{ matrix.variant }}" --rtf "${{ matrix.rtf }}" --frames "${{ matrix.frames }}" --speed "${{ matrix.speed }}" $EXTRA
+          fi
       - name: Film, contact sheets, film_result.json
         if: always()
         continue-on-error: true
         run: |
-          .pa/bin/python films_pasim/make_film.py "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "${{ matrix.variant }}" 2>&1 | tee "out/${{ matrix.key }}/make_film.log"
+          mkdir -p "out/${{ matrix.key }}"
+          if [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
+            .pa/bin/python films_pasim/make_film.py "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "${{ matrix.variant }}" 2>&1 | tee "out/${{ matrix.key }}/make_film.log"
+          else
+            .pa/bin/python films_pasim/make_film2.py "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "${{ matrix.variant }}" 2>&1 | tee "out/${{ matrix.key }}/make_film.log"
+          fi
           cp -r ev "out/${{ matrix.key }}/ev"
           echo "### ${{ matrix.key }}" >> "$GITHUB_STEP_SUMMARY"
-          tail -n 40 "out/${{ matrix.key }}/client.log" | cut -c1-300 >> "$GITHUB_STEP_SUMMARY" || true
-          head -c 3000 "out/${{ matrix.key }}/film_result.json" >> "$GITHUB_STEP_SUMMARY" || true
+          tail -n 30 "out/${{ matrix.key }}/client.log" | cut -c1-300 >> "$GITHUB_STEP_SUMMARY" || true
+          head -c 2500 "out/${{ matrix.key }}/film_result.json" >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -128,7 +144,7 @@ jobs:
           if-no-files-found: warn
 
   rt15:
-    if: ${{ (github.event.inputs.rt15 || 'true') == 'true' }}
+    if: ${{ (github.event.inputs.rt15 || 'false') == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
