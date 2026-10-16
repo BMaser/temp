@@ -113,6 +113,33 @@ def row_png(out, prefix, frames, ridx, text):
     row.save(out / f"{prefix}_row.png")
 
 
+# ------------------------------------------------------------------ F10: motion blur and rolling shutter added by our code
+YAW_RATE = 3.0          # rad/s, the commanded turn rate of the F10 'spin' variant (films2.py film_ab)
+EXPOSURE_S = 1 / 60     # assumed exposure time
+READOUT_S = 1 / 30      # assumed sensor read-out time, top row to bottom row
+FOV_DEG = 90.0          # shipped camera field of view (robot_quadrotor_fastphysics.jsonc)
+
+
+def synth_blur(img, yaw_rate=YAW_RATE):
+    """Horizontal motion blur and rolling-shutter shear that a turn at `yaw_rate` would cause (pinhole camera, pure yaw)."""
+    h, w = img.shape[:2]
+    f = (w / 2) / math.tan(math.radians(FOV_DEG) / 2)
+    blur = max(1, int(round(yaw_rate * EXPOSURE_S * f)))
+    shear = yaw_rate * READOUT_S * f
+    a = img.astype(np.float32)
+    k = np.ones(blur, dtype=np.float32) / blur
+    pad = np.pad(a, ((0, 0), (blur // 2, blur - 1 - blur // 2), (0, 0)), mode="edge")
+    out = np.zeros_like(a)
+    for c in range(3):
+        for r in range(h):
+            out[r, :, c] = np.convolve(pad[r, :, c], k, mode="valid")
+    res = np.empty_like(out)
+    for r in range(h):
+        s_ = int(round(shear * r / h))
+        res[r] = np.pad(out[r], ((s_, 0), (0, 0)), mode="edge")[:w] if s_ > 0 else out[r]
+    return np.clip(res, 0, 255).astype(np.uint8), blur, shear
+
+
 # ------------------------------------------------------------------ geometry for F11
 def gate_local(g, p):
     """position p (NED) in the gate frame: (forward, left_ENU_like, down-offset)."""
@@ -221,11 +248,25 @@ def main():
         by = {m: [r for r in recs_all if r["phase"] == m] for m in modes}
         n = min(len(v) for v in by.values()) if by else 0
         names = {"off": "feature OFF", "on": "feature ON", "wind_api": "wind: world.set_wind_velocity 5 m/s east", "force": "wind: our external force"}
+        spin = film == "F10" and "spin" in variant.split("_")
+        if spin:
+            names["on"] = "simulator motion-blur-amount 0.8"
         if film == "F07":
             base = by.get("off", [])
             ref = (base[0]["n"], base[0]["e"]) if base else (0, 0)
         for j in range(n):
             tiles = [tile(fd / by[m][j]["fpv"] if by[m][j].get("fpv") else None, TW if film == "F07" else 640, TH if film == "F07" else 360, names.get(m, m)) for m in modes]
+            if spin and by.get("off") and by["off"][j].get("fpv"):
+                src = load_img(fd / by["off"][j]["fpv"])
+                syn, blur_px, shear_px = synth_blur(src)
+                im = Image.fromarray(syn).resize((640, 360))
+                d_ = ImageDraw.Draw(im)
+                lab = f"added by our code: blur {blur_px} px + rolling shutter {shear_px:.0f} px"
+                b_ = d_.textbbox((6, 5), lab, font=uf.font(15))
+                d_.rectangle([b_[0] - 3, b_[1] - 2, b_[2] + 3, b_[3] + 2], fill=(0, 0, 0))
+                d_.text((6, 5), lab, fill=(255, 255, 255), font=uf.font(15))
+                tiles.append(np.asarray(im))
+                extra["synthetic_blur"] = {"blur_px": blur_px, "rolling_shutter_shear_px": round(shear_px, 1), "assumptions": f"yaw rate {YAW_RATE} rad/s commanded, exposure {EXPOSURE_S:.4f} s, read-out {READOUT_S:.4f} s, fov {FOV_DEG} deg"}
             body = np.concatenate(tiles, axis=1)
             parts = [body]
             if film == "F07":
@@ -420,7 +461,13 @@ def main():
             if film == "F09":
                 v, why = ("native", f"high-frequency energy x{ratio:.2f} with noise on") if ratio > 1.3 else ("not_shown", f"high-frequency energy ratio on/off {ratio:.2f}: no visible noise")
             else:
-                v, why = ("native", f"picture {1 / max(ratio, 1e-6):.2f}x less sharp with blur on") if ratio < 0.85 else ("partly", f"setting accepted; sharpness ratio on/off {ratio:.2f} (no visible blur at the slowed clock)")
+                if ratio < 0.85:
+                    v, why = "native", f"picture {1 / max(ratio, 1e-6):.2f}x less sharp with blur on"
+                elif "synthetic_blur" in extra:
+                    v, why = "added_by_our_code", f"the simulator's motion-blur-amount 0.8 changed nothing (sharpness ratio on/off {ratio:.2f}); our Python blur and rolling-shutter shear on the same pictures show the effect"
+                    res["addability"] = {"tried": True, "donor": "none (the check names a Python row shift for rolling shutter)", "ours": "films_pasim/make_film2.py synth_blur (about 20 lines)", "result": "worked", "matches_check": "check D19 says port, medium; a Python approximation was small"}
+                else:
+                    v, why = "partly", f"setting accepted; sharpness ratio on/off {ratio:.2f} (no visible blur at the slowed clock)"
     elif film == "F11":
         mm = extra["race"]
         n_ok = len(mm["gates_passed_through_opening_in_order"])

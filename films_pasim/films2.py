@@ -139,9 +139,37 @@ class Sess:
         self.drone.enable_api_control()
         self.drone.arm()
 
+    def start_sub(self, sensors):
+        """Receive the scene pictures of these cameras by subscription (client.subscribe) instead of drone.get_images (which gives up after 5 s)."""
+        import numpy as np
+        self.sub, self.sub_last = {}, {}
+        for name in sensors:
+            topic = self.drone.sensors[name]["scene_camera"]
+
+            def cb(topic_, msg, name=name):
+                try:
+                    arr = np.frombuffer(msg["data"], dtype="uint8").reshape(msg["height"], msg["width"], 3)[:, :, ::-1].copy()
+                    self.sub[name] = (msg["time_stamp"], arr)
+                except Exception as e:  # noqa: BLE001
+                    self.cap.setdefault("sub_errors", []).append(repr(e)[:150])
+            self.client.subscribe(topic, cb)
+        self.use_sub = True
+
+    def grab_sub(self, sensor, wait=240.0):
+        t = time.time()
+        while time.time() - t < wait:
+            item = self.sub.get(sensor)
+            if item and item[0] != self.sub_last.get(sensor):
+                self.sub_last[sensor] = item[0]
+                return [item[1]]
+            time.sleep(0.2)
+        raise RuntimeError(f"no new subscribed picture from {sensor} in {wait} s")
+
     def grab(self, sensor: str, types):
         """Pictures of one camera: list of numpy arrays (RGB, or 2-D for single-channel), in the order of `types`."""
         import numpy as np
+        if getattr(self, "use_sub", False) and list(types) == [0]:
+            return self.grab_sub(sensor)
         from projectairsim.types import ImageType
         from projectairsim.utils import unpack_image
         res = self.drone.get_images(sensor, [ImageType(t) for t in types])
@@ -257,7 +285,10 @@ def solid_png(path: Path, rgb, noise=18, size=64, seed=1):
     from PIL import Image
     rng = np.random.default_rng(seed)
     fine = rng.normal(0, noise, (size, size))
-    coarse = np.kron(rng.normal(0, noise * 1.2, (max(2, size // 16), max(2, size // 16))), np.ones((16, 16)))[:size, :size]
+    cs = max(4, size // 12)
+    coarse = np.asarray(Image.fromarray(rng.normal(0, noise * 1.4, (cs, cs)).astype(np.float32), mode="F").resize((size, size), Image.BICUBIC))
+    mid = np.asarray(Image.fromarray(rng.normal(0, noise * 0.9, (cs * 4, cs * 4)).astype(np.float32), mode="F").resize((size, size), Image.BICUBIC))
+    coarse = coarse + mid
     lum = (fine * 0.5 + coarse)[:, :, None]
     a = np.clip(np.array(rgb, dtype=float)[None, None, :] * (1 + lum / 120.0), 0, 255).astype(np.uint8)
     Image.fromarray(a).save(path)
@@ -325,7 +356,9 @@ async def film_nature(s, a, kind):
     flags = set(a.variant.split("_"))
     s.load(f"scene_{kind}.jsonc")
     ex = explore(s)
-    has_chase = "light" not in flags
+    has_chase = not ({"light", "min"} & flags)
+    if "sub" in flags:
+        s.start_sub(["FrontCamera"])
     cams = {"fpv": ("FrontCamera", [0])}
     sens = {"FrontCamera": [0]}
     if has_chase:
@@ -730,7 +763,7 @@ async def amain(a) -> int:
     rtf = a.rtf
     try:
         if f in ("F01", "F02"):
-            light = "light" in a.variant.split("_")
+            light = bool({"light", "min"} & set(a.variant.split("_")))
             cfg = [build_robot(simcfg, f, 320 if light else w, 180 if light else h, chase=not light), build_scene(simcfg, f, f, rtf, yaw_deg=0)]
         elif f == "F03":
             cfg = [build_robot(simcfg, f, w, h), build_scene(simcfg, f, f, rtf, base=SCENE_ENV, origin=(-8.0, 10.0, -4.0), yaw_deg=0)]
