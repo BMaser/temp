@@ -1,0 +1,216 @@
+"""Make the film, the contact sheets, the overview row and film_result.json of one Project AirSim feature film.
+
+usage: python make_film.py <film id> <out dir>        (out dir holds capture.json and frames/ from pasim_films.py)
+
+Writes: F<nn>_<short>.mp4 (H.264, yuv420p), F<nn>_contact.png (8 evenly spaced frames, labeled), F<nn>_segments.png (the middle frame of
+every condition), F<nn>_row.png (4 frames, for overview.png), film_result.json.
+The film code (FilmWriter, contact sheet, decoding) is unreal_films.py, the same as in the base laps.
+"""
+
+import json
+import math
+import sys
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageDraw
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import unreal_films as uf  # noqa: E402
+from pasim_films import FILM_DEFS  # noqa: E402
+
+STRIP = 34
+
+# what the document says (features_data.json, answers.project_airsim)
+DOC_CLAIMS = {
+    "F05": {"feature_id": "D15", "status": "yes",
+            "note": "set_time_of_day, set_sun_angle_from_date_time and set_sunlight_intensity.",
+            "quote": "Uses the date and time to set the position of the sun in the sky",
+            "source": "runs/2026-10-14_feature_matrix/sources/project_airsim/docs_api.md"},
+    "F06": {"feature_id": "D16", "status": "yes", "note": "Rain, snow, leaves, dust and fog, density 0 to 1; F10 opens a weather menu.",
+            "quote": "Add weather effects based on a parameter type which includes both falling and fallen (ground cover) leaves, rain, and snow as well as dust and fog",
+            "source": "runs/2026-10-14_feature_matrix/sources/project_airsim/docs_api.md"},
+}
+
+
+def load(p):
+    try:
+        return np.asarray(Image.open(p).convert("RGB"))
+    except Exception:
+        return None
+
+
+def compose(rec, frames_dir, w, h, film_id, caption):
+    """One film frame: drone camera | chase camera, a caption strip below."""
+    canvas = Image.new("RGB", (2 * w, h + STRIP), (20, 20, 20))
+    d = ImageDraw.Draw(canvas)
+    f_small, f_text = uf.font(16), uf.font(18)
+    for k, (cam, title) in enumerate((("fpv", "drone camera (nose)"), ("chase", "chase camera"))):
+        img = load(frames_dir / rec[cam]) if rec.get(cam) else None
+        if img is not None:
+            canvas.paste(Image.fromarray(img).resize((w, h)), (k * w, 0))
+        else:
+            d.text((k * w + 20, h // 2), "no picture", fill=(200, 200, 200), font=f_text)
+        box = d.textbbox((k * w + 8, 6), title, font=f_small)
+        d.rectangle([box[0] - 4, box[1] - 3, box[2] + 4, box[3] + 3], fill=(0, 0, 0))
+        d.text((k * w + 8, 6), title, fill=(255, 255, 255), font=f_small)
+    d.text((10, h + 8), f"{film_id}   {caption}   |   simulated time {rec['t']:6.2f} s   |   pair {rec['i']}", fill=(255, 255, 255), font=f_text)
+    return np.asarray(canvas)
+
+
+def region_diff(a, b):
+    """Mean absolute difference of two pictures (0..255), on a 160-wide copy."""
+    if a is None or b is None:
+        return None
+    sa = np.asarray(Image.fromarray(a).resize((160, 90))).astype(float)
+    sb = np.asarray(Image.fromarray(b).resize((160, 90))).astype(float)
+    return float(np.abs(sa - sb).mean())
+
+
+def main():
+    film_id, out = sys.argv[1], Path(sys.argv[2])
+    spec = FILM_DEFS[film_id]
+    cap = json.loads((out / "capture.json").read_text())
+    frames_dir = out / "frames"
+    caps = {c[0]: c[1] for c in spec["conditions"]}
+    recs = [r for r in cap.get("frames", []) if not r.get("settle") and (r.get("fpv") or r.get("chase"))]
+    res = {"film": film_id, "simulator": "project_airsim", "version": "Project AirSim 1.0.1 (Unreal Engine 5), scene Blocks",
+           "feature": spec["title"], "capture_stage": cap.get("stage"), "problems": []}
+    if not recs:
+        res.update({"verdict": "not_shown", "verdict_reason": f"no pictures were saved (capture stage {cap.get('stage')}, "
+                    f"error {cap.get('error') or cap.get('traceback')})", "document_claim": DOC_CLAIMS[film_id]})
+        (out / "film_result.json").write_text(json.dumps(res, indent=2))
+        print("no pictures")
+        return 1
+    first = load(frames_dir / (recs[0].get("fpv") or recs[0]["chase"]))
+    h, w = first.shape[:2]
+    w, h = w - w % 2, h - h % 2
+    n = len(recs)
+    fps = int(min(12, max(4, round(n / 15.0))))
+    mp4 = out / f"{film_id}_{spec['short']}.mp4"
+    wr = uf.FilmWriter(mp4, 2 * w, h + STRIP, fps, out / "ffmpeg.log")
+    composed = []
+    for r in recs:
+        img = compose(r, frames_dir, w, h, film_id, f"{r['cond'].upper()}  ({caps[r['cond']]})")
+        wr.write(img)
+        composed.append(img)
+    wr.close()
+    # contact sheet: 8 evenly spaced frames, labeled
+    idx = uf.evenly_spaced_indices(n, 8)
+    labels = [f"{recs[i]['cond']}  t={recs[i]['t']:.1f}s  pair {recs[i]['i']}" for i in idx]
+    uf.contact_sheet([composed[i] for i in idx], labels, cols=2, max_width=1920).save(out / f"{film_id}_contact.png")
+    # the middle frame of every condition
+    seg_idx = []
+    for c in spec["conditions"]:
+        members = [j for j, r in enumerate(recs) if r["cond"] == c[0]]
+        if members:
+            seg_idx.append(members[len(members) // 2])
+    uf.contact_sheet([composed[i] for i in seg_idx], [f"{recs[i]['cond']}: {caps[recs[i]['cond']]}" for i in seg_idx], cols=2,
+                     max_width=1920).save(out / f"{film_id}_segments.png")
+
+    # statistics per condition
+    stats = {}
+    for c in spec["conditions"]:
+        rs = [r for r in recs if r["cond"] == c[0]]
+        if not rs:
+            continue
+        stats[c[0]] = {"pairs": len(rs), "sim_t_first": round(rs[0]["t"], 2), "sim_t_last": round(rs[-1]["t"], 2),
+                       "fpv_mean": round(float(np.mean([r["fpv_mean"] for r in rs if "fpv_mean" in r] or [float("nan")])), 1),
+                       "fpv_std": round(float(np.mean([r["fpv_std"] for r in rs if "fpv_std" in r] or [float("nan")])), 1),
+                       "chase_mean": round(float(np.mean([r["chase_mean"] for r in rs if "chase_mean" in r] or [float("nan")])), 1),
+                       "chase_std": round(float(np.mean([r["chase_std"] for r in rs if "chase_std" in r] or [float("nan")])), 1)}
+    ts = np.array([r["t"] for r in recs])
+    dts = np.diff(ts)
+    api_ok = {rec["api"]: rec["ok"] for rec in cap.get("api_calls", [])}
+    res["settings_used"] = [{"api": r["api"], "args": r["args"], "ok": r["ok"], "result": r["result"], "where": r["where"]}
+                            for r in cap.get("api_calls", [])]
+    res["numbers"] = {
+        "film_file": mp4.name, "film_pictures": n, "playback_fps": fps, "film_seconds": round(n / fps, 1),
+        "picture_size_each_camera": [w, h], "simulated_seconds_filmed": round(float(ts[-1] - ts[0]), 2),
+        "sim_seconds_per_film_second": round(float((ts[-1] - ts[0]) / (n / fps)), 3) if n > 1 else None,
+        "sim_dt_between_pairs_s": {"median": round(float(np.median(dts)), 3), "p95": round(float(np.percentile(dts, 95)), 3),
+                                   "max": round(float(dts.max()), 3)} if len(dts) else None,
+        "real_time_factor_wanted": cap.get("args", {}).get("rtf"),
+        "real_time_factor_measured": (cap.get("timing") or {}).get("real_time_factor"),
+        "wall_seconds_film_phase": (cap.get("timing") or {}).get("wall_s"),
+        "pairs_per_wall_second": round(n / (cap["timing"]["wall_s"]), 3) if cap.get("timing") and cap["timing"].get("wall_s") else None,
+        "picture_failures": cap.get("failures"), "connected_after_s": cap.get("connected_after_s"), "scene_load_s": cap.get("scene_load_s"),
+        "takeoff": cap.get("takeoff"), "per_condition": stats, "warmup": cap.get("warmup"), "stop_reason": cap.get("stop_reason")}
+    res["document_claim"] = DOC_CLAIMS[film_id]
+    res["addability"] = {"tried": False, "donor": None,
+                         "note": "nothing had to be added: the simulator's own calls were used (see settings_used)."}
+
+    # ---- verdict, from measurements ----
+    if film_id == "F05":
+        calls_ok = all(v for k, v in api_ok.items() if k.startswith("world.set_time_of_day"))
+        day, night = stats.get("day", {}), stats.get("night", {})
+        dusk = stats.get("dusk", {})
+        ratio = None
+        if day and night and day["fpv_mean"] > 0:
+            ratio = round(night["fpv_mean"] / day["fpv_mean"], 3)
+        res["numbers"]["night_over_day_brightness_fpv"] = ratio
+        res["numbers"]["dusk_over_day_brightness_fpv"] = round(dusk["fpv_mean"] / day["fpv_mean"], 3) if dusk and day and day["fpv_mean"] else None
+        if calls_ok and ratio is not None and ratio <= 0.6:
+            res["verdict"], why = "native", "the three time-of-day calls were accepted and the picture is clearly darker at night."
+        elif calls_ok and ratio is not None and ratio <= 0.85:
+            res["verdict"], why = "partly", f"the calls were accepted; the night picture is only a little darker (ratio {ratio})."
+        else:
+            res["verdict"], why = "not_shown", f"calls accepted={calls_ok}, night/day brightness ratio={ratio}: no clear change seen."
+        res["lights"] = "not evaluated in slice 1 (no lamp objects were switched on; the Blocks scene was not searched for lamps)"
+    else:
+        clear = [r for r in recs if r["cond"] == "clear"]
+        kinds = {}
+        for c in ("fog", "rain", "snow", "overcast_try"):
+            rs = [r for r in recs if r["cond"] == c]
+            diffs = {"fpv": [], "chase": []}
+            for r in rs:
+                base = next((q for q in clear if q["k"] == r["k"]), None)
+                if base is None:
+                    continue
+                for cam in ("fpv", "chase"):
+                    if r.get(cam) and base.get(cam):
+                        d = region_diff(load(frames_dir / r[cam]), load(frames_dir / base[cam]))
+                        if d is not None:
+                            diffs[cam].append(d)
+            kinds[c] = {cam: (round(float(np.mean(v)), 2) if v else None) for cam, v in diffs.items()}
+        res["numbers"]["mean_abs_diff_to_clear_same_swing_phase_0_255"] = kinds
+        visible = {c: any((v or 0) > 3.0 for v in kinds[c].values()) for c in kinds}
+        res["numbers"]["visible_change_over_3_levels"] = visible
+        accepted = {k: v for k, v in api_ok.items() if "set_weather_visual_effects_param" in k}
+        if all(visible.get(c) for c in ("fog", "rain", "snow")) and all(accepted.values()):
+            res["verdict"], why = "native", "fog, rain and snow each changed the picture and every call was accepted."
+        elif any(visible.get(c) for c in ("fog", "rain", "snow")):
+            res["verdict"] = "partly"
+            why = "visible change for: " + ", ".join(c for c in ("fog", "rain", "snow") if visible.get(c)) + "; not seen for the others."
+        else:
+            res["verdict"], why = "not_shown", "no measurable change from fog, rain or snow."
+        res["overcast"] = ("no sky-cover or cloud-cover call exists in the documented API; the cloud-shadow strength and the sun intensity "
+                           "were tried (condition overcast_try) and measured above")
+    res["verdict_reason"] = why
+    res["verdict_is_automatic"] = True
+
+    # row for the overview: 4 frames
+    ridx = uf.evenly_spaced_indices(n, 4)
+    tile_w = 480
+    tiles = []
+    for i in ridx:
+        im = Image.fromarray(composed[i])
+        tiles.append(im.resize((tile_w, int(im.height * tile_w / im.width))))
+    row = Image.new("RGB", (tile_w * 4, tiles[0].height + 26), (0, 0, 0))
+    for k, t in enumerate(tiles):
+        row.paste(t, (k * tile_w, 26))
+    d = ImageDraw.Draw(row)
+    d.text((8, 3), f"{film_id}  {spec['title']}   verdict: {res['verdict']}   (automatic)", fill=(255, 255, 255), font=uf.font(18))
+    row.save(out / f"{film_id}_row.png")
+    # ffprobe facts about the film
+    import subprocess
+    pr = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,pix_fmt,width,height,nb_frames",
+                         "-of", "json", str(mp4)], capture_output=True, text=True)
+    res["film_probe"] = json.loads(pr.stdout)["streams"][0] if pr.returncode == 0 else {"error": pr.stderr[-200:]}
+    (out / "film_result.json").write_text(json.dumps(res, indent=2))
+    print(json.dumps({k: res[k] for k in ("verdict", "verdict_reason", "numbers")}, indent=1)[:3000])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
