@@ -60,6 +60,14 @@ jobs:
           p=$(find bin -iname 'UE4PrereqSetup_x64.exe' | head -1)
           echo "prereq: $p"
           if [ -n "$p" ]; then MSYS2_ARG_CONV_EXCL="*" timeout 150 "$p" /quiet /norestart || echo "prereq exit $?"; fi
+      - name: DirectX end-user runtime (AirSim showed the error "DirectX Runtime is required")
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          curl.exe -fL --retry 5 -o dxredist.exe https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe
+          Start-Process -Wait .\dxredist.exe -ArgumentList '/Q','/T:C:\dxtmp'
+          Start-Process -Wait C:\dxtmp\DXSETUP.exe -ArgumentList '/silent'
+          Get-ChildItem C:\Windows\System32\d3dx9_43.dll, C:\Windows\System32\xinput1_3.dll | Format-Table Name,Length
       - name: Run
         shell: bash
         continue-on-error: true
