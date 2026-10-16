@@ -222,6 +222,7 @@ async def amain(a) -> int:
         max_wall = a.max_wall
         n = e = d = yaw = 0.0
         cmd_task = None
+        last_cmd_t = -1.0
         while True:
             if time.perf_counter() - wall0 > max_wall:
                 res["stop_reason"] = "wall time limit"
@@ -257,14 +258,16 @@ async def amain(a) -> int:
                 if tr > route.TOTAL_S:
                     res["stop_reason"] = "route finished"
                     break
-                vn, ve, z, ywc = ctl.command(tr, n, e)
-                z_target = res["start"]["d"]  # hold the height where the takeoff ended
-                cmd_task = await drone.move_by_velocity_z_async(vn, ve, z_target, 0.5, YawControlMode.MaxDegreeOfFreedom, False, ywc)
+                if t_sim - last_cmd_t >= 0.05:   # at most 20 commands per simulated second
+                    last_cmd_t = t_sim
+                    vn, ve, z, ywc = ctl.command(tr, n, e)
+                    z_target = res["start"]["d"]  # hold the height where the takeoff ended
+                    cmd_task = await drone.move_by_velocity_z_async(vn, ve, z_target, 0.5, YawControlMode.MaxDegreeOfFreedom, False, ywc)
             elif t_sim > 40.0:
                 res["stop_reason"] = "takeoff did not finish within 40 simulated seconds"
                 break
             step += 1
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.05 if skip_grabs else 0.005)
             if time.perf_counter() - last_log > 20:
                 last_log = time.perf_counter()
                 log(f"sim t={t_sim:.1f}s wall={last_log - wall0:.0f}s pos=({n:.1f},{e:.1f},{-d:.1f} up) pictures {pics} failures {cam_fail}")

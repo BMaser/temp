@@ -20,6 +20,10 @@ jobs:
           python colab_unreal/check_notebook.py racing_drone_unreal_films.ipynb /tmp/script.py 2>&1 | tee out/check_notebook.log
       - name: Python packages for the film code
         run: pip install numpy pillow
+      - name: MOCK test of the AirSim flight program and the film code (a toy client, not AirSim)
+        id: mock
+        continue-on-error: true
+        run: python colab_unreal/tests/mock_airsim_test.py out/mock_airsim 2>&1 | tee out/mock_airsim.log; exit ${PIPESTATUS[0]}
       - name: Run the exported script as root with the test switch (-nullrhi, no GPU, no Drive)
         id: run
         continue-on-error: true
@@ -28,6 +32,9 @@ jobs:
           sudo -E env "PATH=$PATH" UNREAL_FILMS_TEST=1 UNREAL_FILMS_WORK=/opt/w UNREAL_FILMS_OUT=$GITHUB_WORKSPACE/out/results \
             python /tmp/script.py 2>&1 | tee out/script_run.log
           exit ${PIPESTATUS[0]}
+      - name: Real AirSim 1.8.1 client signatures (from the environment the script made)
+        if: always()
+        run: /opt/w/venvs/airsim/bin/python colab_unreal/tests/api_signature_check.py 2>&1 | tee out/api_signature_check.log; exit ${PIPESTATUS[0]}
       - name: Film self-test (films from drawn stand-in pictures, never from a simulator)
         if: always()
         run: |

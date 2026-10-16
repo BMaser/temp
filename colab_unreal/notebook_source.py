@@ -455,6 +455,15 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
             info = unreal_films.make_films(res_dir, run_dir / "frames", track, res_dir / "ffmpeg.log")
             quality = unreal_films.film_quality(res_dir, info)
             shutil.copyfile(tj, res_dir / "track.json")
+            smp = [x for x in track["samples"] if x.get("t") is not None]
+            if len(smp) > 2:
+                import math
+                p0 = smp[0]
+                dist = [math.hypot(x["n"] - p0["n"], x["e"] - p0["e"]) for x in smp]
+                plen = sum(math.hypot(b["n"] - a["n"], b["e"] - a["e"]) for a, b in zip(smp[:-1], smp[1:]))
+                result["route_check"] = {"max_height_above_first_sample_m": round(max(-(x["d"] - p0["d"]) for x in smp), 2),
+                                         "farthest_from_start_m": round(max(dist), 2), "end_distance_from_start_m": round(dist[-1], 2),
+                                         "horizontal_path_length_m": round(plen, 1)}
     result["flight"] = flight
     result["film_info"] = info
     result["film_quality"] = quality
@@ -463,7 +472,10 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
         v.get("pictures_decoded", 0) >= 50 for v in info["films"].values()) and all(
         all(x > 5 for x in q.get("stds", [0])) for q in quality.values())
     if TEST:
-        verdict = "TEST RUN WITHOUT PICTURES: the flight route was flown; pictures and films are not expected here."
+        if flight.get("stage") == "done":
+            verdict = "TEST RUN: the flight route was flown (stage done). No pictures, as expected with -nullrhi."
+        else:
+            verdict = f"TEST RUN FAILED: the flight stopped at stage '{flight.get('stage')}'. No pictures, as expected with -nullrhi."
     elif good:
         verdict = "WORKED: all three films were made."
     elif films:
@@ -498,7 +510,10 @@ def finish_sim(kind, title, res_dir, attempts, extra_facts, camera_notes):
                      f"follow camera {info.get('chase_different_pictures_in_film')} ({(info.get('chase_pictures_per_sim_second') or 0):.1f} per simulated second). "
                      "If a number is below 15, some pictures are shown twice.")
     if flight.get("start"):
+        rc_ = result.get("route_check", {})
         lines.append(f"- Route: take off to about 3 m, one figure eight (12 m long, 6 m wide) with the nose along the direction of flight, then hover. "
+                     f"Measured: highest point {rc_.get('max_height_above_first_sample_m')} m above the first sample, farthest from the start {rc_.get('farthest_from_start_m')} m, "
+                     f"{rc_.get('end_distance_from_start_m')} m from the start at the end, path length {rc_.get('horizontal_path_length_m')} m. "
                      f"Collision checks that reported a hit: {t.get('collision_checks_with_hit', 'not measured')}.")
     lines += ["", "## Files in this folder", ""]
     for name, f in info.get("films", {}).items():
@@ -600,7 +615,7 @@ try:
 
     def airsim_client_cmd(run_dir):
         cmd = [str(venv / "bin" / "python"), str(WORK / "helpers" / "airsim_flight.py"), "--out", str(run_dir), "--fps", str(FPS)]
-        return cmd + (["--test", "--picture-wait", "15", "--connect-wait", "240"] if TEST else ["--picture-wait", "90", "--connect-wait", "240"])
+        return cmd + (["--test", "--picture-wait", "15", "--connect-wait", "60"] if TEST else ["--picture-wait", "90", "--connect-wait", "240"])
 
     attempts = try_variants("airsim", script, sim_dir, AIRSIM_RES, airsim_client_cmd, variants_to_try(), prepare_airsim)
     AIRSIM_STATE["attempts"] = attempts
