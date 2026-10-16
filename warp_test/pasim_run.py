@@ -43,9 +43,12 @@ def port_open(port):
         s.close()
 
 
+EXE_NAME = [""]
+
+
 def ue_running():
-    r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq *-Win64-Shipping.exe"], capture_output=True, text=True)
-    return "Shipping" in r.stdout
+    r = subprocess.run(["tasklist"], capture_output=True, text=True)
+    return "Win64-Shipping.exe" in r.stdout or (bool(EXE_NAME[0]) and EXE_NAME[0] in r.stdout)
 
 
 def prepare_config(sim_config: Path, out: Path):
@@ -310,6 +313,7 @@ async def amain(a):
         (out / "result.json").write_text(json.dumps(result, indent=2))
         return 1
     exe = cands[0]
+    EXE_NAME[0] = exe.name
     sim_config = Path(a.src) / "client" / "python" / "example_user_scripts" / "sim_config"
     try:
         result["config"] = prepare_config(sim_config, out)

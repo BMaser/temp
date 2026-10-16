@@ -51,7 +51,7 @@ jobs:
           ls -l Blocks.zip
           7z x -y -obin Blocks.zip > unzip.log || tail -5 unzip.log
           tail -3 unzip.log
-          find bin -maxdepth 3 | head -20
+          find bin -maxdepth 5 > out/airsim/tree.txt; head -40 out/airsim/tree.txt
           df -h /c || true
       - name: Unreal prerequisites
         shell: bash
@@ -59,7 +59,7 @@ jobs:
         run: |
           p=$(find bin -iname 'UE4PrereqSetup_x64.exe' | head -1)
           echo "prereq: $p"
-          if [ -n "$p" ]; then "$p" /quiet /norestart || echo "prereq exit $?"; fi
+          if [ -n "$p" ]; then MSYS2_ARG_CONV_EXCL="*" timeout 150 "$p" /quiet /norestart || echo "prereq exit $?"; fi
       - name: Run
         shell: bash
         continue-on-error: true
@@ -101,14 +101,14 @@ jobs:
           ls -l Blocks.zip
           7z x -y -obin Blocks.zip > unzip.log || tail -5 unzip.log
           tail -3 unzip.log
-          find bin -maxdepth 3 | head -30
+          find bin -maxdepth 5 > out/projectairsim/tree.txt; head -40 out/projectairsim/tree.txt
       - name: Unreal prerequisites
         shell: bash
         continue-on-error: true
         run: |
           p=$(find bin -iname 'UE*PrereqSetup_x64.exe' | head -1)
           echo "prereq: $p"
-          if [ -n "$p" ]; then "$p" /quiet /norestart || echo "prereq exit $?"; fi
+          if [ -n "$p" ]; then MSYS2_ARG_CONV_EXCL="*" timeout 150 "$p" /quiet /norestart || echo "prereq exit $?"; fi
       - name: Run
         shell: bash
         continue-on-error: true

@@ -70,8 +70,8 @@ def port_open():
 
 
 def ue_running():
-    r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Blocks-Win64-Shipping.exe"], capture_output=True, text=True)
-    return "Blocks-Win64-Shipping.exe" in r.stdout
+    r = subprocess.run(["tasklist"], capture_output=True, text=True)
+    return "Blocks.exe" in r.stdout or "Blocks-Win64-Shipping.exe" in r.stdout
 
 
 def decode(r):
