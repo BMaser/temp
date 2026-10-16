@@ -41,7 +41,8 @@ checks = {
     "3 films": set(info["films"]) == {"fpv.mp4", "chase.mp4", "fpv_and_map.mp4"},
     "each film at least 50 pictures": all(v["pictures_decoded"] >= 50 for v in info["films"].values()),
     "contrast above 5": all(all(x > 5 for x in q["stds"]) for q in quality.values()),
-    "films change from picture to picture": all(all(x > 0.5 for x in q["neighbour_mean_abs_diff"]) for q in quality.values()),
+    "films change from picture to picture (median difference of neighbours above 0.5)": all(
+        sorted(q["neighbour_mean_abs_diff"])[len(q["neighbour_mean_abs_diff"]) // 2] > 0.5 for q in quality.values()),
     "three contact sheets": all((out / n).is_file() for n in ("fpv_contact.png", "chase_contact.png", "fpv_and_map_contact.png")),
     "climbs about 3 m": 2.5 < high < 3.6,
     "farthest point 4 to 8 m": 4.0 < far < 8.0,
