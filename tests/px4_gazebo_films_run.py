@@ -36,8 +36,8 @@ import films_core as fc  # noqa: E402
 THIS = Path(__file__).resolve()
 PX4_WORLD = "Tools/simulation/gz/worlds/baylands.sdf"
 PX4_MODELS = "Tools/simulation/gz/models"
-CONDITION_TIMEOUT_S = 25 * 60
-HEALTHY_TIMEOUT_S = 600
+CONDITION_TIMEOUT_S = 10 * 60
+HEALTHY_TIMEOUT_S = 300
 SCENE_TIMEOUT_S = 240
 
 
@@ -210,7 +210,7 @@ def run_condition(name: str, out_root: Path, px4: Path) -> dict:
     S = base.Shared(out)
     sh = base.sh
     sh("rm -f /tmp/.X99-lock", 5)
-    procs = start_stack_standalone(out, px4, base)
+    procs = base.start_stack(out, px4)
     child['scene_info_after_s'] = procs.get('scene_info_after_s')
     try:
         m, topics = base.wait_for(r"^/world/([^/]+)/clock$", base.STACK_START_TIMEOUT_S)
@@ -221,7 +221,7 @@ def run_condition(name: str, out_root: Path, px4: Path) -> dict:
         child["world"] = world
         cams = {}
         for cname, sensor in (("fpv", r"link/camera_link/sensor/imager/image"), ("chase", r"link/chase_cam_link/sensor/chase_cam/image")):
-            mm, topics = base.wait_for(r"^(/world/%s/model/%s/%s)$" % (re.escape(world), re.escape(base.MODEL), sensor), 300)
+            mm, topics = base.wait_for(r"^(/world/%s/model/%s/%s)$" % (re.escape(world), re.escape(base.MODEL), sensor), 120)
             (out / "gz_topics.txt").write_text(topics)
             if not mm:
                 raise RuntimeError(f"camera topic for {cname} did not appear")
@@ -465,6 +465,22 @@ def settings_used(fid: str) -> list:
     return items
 
 
+def twin_stats(out_root: Path, cname: str, ref: str = "overcast") -> dict:
+    """Same flight, same world, with and without the effect: mean absolute difference (grey levels 0-255) and the share of pixels that differ by
+    more than 25 levels, over 12 sampled picture pairs of the drone camera and of the chase camera (index by index)."""
+    fa, ca, ia = load_segment(out_root, cname)
+    fb, cb, ib = load_segment(out_root, ref)
+    if fa is None or fb is None:
+        return {"problem": "segment missing"}
+    n = min(len(fa), len(fb))
+    idx = np.linspace(0, n - 1, 12).astype(int)
+    out = {}
+    for nm, A, B in (("fpv", fa, fb), ("chase", ca, cb)):
+        d = [np.abs(np.asarray(A[i]).astype(np.int16) - np.asarray(B[i]).astype(np.int16)).mean(axis=2) for i in idx]
+        out[nm] = {"mean_abs_diff": round(float(np.mean([x.mean() for x in d])), 2), "share_pixels_over_25": round(float(np.mean([(x > 25).mean() for x in d])), 4)}
+    return out
+
+
 def assemble(out_root: Path, film_ids: list) -> dict:
     results, rows, checks = {}, [], []
     for fid in film_ids:
@@ -481,6 +497,13 @@ def assemble(out_root: Path, film_ids: list) -> dict:
             pr = build_film(out_root, f"{fid}-probe", [p], pm, d / f"probe_{p.replace('probe_', '')}_contact.png")
             pr.pop("_keep", None)
             probes[p] = pr
+        twins = {}
+        if fid == "F06":
+            for c in ("overcast_twin", "fog", "rain", "snow", "probe_rain_fullplugins"):
+                try:
+                    twins[c] = twin_stats(out_root, c)
+                except Exception as e:  # noqa: BLE001
+                    twins[c] = {"problem": repr(e)}
         keep = r.pop("_keep", {})
         verdict = fc.VERDICTS.get(fid, {"verdict": "pending_review", "why": ""})
         if r.get("problems") and not keep:
@@ -490,7 +513,7 @@ def assemble(out_root: Path, film_ids: list) -> dict:
             "film": mp4.name if mp4.is_file() else None, "contact_sheet": contact.name if contact.is_file() else None,
             "document_claim": {i: fc.DOC_CLAIMS[i] for i in spec["doc_ids"]},
             "settings_and_code": settings_used(fid),
-            "measured": r, "probes": probes,
+            "measured": r, "probes": probes, "twin_vs_overcast": twins,
             "versions": {k: (out_root / f).read_text().strip() for k, f in (("px4", "px4_version.txt"), ("gazebo", "gz_version.txt")) if (out_root / f).is_file()},
         }
         (d / "film_result.json").write_text(json.dumps(out, indent=2, default=str))
@@ -572,7 +595,6 @@ def main():
             print("\n".join((d / "run.log").read_text(errors="replace").splitlines()[-6:]), flush=True)
     res = assemble(out_root, film_ids)
     write_summary(out_root, res)
-    shutil.rmtree(out_root / "_backup", ignore_errors=True)
     print((out_root / "summary.md").read_text())
 
 

@@ -85,6 +85,36 @@ def fog_xml() -> str:
     return (f"<include><uri>{FUEL_FOG_URI}</uri><name>fog_generator</name><pose>4 0 -0.1 0 -1.5707 0</pose></include>")
 
 
+# natural objects close to the flight path (owner's order 2026-10-16), all from Gazebo Fuel (owner OpenRobotics); licenses read from the Fuel
+# API on 2026-10-16: Oak tree, Pine Tree, Juniper Tree = Creative Commons Zero v1.0; Falling Rock 1 to 3 = Creative Commons Attribution 4.0.
+# (name on Fuel, instance name, x, y, yaw in world coordinates; z = GROUND_Z)
+GROUND_Z = -0.1
+SCENERY = [
+    ("Oak tree", "oak_a", 9.0, 4.5, 0.3), ("Oak tree", "oak_b", 13.0, -5.0, 1.2),
+    ("Pine Tree", "pine_a", 6.5, -4.5, 0.0), ("Pine Tree", "pine_b", 11.0, 6.5, 2.0),
+    ("Juniper Tree", "juniper_a", 4.5, 3.2, 0.5), ("Juniper Tree", "juniper_b", 7.5, -2.8, 2.5),
+    ("Falling Rock 1", "rock_a", 3.5, -2.2, 0.0), ("Falling Rock 2", "rock_b", 6.0, 2.2, 1.0), ("Falling Rock 3", "rock_c", 8.5, -1.5, 2.0),
+]
+FUEL_BASE = "https://fuel.gazebosim.org/1.0/OpenRobotics/models/"
+
+
+def scenery_xml() -> str:
+    return "".join(f"<include><uri>{FUEL_BASE}{n}</uri><name>{i}</name><pose>{x} {y} {GROUND_Z} 0 0 {yaw}</pose></include>" for n, i, x, y, yaw in SCENERY)
+
+
+# ROOT CAUSE found in run 38950664623: a <plugin> in the world file switches OFF the default systems of PX4's server.config (gz-sim logs "No systems
+# loaded from SDF, loading defaults" only without it): no scene broadcaster, so /world/baylands/scene/info never appears and PX4 times out after 30 s.
+# The particle emitter system is therefore NOT added to the main rain, snow and fog conditions (the emitter is drawn without it); the probe
+# "probe_rain_fullplugins" adds it together with a copy of the default systems of px4/src/modules/simulation/gz_bridge/server.config.
+FULL_SERVER_PLUGINS = "".join(f"<plugin filename='{f}' name='{n}'>{extra}</plugin>" for f, n, extra in [
+    ("gz-sim-physics-system", "gz::sim::systems::Physics", ""), ("gz-sim-user-commands-system", "gz::sim::systems::UserCommands", ""),
+    ("gz-sim-scene-broadcaster-system", "gz::sim::systems::SceneBroadcaster", ""), ("gz-sim-contact-system", "gz::sim::systems::Contact", ""),
+    ("gz-sim-imu-system", "gz::sim::systems::Imu", ""), ("gz-sim-air-pressure-system", "gz::sim::systems::AirPressure", ""),
+    ("gz-sim-air-speed-system", "gz::sim::systems::AirSpeed", ""), ("gz-sim-apply-link-wrench-system", "gz::sim::systems::ApplyLinkWrench", ""),
+    ("gz-sim-navsat-system", "gz::sim::systems::NavSat", ""), ("gz-sim-magnetometer-system", "gz::sim::systems::Magnetometer", ""),
+    ("gz-sim-sensors-system", "gz::sim::systems::Sensors", "<render_engine>ogre2</render_engine>"),
+    ("libOpticalFlowSystem.so", "custom::OpticalFlowSystem", ""), ("libGstCameraSystem.so", "custom::GstCameraSystem", "")])
+
 PARTICLE_PLUGIN = "<plugin filename='gz-sim-particle-emitter-system' name='gz::sim::systems::ParticleEmitter'></plugin>"
 
 SKY_DEFAULT = None  # keep the sky element the world has (<sky><clouds>true</clouds></sky>)
@@ -98,46 +128,43 @@ OVERCAST = dict(ambient="0.6 0.6 0.65", background="0.66 0.68 0.72", sky=SKY_NON
 OVERCAST_SUN = dict(direction="0.001 0.625 -0.78", diffuse="0.55 0.55 0.6 1", specular="0.05 0.05 0.05 1", intensity=0.5)
 
 CONDITIONS = {
-    "day": dict(film="F05", label="DAY: world as shipped (sun, sky with clouds)", scene=None, sun=None, headlamp=False, lamps=False, extras=[], prefill_s=2.0),
+    "day": dict(film="F05", label="DAY: world as shipped (sun, sky with clouds)", scene=None, sun=None, headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
     "dusk": dict(film="F05", label="DUSK: low warm sun, orange background, no sky element",
                  scene=dict(ambient="0.45 0.32 0.42", background="0.95 0.6 0.35", sky=SKY_NONE),
                  sun=dict(direction="0.9 0.25 -0.12", diffuse="1.0 0.55 0.25 1", specular="0.4 0.2 0.1 1", intensity=0.9),
-                 headlamp=False, lamps=False, extras=[], prefill_s=2.0),
+                 headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
     "night": dict(film="F05", label="NIGHT: dim blue moon light, dark background, lamps and a spot light on the drone",
                   scene=dict(ambient="0.05 0.05 0.12", background="0.01 0.01 0.035", sky=SKY_NONE),
                   sun=dict(direction="0.3 0.2 -0.9", diffuse="0.10 0.12 0.25 1", specular="0.02 0.02 0.05 1", intensity=0.5),
-                  headlamp=True, lamps=True, extras=[], prefill_s=2.0),
+                  headlamp=True, lamps=True, scenery=True, extras=[], prefill_s=2.0),
     "overcast": dict(film="F06", label="OVERCAST: grey light, grey background, no sky element",
-                     scene=OVERCAST, sun=OVERCAST_SUN, headlamp=False, lamps=False, extras=[], prefill_s=2.0),
+                     scene=OVERCAST, sun=OVERCAST_SUN, headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
     "fog": dict(film="F06", label="OVERCAST + FOG: Fuel model Fog Generator (particle emitter)",
-                scene=OVERCAST, sun=OVERCAST_SUN, headlamp=False, lamps=False, extras=["fog"], prefill_s=25.0),
+                scene=OVERCAST, sun=OVERCAST_SUN, headlamp=False, lamps=False, scenery=True, extras=["fog"], prefill_s=25.0),
     "rain": dict(film="F06", label="OVERCAST + RAIN: our particle emitter, 4000 drops/s",
-                 scene=dict(ambient="0.5 0.5 0.55", background="0.5 0.52 0.56", sky=SKY_NONE), sun=OVERCAST_SUN,
-                 headlamp=False, lamps=False, extras=["rain"], prefill_s=4.0),
+                 scene=OVERCAST, sun=OVERCAST_SUN,
+                 headlamp=False, lamps=False, scenery=True, extras=["rain"], prefill_s=4.0),
     "snow": dict(film="F06", label="OVERCAST + SNOW: our particle emitter, 1500 flakes/s",
-                 scene=dict(ambient="0.65 0.65 0.7", background="0.74 0.76 0.8", sky=SKY_NONE), sun=OVERCAST_SUN,
-                 headlamp=False, lamps=False, extras=["snow"], prefill_s=9.0),
+                 scene=OVERCAST, sun=OVERCAST_SUN,
+                 headlamp=False, lamps=False, scenery=True, extras=["snow"], prefill_s=9.0),
     # probes: what does the engine do with the sky element and the scene fog element?
     "probe_sky_time_22": dict(film="P", label="PROBE: sky element with time 22, sunset 20, clouds humidity 0.9 (rest as shipped)",
-                              scene=dict(ambient="0.8 0.5 1", background="0.7 0.7 0.7", sky=SKY_TIME_22), sun=None, headlamp=False, lamps=False, extras=[], prefill_s=2.0),
+                              scene=dict(ambient="0.8 0.5 1", background="0.7 0.7 0.7", sky=SKY_TIME_22), sun=None, headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
     "probe_no_sky": dict(film="P", label="PROBE: no sky element, background 0.45 0.6 0.9 (rest as shipped)",
-                         scene=dict(ambient="0.8 0.5 1", background="0.45 0.6 0.9", sky=SKY_NONE), sun=None, headlamp=False, lamps=False, extras=[], prefill_s=2.0),
+                         scene=dict(ambient="0.8 0.5 1", background="0.45 0.6 0.9", sky=SKY_NONE), sun=None, headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
     "probe_scene_fog": dict(film="P", label="PROBE: scene fog element (linear, start 3 m, end 25 m, grey), no sky element",
                             scene=dict(ambient="0.6 0.6 0.65", background="0.7 0.7 0.74", sky=SKY_NONE,
                                        fog="<fog><color>0.7 0.7 0.74 1</color><type>linear</type><start>3</start><end>25</end><density>1</density></fog>"),
-                            sun=OVERCAST_SUN, headlamp=False, lamps=False, extras=[], prefill_s=2.0),
-    # probes of the particle emitter: which part makes the world slow to start? (run 38946015743: rain, snow and fog worlds never got /scene/info within PX4's 30 s)
-    "probe_rain_noplugin": dict(film="P", label="PROBE: rain emitter model but NO particle emitter system plugin",
-                                scene=dict(ambient="0.5 0.5 0.55", background="0.5 0.52 0.56", sky=SKY_NONE), sun=OVERCAST_SUN, headlamp=False, lamps=False,
-                                extras=["rain_noplugin"], prefill_s=4.0),
-    "probe_plugin_only": dict(film="P", label="PROBE: particle emitter system plugin but no emitter",
-                              scene=dict(ambient="0.5 0.5 0.55", background="0.5 0.52 0.56", sky=SKY_NONE), sun=OVERCAST_SUN, headlamp=False, lamps=False,
-                              extras=["plugin_only"], prefill_s=2.0),
+                            sun=OVERCAST_SUN, headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
+    # twin of overcast (same world, second run): how much do two identical runs differ? (reference for the rain and fog differences)
+    "overcast_twin": dict(film="P", label="TWIN: overcast again", scene=OVERCAST, sun=OVERCAST_SUN, headlamp=False, lamps=False, scenery=True, extras=[], prefill_s=2.0),
+    "probe_rain_fullplugins": dict(film="P", label="PROBE: rain emitter with the particle emitter system plugin AND a copy of the default systems",
+                                   scene=OVERCAST, sun=OVERCAST_SUN, headlamp=False, lamps=False, scenery=True, extras=["rain_fullplugins"], prefill_s=4.0),
 }
 
 FILMS = {
-    "F05": dict(short="night", feature="Night", conditions=["day", "dusk", "night"], probes=["probe_sky_time_22", "probe_no_sky"], doc_ids=["D15"]),
-    "F06": dict(short="clouds_rain", feature="Clouds and rain", conditions=["overcast", "fog", "rain", "snow"], probes=["probe_scene_fog", "probe_rain_noplugin", "probe_plugin_only"], doc_ids=["D16"]),
+    "F05": dict(short="night", feature="Night", conditions=["day", "dusk", "night"], probes=[], doc_ids=["D15"]),
+    "F06": dict(short="clouds_rain", feature="Clouds and rain", conditions=["overcast", "fog", "rain", "snow"], probes=["overcast_twin", "probe_rain_fullplugins"], doc_ids=["D16"]),
 }
 
 # the document claims, copied from runs/2026-10-14_feature_matrix/features_data.json (answers.px4_gazebo) and recheck.json
@@ -162,13 +189,13 @@ VERDICTS = {
 def world_extras(cond: dict) -> str:
     parts = []
     for e in cond.get("extras", []):
-        if e == "plugin_only":
-            continue
-        parts.append({"rain": rain_xml, "rain_noplugin": rain_xml, "snow": snow_xml, "fog": fog_xml}[e]())
+        parts.append({"rain": rain_xml, "rain_fullplugins": rain_xml, "snow": snow_xml, "fog": fog_xml}[e]())
+    if cond.get("scenery"):
+        parts.append(scenery_xml())
     if cond.get("lamps"):
         parts += [lamp_xml(k, x, y) for k, (x, y) in enumerate(LAMP_POSITIONS)]
-    if any(e in ("rain", "snow", "fog", "plugin_only") for e in cond.get("extras", [])):
-        parts.append(PARTICLE_PLUGIN)
+    if "rain_fullplugins" in cond.get("extras", []):
+        parts.append(FULL_SERVER_PLUGINS + PARTICLE_PLUGIN)
     return "".join(parts)
 
 

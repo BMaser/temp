@@ -44,9 +44,11 @@ def main():
             if cond["scene"]["sky"] == fc.SKY_NONE:
                 check(f"{name}: no sky", sc.find("sky") is None)
         if "rain" in cond["extras"]:
-            check(f"{name}: rain emitter and plugin", len(w.findall(".//particle_emitter")) == 1 and "ParticleEmitter" in t)
+            check(f"{name}: rain emitter, no world plugin (it would switch off the default systems)", len(w.findall(".//particle_emitter")) == 1 and "<plugin" not in t)
         if "fog" in cond["extras"]:
-            check(f"{name}: fog include", "fog generator" in t and "ParticleEmitter" in t)
+            check(f"{name}: fog include, no world plugin", "fog generator" in t and "<plugin" not in t)
+        if "rain_fullplugins" in cond["extras"]:
+            check(f"{name}: full plugin set", len(w.findall("plugin")) == 14 and len(w.findall(".//particle_emitter")) == 1)
         if cond["lamps"]:
             check(f"{name}: lamps", len(w.findall(".//light[@type='point']")) == len(fc.LAMP_POSITIONS))
         if cond["sun"] is not None:

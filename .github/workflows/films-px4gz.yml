@@ -20,7 +20,7 @@ permissions:
 
 env:
   PX4_TAG: v1.17.0
-  FILMS: ${{ inputs.films || 'F06' }}
+  FILMS: ${{ inputs.films || 'F05,F06' }}
 
 jobs:
   films:
@@ -68,6 +68,23 @@ jobs:
           set -o pipefail
           .venv/bin/python tests/px4_gazebo_films_run.py all --films "$FILMS" --out results --px4 px4 2>&1 | tee results/run.log
 
+      - name: RT15 probe (real-time camera, not a film)
+        id: rt15
+        continue-on-error: true
+        run: |
+          mkdir -p results
+          set -o pipefail
+          .venv/bin/python tests/px4_gazebo_rt15.py all --out results --px4 px4 2>&1 | tee results/rt15_run.log
+
+      - name: Why are the trees black? Material dump of the Fuel meshes, licenses of the Fuel models used
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p results/fuel_metadata
+          python3 tests/dump_fuel_materials.py results/fuel_materials.txt || true
+          find ~/.gz/fuel -name "metadata.pbtxt" | while read f; do d=$(echo "$f" | sed 's#.*/models/##; s#/#_#g'); cp "$f" "results/fuel_metadata/$d" || true; done
+          find ~/.gz/fuel -maxdepth 6 -type d | sed 's#.*/fuel.gazebosim.org/##' > results/fuel_cache_dirs.txt || true
+
       - name: Job summary
         if: always()
         run: |
@@ -77,6 +94,7 @@ jobs:
       - name: Remove files that are not results
         if: always()
         run: |
+          rm -rf results/_backup
           rm -f results/conds/*/*.rgb
           for f in results/conds/*/sim.log results/conds/*/gz_server.log; do [ -f "$f" ] && tail -n 400 "$f" > "${f%.log}_tail.log" && if [ "$(stat -c %s "$f")" -gt 4000000 ]; then head -n 400 "$f" > "${f%.log}_head.log"; rm -f "$f"; fi; done
           true
