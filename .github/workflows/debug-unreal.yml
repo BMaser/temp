@@ -143,6 +143,7 @@ jobs:
           bash debug_unreal/pasim_probe.sh "$PWD/pasim_bin" "$PWD/ev" P1w -ResX=640 -ResY=480 -nosound -windowed || true
       - name: P5, AllowCPUDevices plus a Python client (pictures)
         if: inputs.p5 == 'true'
+        timeout-minutes: 8
         continue-on-error: true
         run: |
           pgrep Xvfb >/dev/null || { Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb_p5.log 2>&1 & sleep 3; }

@@ -12,9 +12,9 @@ echo "script $SH args: $ARGS lvp $LVP" | tee "$E/info.txt"
 touch "$E/.marker"; sleep 1
 export DISPLAY=:99 VK_ICD_FILENAMES="$LVP" LIBGL_ALWAYS_SOFTWARE=1 SDL_AUDIODRIVER=dummy
 t0=$(date +%s.%N)
-( cd "$(dirname "$SH")"; timeout ${SIM_TIMEOUT:-90} strace -f -tt -s 400 -e trace=openat,write,writev,sendmsg,exit_group,execve -o "$E/strace.txt" bash "$SH" $ARGS > "$E/sim.log" 2>&1; echo "exit status $?" > "$E/exit_status.txt" ) &
+( cd "$(dirname "$SH")"; timeout -k 5 ${SIM_TIMEOUT:-90} strace -f -tt -s 400 -e trace=openat,write,writev,sendmsg,exit_group,execve -o "$E/strace.txt" bash "$SH" $ARGS > "$E/sim.log" 2>&1; echo "exit status $?" > "$E/exit_status.txt" ) &
 W=$!
-if [ -n "${PA_CLIENT:-}" ]; then ( "$PA_PY" "$(dirname "$0")/pasim_client.py" "$E" "$PA_SIMCFG" > "$E/client.log" 2>&1 & ); fi
+if [ -n "${PA_CLIENT:-}" ]; then nohup setsid timeout 150 "$PA_PY" "$(dirname "$0")/pasim_client.py" "$E" "$PA_SIMCFG" > "$E/client.log" 2>&1 < /dev/null &; fi
 for s in 2 5 10 20 40; do
   now=$(date +%s.%N); d=$(python3 -c "print(max(0,$s-($now-$t0)))"); sleep "$d"
   case $s in 2|5|10) import -window root "$E/shot_${s}s.png" 2>"$E/shot_${s}s.err" || true ;; esac
