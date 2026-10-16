@@ -16,7 +16,7 @@ XV=$!
 sleep 3
 export DISPLAY=:99 VK_ICD_FILENAMES="$LVP" LIBGL_ALWAYS_SOFTWARE=1 SDL_AUDIODRIVER=dummy
 T0=$(date +%s)
-( cd "$(dirname "$SH")"; exec bash "$SH" -RenderOffScreen -ResX=640 -ResY=480 -nosound -windowed -AllowCPUDevices > "$OUT/sim.log" 2>&1 ) &
+( cd "$(dirname "$SH")"; exec bash "$SH" -RenderOffScreen -ResX=${UNREAL_RESX:-640} -ResY=${UNREAL_RESY:-480} -nosound -windowed -AllowCPUDevices ${UNREAL_EXTRA:-} > "$OUT/sim.log" 2>&1 ) &
 SIM=$!
 sleep 8
 if ! kill -0 "$SIM" 2>/dev/null; then echo "Unreal exited within 8 s" | tee -a "$OUT/launch_info.txt"; fi

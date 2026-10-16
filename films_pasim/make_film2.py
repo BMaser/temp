@@ -213,7 +213,7 @@ def main():
         for r in recs_all:
             f1 = tile(fd / r["fpv"] if r.get("fpv") else None, 640, 360, "drone camera (nose)")
             f2 = tile(fd / r["chase"] if r.get("chase") else None, 640, 360, "chase camera")
-            body = np.concatenate([f1, f2], axis=1)
+            body = np.concatenate([f1, f2], axis=1) if any(q.get("chase") for q in recs_all[:5]) else f1
             frames.append(np.concatenate([body, strip(body.shape[1], f"{film} {r['phase']}: {cap_for.get(r['phase'], '')}  |  simulated time {r['t']:.2f} s  |  pair {r['i']}")], axis=0))
             labels.append(f"{r['phase']} t={r['t']:.1f}s")
     elif film in ("F07", "F09", "F10"):
