@@ -161,8 +161,9 @@ def main():
         res["calibration_evening"] = cap.get("calibration")
         res["lamp_objects_found_in_scene"] = cap.get("lamp_objects")
         res["scene_exploration"] = {k: (v[:40] if isinstance(v, list) else v) for k, v in (cap.get("scene_exploration") or {}).items()}
-        res["lights"] = ("no lamp switched on: " + ("lamp-like objects found: %s" % cap.get("lamp_objects")[:10]
-                         if cap.get("lamp_objects") else "no object with light/lamp/lantern/street in its name in the Blocks scene"))
+        res["lights"] = ({"spawned_with_simulator_assets": cap["lights_spawned"]} if cap.get("lights_spawned") else
+                         ("no lamp switched on: " + ("lamp-like objects found: %s" % cap.get("lamp_objects")[:10]
+                          if cap.get("lamp_objects") else "no light object in the scene's own objects; the packaged assets PointLightActor and SpotLightActor exist (spawnable)")))
         # contact sheet of the calibration pictures
         cal = [(row["time"], frames_dir / f"cal_{row['time'].replace(':', '')}_fpv.jpg") for row in cap.get("calibration", [])]
         cal = [(t, p_) for t, p_ in cal if p_.is_file()]

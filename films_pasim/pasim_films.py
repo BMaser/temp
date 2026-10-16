@@ -86,7 +86,7 @@ def prepare_configs(sim_config: Path, rtf: float, width: int, height: int, inter
         chase["origin"] = {"xyz": "-3.5 0.0 -1.5", "rpy-deg": "0 -23.0 0"}
     facts["chase_origin_after"] = dict(chase["origin"])
     facts["variant"] = variant
-    if variant == "gain":  # documented capture-level exposure settings (docs_sensors_camera_capture_settings.md): let the eye adaptation go very dark
+    if "gain" in variant.split("_"):  # documented capture-level exposure settings (docs_sensors_camera_capture_settings.md): let the eye adaptation go very dark
         chase["capture-settings"][0].update({"auto-exposure-method": 1, "auto-exposure-speed": 10.0, "auto-exposure-bias": 3.0,
                                               "auto-exposure-min-brightness": 0.00005, "auto-exposure-max-brightness": 4.0})
         facts["exposure_settings"] = {k: v for k, v in chase["capture-settings"][0].items() if k.startswith("auto-exposure")}
@@ -132,13 +132,16 @@ class Calls:
 
     def __init__(self):
         self.records = []
+        self.last_value = None
 
     def __call__(self, name, fn, *args, **kw):
         line = sys._getframe(1).f_lineno
         rec = {"api": name, "args": [repr(a) for a in args] + [f"{k}={v!r}" for k, v in kw.items()],
                "where": f"films_pasim/pasim_films.py:{line}", "t_wall": round(time.time(), 1)}
         try:
-            rec["result"] = repr(fn(*args, **kw))[:200]
+            value = fn(*args, **kw)
+            self.last_value = value
+            rec["result"] = repr(value)[:200]
             rec["ok"] = True
         except Exception as e:  # noqa: BLE001
             rec["result"] = f"{type(e).__name__}: {e}"[:300]
@@ -338,6 +341,8 @@ async def amain(a) -> int:
         for ci, cond in enumerate(film["conditions"]):
             label, caption = cond[0], cond[1]
             n_pairs = cond[2] if len(cond) > 2 else a.frames
+            if a.film == "F05" and "lights" in a.variant.split("_") and label in ("twilight", "night", "midnight") and not cap.get("lights_spawned"):
+                cap["lights_spawned"] = spawn_lights(call, world, n0, e0)
             apply_condition(call, world, WeatherParameter, a.film, label, lamp_names)
             seg = {"label": label, "caption": caption, "first_frame": idx, "wall_start_s": round(time.perf_counter() - wall_start, 1),
                    "sim_start_s": round((world.get_sim_time() - sim_start) / 1e9, 3)}
@@ -402,6 +407,31 @@ async def amain(a) -> int:
             pass
         save()
     return rc
+
+
+def spawn_lights(call, world, n0, e0):
+    """Light actors that ship with the simulator (assets PointLightActor and SpotLightActor), spawned around the drone and set with the
+    documented light calls (the shipped example light_objects.py does the same for a spot light)."""
+    from projectairsim.types import Pose, Quaternion, Vector3
+    from projectairsim.utils import rpy_to_quaternion
+    lamps = [("Lamp1", "PointLightActor", (n0 + 4.0, e0 + 0.0, -1.5), None, 5000.0, 2000.0, [1.0, 0.95, 0.85]),
+             ("Lamp2", "PointLightActor", (n0 - 2.0, e0 + 5.0, -1.5), None, 5000.0, 2000.0, [1.0, 0.5, 0.1]),
+             ("Lamp3", "PointLightActor", (n0 - 2.0, e0 - 5.0, -1.5), None, 5000.0, 2000.0, [0.3, 0.5, 1.0]),
+             ("Spot1", "SpotLightActor", (n0, e0, -9.0), (0.0, -89.0, 0.0), 10000.0, 16000.0, [1.0, 1.0, 1.0])]
+    names = []
+    for nm, asset, (x, y, z), rpy, inten, radius, color in lamps:
+        q = rpy_to_quaternion(*rpy) if rpy else (1, 0, 0, 0)
+        pose = Pose({"translation": Vector3({"x": x, "y": y, "z": z}), "rotation": Quaternion({"w": q[0], "x": q[1], "y": q[2], "z": q[3]}),
+                     "frame_id": "DEFAULT_ID"})
+        rec = call(f"world.spawn_object({nm}, {asset})", world.spawn_object, nm, asset, pose, [1.0, 1.0, 1.0], False)
+        if not rec["ok"]:
+            continue
+        name = call.last_value
+        names.append({"name": name, "asset": asset, "xyz_ned": [x, y, z]})
+        call(f"world.set_light_object_intensity({nm}, {inten})", world.set_light_object_intensity, name, inten)
+        call(f"world.set_light_object_radius({nm}, {radius})", world.set_light_object_radius, name, radius)
+        call(f"world.set_light_object_color({nm}, {color})", world.set_light_object_color, name, color)
+    return names
 
 
 def apply_condition(call, world, WP, film, label, lamp_names=()):

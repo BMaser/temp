@@ -9,7 +9,7 @@ on:
     inputs:
       films:
         description: "film ids, comma separated; FNN@variant for a variant (F05@gain)"
-        default: "F05@gain,F06"
+        default: "F05@lights,F05@lights_mountains,F06@mountains"
       rtf:
         description: "simulation clock speed (0.03 = 33 times slower than real time)"
         default: "0.03"
@@ -25,7 +25,7 @@ permissions:
 
 env:
   PASIM_TAG: v1.0.1
-  FILMS: ${{ github.event.inputs.films || 'F05@gain,F06' }}
+  FILMS: ${{ github.event.inputs.films || 'F05@lights,F05@lights_mountains,F06@mountains' }}
   RTF: ${{ github.event.inputs.rtf || '0.03' }}
   FRAMES: ${{ github.event.inputs.frames || '40' }}
   EXTRA: ${{ github.event.inputs.extra || '' }}
@@ -43,7 +43,8 @@ jobs:
           inc = []
           for it in [x.strip() for x in os.environ["FILMS"].split(",") if x.strip()]:
               fid, _, var = it.partition("@")   # "F05@gain" = film F05, variant gain
-              inc.append({"film": fid, "variant": var or "default", "key": fid + ("-" + var if var else "")})
+              pkg = "LandscapeMountains" if "mountains" in var.split("_") else "Blocks"
+              inc.append({"film": fid, "variant": var or "default", "key": fid + ("-" + var if var else ""), "pkg": pkg})
           print("matrix=" + json.dumps({"include": inc}))
           EOF
 
@@ -66,7 +67,7 @@ jobs:
           .pa/bin/pip install -q projectairsim==1.0.1 numpy pillow
           .pa/bin/pip freeze > ev/pip_freeze.txt
           git clone --depth 1 --branch "$PASIM_TAG" https://github.com/iamaisim/ProjectAirSim.git ProjectAirSim_src
-          curl -fL --retry 5 -sS -o Blocks.zip "https://github.com/iamaisim/ProjectAirSim/releases/download/$PASIM_TAG/Blocks-Linux-1.0.1.zip"
+          curl -fL --retry 5 -sS -o Blocks.zip "https://github.com/iamaisim/ProjectAirSim/releases/download/$PASIM_TAG/${{ matrix.pkg }}-Linux-1.0.1.zip"
           ls -la Blocks.zip | tee ev/zip_size.txt
           mkdir -p pasim_bin && unzip -q Blocks.zip -d pasim_bin && rm Blocks.zip
           df -h / | tee ev/disk.txt

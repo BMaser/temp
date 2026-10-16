@@ -26,7 +26,7 @@ echo "client exit status $RC after $(( $(date +%s) - T0 )) s" | tee -a "$OUT/lau
 echo "unreal alive at the end: $(kill -0 "$SIM" 2>/dev/null && echo yes || echo no)" | tee -a "$OUT/launch_info.txt"
 # stop Unreal: the process group of the subshell
 pkill -TERM -P "$SIM" 2>/dev/null; kill "$SIM" 2>/dev/null; sleep 3
-pkill -KILL -f "Binaries/Linux/Blocks" 2>/dev/null
+pkill -KILL -f "Binaries/Linux/" 2>/dev/null
 kill "$XV" 2>/dev/null
 # logs written by Unreal
 mkdir -p "$OUT/unreal_logs"
