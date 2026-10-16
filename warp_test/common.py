@@ -251,3 +251,31 @@ def diag(out: Path, tag: str):
             o = "\n\n".join(b for b in blocks if any(k in b for k in ("Blocks", "Shipping", "Unreal", "CrashReport")))
         txt.append("== " + " ".join(args) + "\n" + o + r.stderr)
     (d / f"{tag}_processes.txt").write_text("\n".join(txt))
+
+
+def events(out: Path, tag: str, roots):
+    """Windows Application event log of the last 10 minutes, plus a listing and the small files of any Saved Crashes folders."""
+    d = out / "diag"
+    d.mkdir(parents=True, exist_ok=True)
+    ps = ("Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-10)} -ErrorAction SilentlyContinue | "
+          "Format-List TimeCreated,ProviderName,Id,Message")
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True)
+    (d / f"{tag}_eventlog.txt").write_text(r.stdout + r.stderr)
+    import os
+    lines = []
+    for root in roots:
+        root = str(root)
+        if not os.path.isdir(root):
+            continue
+        for dp, dn, fn in os.walk(root, followlinks=False, onerror=lambda e: None):
+            dn[:] = [x for x in dn if x != "Application Data"]
+            if "Crashes" in dp.split(os.sep) or dp.endswith("Crashes"):
+                for f in fn:
+                    pth = os.path.join(dp, f)
+                    lines.append(f"{pth}  {os.path.getsize(pth)} bytes")
+                    if os.path.getsize(pth) < 200000 and not f.lower().endswith(".dmp"):
+                        try:
+                            shutil.copy(pth, d / f"{tag}_crash_{f}")
+                        except Exception:
+                            pass
+    (d / f"{tag}_crashes_list.txt").write_text("\n".join(lines) or "no Crashes folder files found")

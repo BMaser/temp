@@ -52,7 +52,7 @@ def ue_running():
     return "Win64-Shipping.exe" in r.stdout or (bool(EXE_NAME[0]) and EXE_NAME[0] in r.stdout)
 
 
-def prepare_config(sim_config: Path, out: Path):
+def prepare_config(sim_config: Path, out: Path, tune=False):
     """Add a forward camera FrontCamera to the robot config (copy of DownCamera, looking forward). Returns the sensor names."""
     import commentjson
     scene_p = sim_config / "scene_basic_drone.jsonc"
@@ -87,7 +87,7 @@ def prepare_config(sim_config: Path, out: Path):
         rp.write_text(json.dumps(robot, indent=2))
         front["origin"] = {"xyz": "0.25 0 -0.08", "rpy-deg": "0 0 0"}
         info["sensor_ids_after"] = [s.get("id") for s in sensors]
-        for sn in sensors:
+        for sn in (sensors if tune else []):
             if sn.get("type") == "camera":
                 for cs in sn.get("capture-settings", []):
                     if cs.get("image-type") == 0:
@@ -148,41 +148,50 @@ class Session:
     def sensors(self):
         return self.cams
 
+    def try_grab(self, st, ims):
+        for c in self.cams:
+            try:
+                im = grab(self.drone, c)
+                ims[c] = im
+                st[c] = common.image_stats(im)["std"]
+            except Exception as e:
+                st[c] = f"exception {type(e).__name__}: {str(e)[:100]}"
+
+    def ok_now(self, st):
+        return all(isinstance(st.get(c), float) and st[c] > common.PASS_MIN_STD for c in self.cams)
+
     def probe(self, wait_s=360):
-        """Pause the clock; step 20 ms of simulated time and ask each camera for a picture, until one has a standard deviation above 5."""
+        """First the clock runs free (like the first working run), 120 s at most; then the clock is paused and stepped."""
         t0 = time.time()
         hist = []
         self.cams = ["Chase", "FrontCamera" if self.has_front else "DownCamera"]
         dd = set()
-        try:
-            self.world.pause()
-        except Exception as e:
-            self.info["pause_error"] = str(e)[:200]
+        stepped = False
         while time.time() - t0 < wait_s:
-            for mark in (1, 60, 200):
+            for mark in (1, 5, 15, 30, 60, 200):
                 if time.time() - t0 >= mark and mark not in dd:
                     dd.add(mark)
                     common.diag(self.out, f"{self.tag}_probe_t{mark}")
             if not ue_running():
                 self.info["error"] = "Unreal process ended while waiting for a picture"
                 break
+            if not stepped and time.time() - t0 > 120:
+                stepped = True
+                self.world.pause()
+                self.info["switched_to_stepping_after_s"] = round(time.time() - t0, 1)
             st, ims = {}, {}
-            try:
-                self.world.continue_for_sim_time(20_000_000, True)
-            except Exception as e:
-                st["step"] = f"exception {type(e).__name__}: {str(e)[:100]}"
-            for c in self.cams:
+            if stepped:
                 try:
-                    im = grab(self.drone, c)
-                    ims[c] = im
-                    st[c] = common.image_stats(im)["std"]
+                    self.world.continue_for_sim_time(20_000_000, True)
                 except Exception as e:
-                    st[c] = f"exception {type(e).__name__}: {str(e)[:100]}"
+                    st["step"] = f"exception {type(e).__name__}: {str(e)[:100]}"
+            self.try_grab(st, ims)
             hist.append(st)
-            if all(isinstance(st.get(c), float) and st[c] > common.PASS_MIN_STD for c in self.cams):
+            if self.ok_now(st):
                 for c, im in ims.items():
                     common.save_png(im, self.out / "pictures" / f"{self.tag}_{c}.png")
                 self.info["probe_after_s"] = round(time.time() - t0, 1)
+                self.info["probe_mode"] = "stepped" if stepped else "free-running"
                 self.info["probe_stds"] = st
                 self.info["sizes"] = {c: list(im.shape[:2][::-1]) for c, im in ims.items()}
                 self.good = list(self.cams)
@@ -192,27 +201,48 @@ class Session:
         return False
 
     def measure(self, n=20):
-        """Pictures per wall second with the clock stepped (20 ms per step), and the free-running real-time factor."""
+        """Pictures per wall second in three ways, then the free-running real-time factor."""
         res = {}
         cam = self.good[0]
-        t0 = time.perf_counter()
+        # A: free-running clock, grab as fast as possible
+        ok, t0 = 0, time.perf_counter()
         for _ in range(n):
-            self.world.continue_for_sim_time(20_000_000, True)
-            grab(self.drone, cam)
+            try:
+                grab(self.drone, cam)
+                ok += 1
+            except Exception:
+                pass
         w = time.perf_counter() - t0
-        res["one_camera"] = {"camera": cam, "pictures": n, "wall_s": w, "pictures_per_s": n / w}
-        t0 = time.perf_counter()
+        res["free_running_grabs"] = {"asked": n, "succeeded": ok, "wall_s": w, "pictures_per_s": ok / w}
+        # B: paused clock, step 100 ms, grab at once
+        self.world.pause()
+        ok, t0 = 0, time.perf_counter()
         for _ in range(n):
-            self.world.continue_for_sim_time(20_000_000, True)
-            for c in self.good:
-                grab(self.drone, c)
+            try:
+                self.world.continue_for_sim_time(100_000_000, True)
+                grab(self.drone, cam)
+                ok += 1
+            except Exception:
+                pass
         w = time.perf_counter() - t0
-        res["two_cameras"] = {"cameras": self.good, "rounds": n, "wall_s": w, "pictures_per_s": n * len(self.good) / w}
+        res["stepped_grab_at_once"] = {"asked": n, "succeeded": ok, "wall_s": w, "pictures_per_s": ok / w}
+        # C: paused clock, step 100 ms, wait 2 s, then grab
+        ok, t0 = 0, time.perf_counter()
+        for _ in range(5):
+            try:
+                self.world.continue_for_sim_time(100_000_000, True)
+                time.sleep(2)
+                grab(self.drone, cam)
+                ok += 1
+            except Exception:
+                pass
+        w = time.perf_counter() - t0
+        res["stepped_wait_2s_then_grab"] = {"asked": 5, "succeeded": ok, "wall_s": w, "pictures_per_s": ok / w}
         self.world.resume()
         s0, w0 = self.world.get_sim_time(), time.perf_counter()
         time.sleep(10)
         s1, w1 = self.world.get_sim_time(), time.perf_counter()
-        res["free_running"] = {"wall_s": w1 - w0, "sim_s": (s1 - s0) / 1e9, "real_time_factor": (s1 - s0) / 1e9 / (w1 - w0)}
+        res["free_running_clock"] = {"wall_s": w1 - w0, "sim_s": (s1 - s0) / 1e9, "real_time_factor": (s1 - s0) / 1e9 / (w1 - w0)}
         self.info["measure"] = res
         log(f"measure {self.tag}: {json.dumps(res)}")
         return res
@@ -227,6 +257,7 @@ class Session:
 
     def collect_logs(self, roots):
         got = common.collect_logs(roots, self.logdir, self.tag, self.t_start_epoch)
+        common.events(self.out, self.tag, roots)
         self.info["unreal_logs"] = [p.name for p in got]
         f = common.log_facts(got + [self.logdir / f"stdout_{self.tag}.log"])
         self.info["log_names_warp"] = f["names_warp"]
@@ -240,20 +271,21 @@ def pos_of(drone):
     return p["x"], p["y"], p["z"]
 
 
-async def fly_and_record(s: Session, out: Path, cap_s):
+async def fly_and_record(s: Session, out: Path, cap_s, mode):
     from projectairsim.drone import YawControlMode
     drone, world = s.drone, s.world
     rec = out / "frames"
     rec.mkdir(parents=True, exist_ok=True)
     fpv_cam = "FrontCamera" if "FrontCamera" in s.good else "DownCamera"
     chase_cam = "Chase"
-    res = {"fpv_camera": fpv_cam, "chase_camera": chase_cam, "cap_wall_s": cap_s}
+    res = {"fpv_camera": fpv_cam, "chase_camera": chase_cam, "cap_wall_s": cap_s, "mode": mode}
     drone.enable_api_control()
     drone.arm()
     p0 = pos_of(drone)
     plan = common.Planner()
     track = []
-    world.pause()
+    if mode != "free":
+        world.pause()
     take = await drone.takeoff_async(timeout_sec=30)
     t_sim0 = world.get_sim_time()
     t_wall0 = time.perf_counter()
@@ -279,9 +311,21 @@ async def fly_and_record(s: Session, out: Path, cap_s):
             vd = max(-1.5, min(1.5, 1.0 * ((-plan.alt) - d)))
             await drone.move_by_velocity_async(vn, ve, vd, 0.3, YawControlMode.MaxDegreeOfFreedom, False, yaw)
         ts = time.perf_counter()
-        world.continue_for_sim_time(100_000_000, True)
-        await asyncio.sleep(0.005)
-        ims = [grab(drone, fpv_cam), grab(drone, chase_cam)]
+        if mode != "free":
+            world.continue_for_sim_time(100_000_000, True)
+            await asyncio.sleep(0.005)
+            if mode == "stepped_wait":
+                time.sleep(2)
+        else:
+            await asyncio.sleep(0.2)
+        try:
+            ims = [grab(drone, fpv_cam), grab(drone, chase_cam)]
+        except Exception:
+            res["failed_grabs"] = res.get("failed_grabs", 0) + 1
+            if res["failed_grabs"] > 200:
+                stopped = "more than 200 failed picture requests"
+                break
+            continue
         t_all = time.perf_counter() - ts
         common.save_jpg(ims[0], rec / f"fpv_{k:05d}.jpg")
         common.save_jpg(ims[1], rec / f"chase_{k:05d}.jpg")
@@ -315,9 +359,9 @@ def write_summary(out, result):
         L.append(f"- Log names 'Microsoft Basic Render Driver': {s.get('log_names_warp')}")
         m = s.get("measure")
         if m:
-            L.append(f"- Pictures per wall second, one camera: {m['one_camera']['pictures_per_s']:.2f}")
-            L.append(f"- Pictures per wall second, two cameras: {m['two_cameras']['pictures_per_s']:.2f}")
-            L.append(f"- Real-time factor, free running: {m['free_running']['real_time_factor']:.3f}")
+            for k in ("free_running_grabs", "stepped_grab_at_once", "stepped_wait_2s_then_grab"):
+                L.append(f"- {k}: {json.dumps(m[k])}")
+            L.append(f"- Real-time factor, free running: {m['free_running_clock']['real_time_factor']:.3f}")
         L.append("")
     if result.get("flight"):
         L += ["## Flight and films", json.dumps(result["flight"], indent=2), json.dumps(result.get("films"), indent=2)]
@@ -342,7 +386,7 @@ async def amain(a):
     EXE_NAME[0] = exe.name
     sim_config = Path(a.src) / "client" / "python" / "example_user_scripts" / "sim_config"
     try:
-        result["config"] = prepare_config(sim_config, out)
+        result["config"] = prepare_config(sim_config, out, a.tune)
     except Exception:
         result["config_error"] = traceback.format_exc()[-1500:]
     has_front = "FrontCamera" in (result.get("config", {}).get("sensor_ids_after") or [])
@@ -377,7 +421,12 @@ async def amain(a):
         return 1
     result["winner"] = win.vname
     try:
-        fl, track, square = await fly_and_record(win, out, a.cap_min * 60)
+        m = win.info.get("measure", {})
+        def good(k, need):
+            return m.get(k, {}).get("succeeded", 0) >= need
+        mode = "stepped" if good("stepped_grab_at_once", 15) else "stepped_wait" if good("stepped_wait_2s_then_grab", 4) else "free"
+        result["flight_mode"] = mode
+        fl, track, square = await fly_and_record(win, out, a.cap_min * 60, mode)
         result["flight"] = fl
         result["films"] = common.make_films(out / "frames", track, square, out / "films")
         (out / "track.json").write_text(json.dumps(track))
@@ -402,4 +451,5 @@ if __name__ == "__main__":
     ap.add_argument("--src", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--cap-min", type=float, default=60.0)
+    ap.add_argument("--tune", action="store_true", help="640x480 scene pictures, other image types off")
     sys.exit(asyncio.run(amain(ap.parse_args())))

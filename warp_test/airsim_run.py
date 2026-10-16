@@ -120,7 +120,7 @@ class Session:
                     r = subprocess.run("netstat -ano | findstr 41451", shell=True, capture_output=True, text=True)
                     with open(self.out / "portcheck.txt", "a") as fh:
                         fh.write(f"[{self.tag}] t+{mark}s netstat: {r.stdout.strip() or 'nothing on 41451'}" + chr(10))
-            for mark in (20, 90, 200):
+            for mark in (5, 15, 30, 60, 90, 200):
                 if time.time() - t0 > mark and mark not in dd:
                     dd.add(mark)
                     common.diag(self.out, f"{self.tag}_t{mark}")
@@ -218,6 +218,7 @@ class Session:
 
     def collect_logs(self, roots):
         got = common.collect_logs(roots, self.logdir, self.tag, self.t_start_epoch)
+        common.events(self.out, self.tag, roots)
         self.info["unreal_logs"] = [p.name for p in got]
         f = common.log_facts(got + [self.logdir / f"stdout_{self.tag}.log"])
         self.info["log_names_warp"] = f["names_warp"]
