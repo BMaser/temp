@@ -1,0 +1,8 @@
+{
+  "F06": {
+    "verdict": "partly",
+    "reason": "Fog and snow are shown clearly. Rain is shown only weakly: small water drops on the surfaces and a damp look, no falling rain streaks visible at 640 x 360. There is no cloud layer: an overcast look is made only by combining fog, a dimmed sun and cloud-shadow strength.",
+    "reviewed": "main-session helper looked at F06_segments.png and full-size rain and storm frames of run 38948040235",
+    "notes": "The automatic test (mean difference to the clear pictures) could not tell rain from a turn of the drone's nose, so it is not used for the verdict."
+  }
+}

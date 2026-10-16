@@ -69,12 +69,14 @@ def region_diff(a, b):
 
 def main():
     film_id, out = sys.argv[1], Path(sys.argv[2])
+    variant = sys.argv[3] if len(sys.argv) > 3 else "default"
+    vtag = "" if variant == "default" else f"_{variant}"
     spec = FILM_DEFS[film_id]
     cap = json.loads((out / "capture.json").read_text())
     frames_dir = out / "frames"
     caps = {c[0]: c[1] for c in spec["conditions"]}
     recs = [r for r in cap.get("frames", []) if not r.get("settle") and (r.get("fpv") or r.get("chase"))]
-    res = {"film": film_id, "simulator": "project_airsim", "version": "Project AirSim 1.0.1 (Unreal Engine 5), scene Blocks",
+    res = {"film": film_id, "variant": variant, "simulator": "project_airsim", "version": "Project AirSim 1.0.1 (Unreal Engine 5), scene Blocks",
            "feature": spec["title"], "capture_stage": cap.get("stage"), "problems": []}
     if not recs:
         res.update({"verdict": "not_shown", "verdict_reason": f"no pictures were saved (capture stage {cap.get('stage')}, "
@@ -87,7 +89,7 @@ def main():
     w, h = w - w % 2, h - h % 2
     n = len(recs)
     fps = int(min(12, max(4, round(n / 15.0))))
-    mp4 = out / f"{film_id}_{spec['short']}.mp4"
+    mp4 = out / f"{film_id}_{spec['short']}{vtag}.mp4"
     wr = uf.FilmWriter(mp4, 2 * w, h + STRIP, fps, out / "ffmpeg.log")
     composed = []
     for r in recs:
@@ -98,7 +100,7 @@ def main():
     # contact sheet: 8 evenly spaced frames, labeled
     idx = uf.evenly_spaced_indices(n, 8)
     labels = [f"{recs[i]['cond']}  t={recs[i]['t']:.1f}s  pair {recs[i]['i']}" for i in idx]
-    uf.contact_sheet([composed[i] for i in idx], labels, cols=2, max_width=1920).save(out / f"{film_id}_contact.png")
+    uf.contact_sheet([composed[i] for i in idx], labels, cols=2, max_width=1920).save(out / f"{film_id}{vtag}_contact.png")
     # the middle frame of every condition
     seg_idx = []
     for c in spec["conditions"]:
@@ -106,7 +108,7 @@ def main():
         if members:
             seg_idx.append(members[len(members) // 2])
     uf.contact_sheet([composed[i] for i in seg_idx], [f"{recs[i]['cond']}: {caps[recs[i]['cond']]}" for i in seg_idx], cols=2,
-                     max_width=1920).save(out / f"{film_id}_segments.png")
+                     max_width=1920).save(out / f"{film_id}{vtag}_segments.png")
 
     # statistics per condition
     stats = {}
@@ -166,7 +168,7 @@ def main():
         cal = [(t, p_) for t, p_ in cal if p_.is_file()]
         if cal:
             uf.contact_sheet([load(p_) for _, p_ in cal], [f"calibration {t} (mean {next(r for r in cap['calibration'] if r['time'] == t).get('fpv_mean')})" for t, _ in cal],
-                             cols=3, max_width=1920).save(out / f"{film_id}_calibration.png")
+                             cols=3, max_width=1920).save(out / f"{film_id}{vtag}_calibration.png")
     else:
         clear = [r for r in recs if r["cond"] == "clear"]
 
@@ -188,7 +190,7 @@ def main():
         control = mean_diff(clear, by_k, shift=5)
         res["numbers"]["control_clear_vs_clear_5_pairs_later_0_255"] = control
         kinds = {}
-        for c in ("fog", "rain", "snow", "storm", "overcast_try"):
+        for c in ("fog", "rain", "snow", "storm", "overcast_try", "leaves", "dust"):
             rs = [r for r in recs if r["cond"] == c]
             kinds[c] = mean_diff(rs, by_k)
         res["numbers"]["mean_abs_diff_to_clear_same_swing_phase_0_255"] = kinds
@@ -201,7 +203,7 @@ def main():
                     top = im[: max(1, im.shape[0] // 8)]
                     vals.append(float((top[..., 2] - top[..., 0]).mean()))
             return round(float(np.mean(vals)), 1) if vals else None
-        sky = {c: sky_blue([r for r in recs if r["cond"] == c]) for c in ("clear", "fog", "rain", "snow", "storm", "overcast_try")}
+        sky = {c: sky_blue([r for r in recs if r["cond"] == c]) for c in ("clear", "fog", "rain", "snow", "storm", "overcast_try", "leaves", "dust")}
         res["numbers"]["sky_blue_minus_red_top_eighth_fpv"] = sky
         ctl = max([v for v in control.values() if v] or [3.0])
         visible = {c: any((v or 0) > ctl * 1.15 for v in kinds[c].values()) for c in kinds}
@@ -224,6 +226,21 @@ def main():
                            "fog); condition overcast_try combines them and its sky is measured above")
     res["verdict_reason"] = why
     res["verdict_is_automatic"] = True
+    if film_id == "F05":
+        res["sun_tests_22h"] = cap.get("sun_tests")
+        sun = [(row["sun_intensity"], frames_dir / f"sun_{row['sun_intensity']}_fpv.jpg") for row in cap.get("sun_tests", [])]
+        sun = [(i_, p_) for i_, p_ in sun if p_.is_file()]
+        if sun:
+            uf.contact_sheet([load(p_) for _, p_ in sun], [f"22:00, sun intensity {i_}" for i_, _ in sun], cols=3, max_width=1920).save(out / f"{film_id}{vtag}_suntests.png")
+    ov_file = Path(__file__).resolve().parent / "verdicts.json"
+    if ov_file.is_file():
+        ov = json.loads(ov_file.read_text()).get(film_id + ("" if variant == "default" else "@" + variant))
+        if ov:
+            res["verdict_automatic"] = {"verdict": res["verdict"], "reason": res["verdict_reason"]}
+            res["verdict"], res["verdict_reason"], res["verdict_is_automatic"] = ov["verdict"], ov["reason"], False
+            res["verdict_reviewed"] = ov.get("reviewed")
+            if ov.get("notes"):
+                res["notes"] = ov["notes"]
 
     # row for the overview: 4 frames
     ridx = uf.evenly_spaced_indices(n, 4)
@@ -236,8 +253,8 @@ def main():
     for k, t in enumerate(tiles):
         row.paste(t, (k * tile_w, 26))
     d = ImageDraw.Draw(row)
-    d.text((8, 3), f"{film_id}  {spec['title']}   verdict: {res['verdict']}   (automatic)", fill=(255, 255, 255), font=uf.font(18))
-    row.save(out / f"{film_id}_row.png")
+    d.text((8, 3), f"{film_id}{vtag}  {spec['title']}   verdict: {res['verdict']}{'' if res['verdict_is_automatic'] else ' (reviewed)'}", fill=(255, 255, 255), font=uf.font(18))
+    row.save(out / f"{film_id}{vtag}_row.png")
     # ffprobe facts about the film
     import subprocess
     pr = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,pix_fmt,width,height,nb_frames",

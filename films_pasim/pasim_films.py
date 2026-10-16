@@ -29,14 +29,15 @@ DAY = "2021-09-20"  # the date used by the shipped time_of_day.py example
 # (label, caption[, pairs]) in the order they are filmed. The setup of each is in apply_condition().
 FILM_DEFS = {
     "F05": {"short": "night", "title": "Night: day, dusk and night at the same place",
-            "conditions": [("day", "12:00 (noon)"), ("dusk", "18:45 (sun at the horizon)"), ("twilight", "19:30 (twilight)"),
+            "conditions": [("day", "12:00 (noon)"), ("dusk", "18:45 (sun at the horizon)"), ("twilight", "19:15 (twilight)"),
                            ("night", "20:30 (night)"), ("midnight", "23:30 (deep night)", 15)]},
     "F06": {"short": "clouds_rain", "title": "Clouds, fog, rain and snow",
             "conditions": [("clear", "no weather"), ("fog", "fog 0.6"), ("rain", "rain 1.0 + wet ground 1.0"), ("snow", "snow 0.9"),
                            ("storm", "fog 0.35 + rain 1.0 + wet ground 1.0"),
-                           ("overcast_try", "overcast try: fog 0.3 + sun 1.0 (default 2.75) + cloud shadows 1.0")]},
+                           ("overcast_try", "overcast try: fog 0.3 + sun 1.0 (default 2.75) + cloud shadows 1.0"),
+                           ("leaves", "falling maple leaves 0.9", 20), ("dust", "dust 0.9", 20)]},
 }
-TIMES = {"day": f"{DAY} 12:00:00", "dusk": f"{DAY} 18:45:00", "twilight": f"{DAY} 19:30:00", "night": f"{DAY} 20:30:00",
+TIMES = {"day": f"{DAY} 12:00:00", "dusk": f"{DAY} 18:45:00", "twilight": f"{DAY} 19:15:00", "night": f"{DAY} 20:30:00",
          "midnight": f"{DAY} 23:30:00"}
 CAL_TIMES = ["19:00", "19:15", "19:30", "19:45", "20:00", "20:15", "20:30", "21:00", "22:00"]  # calibration of the evening light (F05)
 
@@ -72,7 +73,7 @@ def strip_jsonc(text: str) -> str:
     return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
 
 
-def prepare_configs(sim_config: Path, rtf: float, width: int, height: int, interval: float, chase_close: bool) -> dict:
+def prepare_configs(sim_config: Path, rtf: float, width: int, height: int, interval: float, chase_close: bool, variant: str = "default") -> dict:
     """Copy the shipped scene and robot, add a FrontCamera, set picture sizes and the slow clock. Returns the facts."""
     sim_config = Path(sim_config)
     robot = json.loads(strip_jsonc((sim_config / ROBOT_SHIPPED).read_text()))
@@ -84,6 +85,11 @@ def prepare_configs(sim_config: Path, rtf: float, width: int, height: int, inter
     if chase_close:  # 3.5 m behind, 1.5 m above, pitched down (same sign as the shipped -11.46)
         chase["origin"] = {"xyz": "-3.5 0.0 -1.5", "rpy-deg": "0 -23.0 0"}
     facts["chase_origin_after"] = dict(chase["origin"])
+    facts["variant"] = variant
+    if variant == "gain":  # documented capture-level exposure settings (docs_sensors_camera_capture_settings.md): let the eye adaptation go very dark
+        chase["capture-settings"][0].update({"auto-exposure-method": 1, "auto-exposure-speed": 10.0, "auto-exposure-bias": 3.0,
+                                              "auto-exposure-min-brightness": 0.00005, "auto-exposure-max-brightness": 4.0})
+        facts["exposure_settings"] = {k: v for k, v in chase["capture-settings"][0].items() if k.startswith("auto-exposure")}
     front = json.loads(json.dumps(chase))
     front["id"] = "FrontCamera"
     front["origin"] = {"xyz": "0.3 0.0 0.0", "rpy-deg": "0 0 0"}
@@ -162,7 +168,8 @@ async def amain(a) -> int:
         (out / "capture.json").write_text(json.dumps(cap, indent=1, default=str))
 
     call = Calls()
-    cap["config_facts"] = prepare_configs(a.sim_config, a.rtf, a.width, a.height, a.interval, not a.shipped_chase)
+    cap["variant"] = a.variant
+    cap["config_facts"] = prepare_configs(a.sim_config, a.rtf, a.width, a.height, a.interval, not a.shipped_chase, a.variant)
     client = ProjectAirSimClient()
     t0 = time.time()
     while True:
@@ -281,6 +288,28 @@ async def amain(a) -> int:
                             row[f"{cam}_mean"], row[f"{cam}_std"] = round(float(img.mean()), 2), round(float(img.std()), 2)
                 cap["calibration"].append(row)
                 log("calibration", row)
+            # does a very strong sun light a scene whose sun is far below the horizon? (set_sunlight_intensity, documented range 0 to 75000)
+            cap["sun_tests"] = []
+            call("world.set_time_of_day(sun test 22:00)", world.set_time_of_day, status=True, datetime=f"{DAY} 22:00:00", is_dst=False,
+                 clock_speed=1.0, update_interval=1.0, move_sun=False)
+            for inten in (50, 2000, 75000):
+                call(f"world.set_sunlight_intensity({inten})", world.set_sunlight_intensity, inten)
+                row = {"sun_intensity": inten, "time": "22:00"}
+                for rep_i in range(2):
+                    for cam, sensor in cams.items():
+                        if sensor is None:
+                            continue
+                        try:
+                            img = grab(drone, sensor)
+                        except Exception as ex2:  # noqa: BLE001
+                            row[f"{cam}_error"] = repr(ex2)[-120:]
+                            continue
+                        if rep_i == 1:
+                            Image.fromarray(img).save(frames_dir / f"sun_{inten}_{cam}.jpg", quality=92)
+                            row[f"{cam}_mean"], row[f"{cam}_std"] = round(float(img.mean()), 2), round(float(img.std()), 2)
+                cap["sun_tests"].append(row)
+                log("sun test", row)
+            call("world.set_sunlight_intensity(2.75)", world.set_sunlight_intensity, 2.75)
             save()
 
         # ---- takeoff (pictures are asked for meanwhile so that the renderer stays awake) ----
@@ -398,6 +427,10 @@ def apply_condition(call, world, WP, film, label, lamp_names=()):
         call("world.set_weather_visual_effects_param(FOG, 0.35)", P, param=WP.FOG, value=0.35)
         call("world.set_weather_visual_effects_param(RAIN, 1.0)", P, param=WP.RAIN, value=1.0)
         call("world.set_weather_visual_effects_param(ROAD_WETNESS, 1.0)", P, param=WP.ROAD_WETNESS, value=1.0)
+    elif label == "leaves":
+        call("world.set_weather_visual_effects_param(MAPLE_LEAF, 0.9)", P, param=WP.MAPLE_LEAF, value=0.9)
+    elif label == "dust":
+        call("world.set_weather_visual_effects_param(DUST, 0.9)", P, param=WP.DUST, value=0.9)
     elif label == "overcast_try":
         call("world.set_weather_visual_effects_param(FOG, 0.3)", P, param=WP.FOG, value=0.3)
         call("world.set_cloud_shadow_strength(1.0)", world.set_cloud_shadow_strength, 1.0)
@@ -418,6 +451,7 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=0.05, help="camera capture interval in simulated seconds")
     ap.add_argument("--yaw-amp-deg", type=float, default=40.0)
     ap.add_argument("--shipped-chase", action="store_true", help="keep the shipped Chase camera position (10 m behind)")
+    ap.add_argument("--variant", default="default", help="default, or gain (camera auto-exposure opened wide, for the night film)")
     ap.add_argument("--no-calibration", action="store_true", help="F05: skip the evening-light calibration")
     ap.add_argument("--connect-wait", type=float, default=180.0)
     ap.add_argument("--picture-wait", type=float, default=120.0)
