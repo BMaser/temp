@@ -12,6 +12,9 @@ on:
       airsim_variants:
         description: "AirSim variants to run"
         default: "A1,A2,A3,A4"
+      skip_p1:
+        description: "Project AirSim: skip the P1 run (true/false)"
+        default: "false"
 
 permissions:
   contents: read
@@ -114,8 +117,13 @@ jobs:
           grep -i -E "profile|compatible Vulkan|VulkanProfile|SkipProfile|AllowCPU" /tmp/strings_all.txt | head -n 400 > ev/strings_profile_grep.txt || true
           grep -i "vulkan" /tmp/strings_all.txt | grep -i -E "device|select|physical|cpu|software|llvmpipe|lavapipe|r\.vulkan" | head -n 1500 > ev/strings_vulkan_device.txt || true
           grep -E "^-[A-Za-z0-9_]+" /tmp/strings_all.txt | grep -i -E "vulkan|vk|rhi|opengl|sm5|sm6|nullrhi|offscreen" | head -n 200 > ev/strings_switches.txt || true
-          wc -l ev/strings_*.txt
+          strings -a -el -n 6 "$B" > /tmp/strings_wide.txt || true
+          wc -l /tmp/strings_wide.txt | tee -a ev/strings_count.txt
+          grep -i "vulkan" /tmp/strings_wide.txt | head -n 800 > ev/wide_vulkan.txt || true
+          grep -i -E "compatible|physical device|profile|r\.vulkan|skip|cpu" /tmp/strings_wide.txt | grep -i -E "vulkan|device|rhi|gpu" | head -n 800 > ev/wide_profile_grep.txt || true
+          wc -l ev/strings_*.txt ev/wide_*.txt
       - name: P1 and P2, start under strace
+        if: inputs.skip_p1 != 'true'
         continue-on-error: true
         run: |
           Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset -ac > ev/xvfb.log 2>&1 &
