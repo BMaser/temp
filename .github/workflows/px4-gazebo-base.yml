@@ -34,7 +34,7 @@ jobs:
           bash px4/Tools/setup/ubuntu.sh --no-nuttx
           sudo apt-get install -y python3-gz-transport13 python3-gz-msgs10 python3-numpy python3-scipy python3-pil python3-venv
           python3 -m venv --system-site-packages .venv
-          .venv/bin/pip install mavsdk
+          .venv/bin/pip install mavsdk numpy scipy pillow
           .venv/bin/python -c "import mavsdk, numpy, scipy, PIL; from gz.transport13 import Node; from gz.msgs10.pose_v_pb2 import Pose_V; from gz.msgs10.image_pb2 import Image; print('mavsdk', mavsdk.__file__, 'numpy', numpy.__version__, 'scipy', scipy.__version__, 'gz bindings ok')" | tee results/python_versions.txt
           .venv/bin/pip list 2>/dev/null | grep -i -E "mavsdk|grpc|protobuf|numpy|scipy|pillow" | tee -a results/python_versions.txt
           gz sim --versions | tee results/gz_version.txt
