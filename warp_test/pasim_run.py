@@ -85,7 +85,15 @@ def prepare_config(sim_config: Path, out: Path):
         info["FrontCamera_config"] = front
         sensors.append(front)
         rp.write_text(json.dumps(robot, indent=2))
+        front["origin"] = {"xyz": "0.25 0 -0.08", "rpy-deg": "0 0 0"}
         info["sensor_ids_after"] = [s.get("id") for s in sensors]
+        for sn in sensors:
+            if sn.get("type") == "camera":
+                for cs in sn.get("capture-settings", []):
+                    if cs.get("image-type") == 0:
+                        cs["width"], cs["height"], cs["capture-enabled"] = 640, 480, True
+                    else:
+                        cs["capture-enabled"] = False
     return info
 
 
@@ -141,10 +149,15 @@ class Session:
         return self.cams
 
     def probe(self, wait_s=360):
+        """Pause the clock; step 20 ms of simulated time and ask each camera for a picture, until one has a standard deviation above 5."""
         t0 = time.time()
         hist = []
-        self.cams = ["Chase", "DownCamera"] + (["FrontCamera"] if self.has_front else [])
+        self.cams = ["Chase", "FrontCamera" if self.has_front else "DownCamera"]
         dd = set()
+        try:
+            self.world.pause()
+        except Exception as e:
+            self.info["pause_error"] = str(e)[:200]
         while time.time() - t0 < wait_s:
             for mark in (1, 60, 200):
                 if time.time() - t0 >= mark and mark not in dd:
@@ -154,6 +167,10 @@ class Session:
                 self.info["error"] = "Unreal process ended while waiting for a picture"
                 break
             st, ims = {}, {}
+            try:
+                self.world.continue_for_sim_time(20_000_000, True)
+            except Exception as e:
+                st["step"] = f"exception {type(e).__name__}: {str(e)[:100]}"
             for c in self.cams:
                 try:
                     im = grab(self.drone, c)
@@ -162,33 +179,36 @@ class Session:
                 except Exception as e:
                     st[c] = f"exception {type(e).__name__}: {str(e)[:100]}"
             hist.append(st)
-            if any(isinstance(v, float) and v > common.PASS_MIN_STD for v in st.values()):
+            if all(isinstance(st.get(c), float) and st[c] > common.PASS_MIN_STD for c in self.cams):
                 for c, im in ims.items():
                     common.save_png(im, self.out / "pictures" / f"{self.tag}_{c}.png")
                 self.info["probe_after_s"] = round(time.time() - t0, 1)
                 self.info["probe_stds"] = st
                 self.info["sizes"] = {c: list(im.shape[:2][::-1]) for c, im in ims.items()}
-                self.good = [c for c, v in st.items() if isinstance(v, float) and v > common.PASS_MIN_STD]
+                self.good = list(self.cams)
                 return True
-            time.sleep(3)
+            time.sleep(1)
         self.info["probe_stds_history"] = hist[-6:]
         return False
 
     def measure(self, n=20):
+        """Pictures per wall second with the clock stepped (20 ms per step), and the free-running real-time factor."""
         res = {}
-        cam = "Chase" if "Chase" in self.good else self.good[0]
-        grab(self.drone, cam)
+        cam = self.good[0]
         t0 = time.perf_counter()
         for _ in range(n):
+            self.world.continue_for_sim_time(20_000_000, True)
             grab(self.drone, cam)
         w = time.perf_counter() - t0
         res["one_camera"] = {"camera": cam, "pictures": n, "wall_s": w, "pictures_per_s": n / w}
         t0 = time.perf_counter()
         for _ in range(n):
-            for c in self.good[:2]:
+            self.world.continue_for_sim_time(20_000_000, True)
+            for c in self.good:
                 grab(self.drone, c)
         w = time.perf_counter() - t0
-        res["two_cameras"] = {"cameras": self.good[:2], "rounds": n, "wall_s": w, "pictures_per_s": n * len(self.good[:2]) / w}
+        res["two_cameras"] = {"cameras": self.good, "rounds": n, "wall_s": w, "pictures_per_s": n * len(self.good) / w}
+        self.world.resume()
         s0, w0 = self.world.get_sim_time(), time.perf_counter()
         time.sleep(10)
         s1, w1 = self.world.get_sim_time(), time.perf_counter()

@@ -30,30 +30,33 @@ VARIANTS = {
     "c": f"-dx12 -WARP -AllowSoftwareRendering -windowed {BASE}",
     "d": f"-RenderOffscreen -dx12 -sm5 -WARP -AllowSoftwareRendering {BASE}",
 }
+FC = ["front_center", "back_center"]
 CAP = {"ImageType": 0, "Width": 640, "Height": 480, "FOV_Degrees": 90}
 
 
-def settings_json(view_mode):
+def settings_json(view_mode, profile="min"):
+    """profile min = the coordinator's minimal settings (the old Linux gate); cams = plus vehicle Cameras; ext = plus ExternalCameras."""
     s = {
         "SettingsVersion": 1.2,
         "SimMode": "Multirotor",
-        "ClockSpeed": 1.0,
-        "Vehicles": {"Drone1": {
-            "VehicleType": "SimpleFlight", "AutoCreate": True,
-            "Cameras": {
-                "front": {"CaptureSettings": [CAP], "X": 0.3, "Y": 0.0, "Z": 0.0, "Pitch": 0.0, "Roll": 0.0, "Yaw": 0.0},
-                "chase": {"CaptureSettings": [CAP], "X": -3.5, "Y": 0.0, "Z": -1.5, "Pitch": -15.0, "Roll": 0.0, "Yaw": 0.0},
-            }}},
+        "CameraDefaults": {"CaptureSettings": [CAP]},
+        "Vehicles": {"Drone1": {"VehicleType": "SimpleFlight", "AutoCreate": True}},
     }
+    if profile == "cams":
+        s["Vehicles"]["Drone1"]["Cameras"] = {
+            "front": {"CaptureSettings": [CAP], "X": 0.3, "Y": 0.0, "Z": 0.0, "Pitch": 0.0, "Roll": 0.0, "Yaw": 0.0},
+            "chase": {"CaptureSettings": [CAP], "X": -3.5, "Y": 0.0, "Z": -1.5, "Pitch": -15.0, "Roll": 0.0, "Yaw": 0.0}}
+    if profile == "ext":
+        s["ExternalCameras"] = {"Chase": {"CaptureSettings": [CAP], "X": -3.5, "Y": 0.0, "Z": -1.5, "Pitch": -15.0, "Roll": 0.0, "Yaw": 0.0}}
     if view_mode:
         s["ViewMode"] = view_mode
     return s
 
 
-def write_settings(view_mode, out: Path, tag):
+def write_settings(view_mode, out: Path, tag, profile="min"):
     d = Path(os.path.expanduser("~")) / "Documents" / "AirSim"
     d.mkdir(parents=True, exist_ok=True)
-    txt = json.dumps(settings_json(view_mode), indent=2)
+    txt = json.dumps(settings_json(view_mode, profile), indent=2)
     (d / "settings.json").write_text(txt)
     (out / f"settings_{tag}.json").write_text(txt)
 
@@ -91,18 +94,18 @@ def grab(client, names):
 
 
 class Session:
-    def __init__(self, exe, out, logdir, vname, view_mode):
-        self.exe, self.out, self.logdir, self.vname, self.view_mode = exe, out, logdir, vname, view_mode
-        self.tag = f"{vname}_{view_mode or 'default'}"
+    def __init__(self, exe, out, logdir, vname, view_mode, profile="min"):
+        self.exe, self.out, self.logdir, self.vname, self.view_mode, self.profile = exe, out, logdir, vname, view_mode, profile
+        self.tag = f"{vname}_{view_mode or 'default'}" + ("" if profile == "min" else f"_{profile}")
         self.proc = None
         self.client = None
-        self.info = {"variant": vname, "view_mode": view_mode or "default"}
+        self.info = {"variant": vname, "view_mode": view_mode or "default", "settings_profile": profile}
 
     def start(self, wait_s=240):
         import airsim
         common.kill_names(EXE_NAMES)
         time.sleep(2)
-        write_settings(self.view_mode, self.out, self.tag)
+        write_settings(self.view_mode, self.out, self.tag, self.profile)
         self.t_start_epoch = time.time()
         args = VARIANTS[self.vname].split()
         sim_log = self.logdir / f"stdout_{self.tag}.log"
@@ -111,6 +114,12 @@ class Session:
         t0 = time.time()
         dd = set()
         while time.time() - t0 < wait_s:
+            for mark in (10, 30, 60):
+                if time.time() - t0 > mark and ("p", mark) not in dd:
+                    dd.add(("p", mark))
+                    r = subprocess.run("netstat -ano | findstr 41451", shell=True, capture_output=True, text=True)
+                    with open(self.out / "portcheck.txt", "a") as fh:
+                        fh.write(f"[{self.tag}] t+{mark}s netstat: {r.stdout.strip() or 'nothing on 41451'}" + chr(10))
             for mark in (20, 90, 200):
                 if time.time() - t0 > mark and mark not in dd:
                     dd.add(mark)
@@ -127,7 +136,18 @@ class Session:
         self.info["rpc_up_after_s"] = round(time.time() - t0, 1)
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
+        if self.profile == "min":
+            self.set_chase_pose()
         return True
+
+    def set_chase_pose(self):
+        """Built-in back_center camera moved behind and above the drone, looking forward (a following view)."""
+        import airsim
+        try:
+            self.client.simSetCameraPose("back_center", airsim.Pose(airsim.Vector3r(-3.5, 0, -1.5), airsim.to_quaternion(-0.26, 0, 0)))
+            self.info["chase_pose_set"] = True
+        except Exception as e:
+            self.info["chase_pose_set"] = f"failed: {e}"
 
     def probe(self, wait_s=300):
         """Ask for a front and a chase picture until one has a standard deviation above 5."""
@@ -138,7 +158,7 @@ class Session:
                 self.info["error"] = "Unreal process ended while waiting for a picture"
                 break
             try:
-                ims = grab(self.client, ["front", "chase"])
+                ims = grab(self.client, FC)
             except Exception as e:
                 stds.append(f"exception {type(e).__name__}: {str(e)[:100]}")
                 time.sleep(3)
@@ -159,7 +179,7 @@ class Session:
         self.info["probe_stds_history"] = stds[-8:]
         # keep the last (failed) pictures for the record
         try:
-            ims = grab(self.client, ["front", "chase"])
+            ims = grab(self.client, FC)
             for n, i in zip(("front", "chase"), ims):
                 if i is not None:
                     common.save_png(i, self.out / "pictures" / f"{self.tag}_{n}_FAILED.png")
@@ -170,15 +190,15 @@ class Session:
     def measure(self, n=20):
         """Pictures per wall second (front only, then front+chase in one call), and free-running real-time factor."""
         res = {}
-        grab(self.client, ["front"])
+        grab(self.client, FC[:1])
         t0 = time.perf_counter()
         for _ in range(n):
-            grab(self.client, ["front"])
+            grab(self.client, FC[:1])
         w = time.perf_counter() - t0
         res["front_only"] = {"pictures": n, "wall_s": w, "pictures_per_s": n / w}
         t0 = time.perf_counter()
         for _ in range(n):
-            grab(self.client, ["front", "chase"])
+            grab(self.client, FC)
         w = time.perf_counter() - t0
         res["front_and_chase_per_call"] = {"calls": n, "wall_s": w, "calls_per_s": n / w, "pictures_per_s": 2 * n / w}
         # real-time factor, free running, no picture requests
@@ -213,6 +233,10 @@ def fly_and_record(client, out: Path, cap_s):
     res = {"cap_wall_s": cap_s}
     client.reset()
     time.sleep(1)
+    try:
+        client.simSetCameraPose("back_center", airsim.Pose(airsim.Vector3r(-3.5, 0, -1.5), airsim.to_quaternion(-0.26, 0, 0)))
+    except Exception:
+        pass
     client.enableApiControl(True)
     client.armDisarm(True)
     p = client.getMultirotorState().kinematics_estimated.position
@@ -244,7 +268,7 @@ def fly_and_record(client, out: Path, cap_s):
         ts = time.perf_counter()
         client.simContinueForTime(0.1)
         t_step = time.perf_counter() - ts
-        ims = grab(client, ["front", "chase"])
+        ims = grab(client, FC)
         t_all = time.perf_counter() - ts
         if ims[0] is None or ims[1] is None:
             stopped = "empty picture returned"
@@ -356,6 +380,19 @@ def main():
         result["flight_traceback"] = traceback.format_exc()[-2500:]
     sfilm.stop()
     sfilm.collect_logs(roots)
+    # which setting broke the control port? (the coordinator's question): the winning variant again, with only Cameras, then only ExternalCameras
+    result["profile_tests"] = []
+    for prof in ("cams", "ext"):
+        sp = Session(exe, out, logdir, win, None, prof)
+        try:
+            up = sp.start(wait_s=120)
+            sp.info["port_opened"] = up
+        except Exception:
+            sp.info["traceback"] = traceback.format_exc()[-800:]
+        sp.stop()
+        sp.collect_logs(roots)
+        result["profile_tests"].append(sp.info)
+        (out / "result.json").write_text(json.dumps(result, indent=2, default=str))
     # keep only a small sample of the frames in the artifact
     import shutil
     fr = out / "frames"
@@ -371,6 +408,8 @@ def main():
 
 def write_summary(out, result):
     L = ["# AirSim on the Windows runner with WARP", ""]
+    for t in result.get("profile_tests", []):
+        L.append(f"- Settings test '{t.get('settings_profile')}': control port opened = {t.get('port_opened')} ({t.get('error')})")
     for s in result["sessions"]:
         L.append(f"## Session {s.get('variant')} (view mode {s.get('view_mode')})")
         L.append(f"- Picture worked: {s.get('picture_ok')}")
