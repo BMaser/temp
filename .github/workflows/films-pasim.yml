@@ -9,13 +9,16 @@ on:
     inputs:
       films:
         description: "film ids, comma separated; FNN@variant for a variant (F05@gain)"
-        default: "F05@lights,F05@lights_mountains,F06@mountains"
+        default: ""
       rtf:
         description: "simulation clock speed (0.03 = 33 times slower than real time)"
         default: "0.03"
       frames:
         description: "pairs of pictures per condition"
         default: "40"
+      rt15:
+        description: "run the RT15 real-time camera probe (true/false)"
+        default: "true"
       extra:
         description: "extra arguments for the client (for example --shipped-chase)"
         default: ""
@@ -25,16 +28,18 @@ permissions:
 
 env:
   PASIM_TAG: v1.0.1
-  FILMS: ${{ github.event.inputs.films || 'F05@lights,F05@lights_mountains,F06@mountains' }}
+  FILMS: ${{ github.event.inputs.films || '' }}
   RTF: ${{ github.event.inputs.rtf || '0.03' }}
   FRAMES: ${{ github.event.inputs.frames || '40' }}
   EXTRA: ${{ github.event.inputs.extra || '' }}
+  RT15: ${{ github.event.inputs.rt15 || 'true' }}
 
 jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
+      has_films: ${{ steps.m.outputs.has_films }}
     steps:
       - id: m
         run: |
@@ -46,10 +51,12 @@ jobs:
               pkg = "LandscapeMountains" if "mountains" in var.split("_") else "Blocks"
               inc.append({"film": fid, "variant": var or "default", "key": fid + ("-" + var if var else ""), "pkg": pkg})
           print("matrix=" + json.dumps({"include": inc}))
+          print("has_films=" + ("true" if inc else "false"))
           EOF
 
   film:
     needs: plan
+    if: needs.plan.outputs.has_films == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 85
     strategy:
@@ -99,8 +106,8 @@ jobs:
           if-no-files-found: warn
 
   overview:
-    needs: film
-    if: always()
+    needs: [plan, film]
+    if: always() && needs.plan.outputs.has_films == 'true' 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -118,4 +125,39 @@ jobs:
         with:
           name: overview
           path: ov
+          if-no-files-found: warn
+
+  rt15:
+    if: ${{ (github.event.inputs.rt15 || 'true') == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install (same as the film jobs, scene Blocks)
+        run: |
+          mkdir -p ev
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1 libgl1-mesa-dri libglu1-mesa             libsdl2-2.0-0 unzip libxi6 libxrandr2 libxcursor1 libxinerama1 libnss3 libasound2t64
+          python3 -m venv .pa
+          .pa/bin/pip install -q projectairsim==1.0.1 numpy pillow
+          git clone --depth 1 --branch "$PASIM_TAG" https://github.com/iamaisim/ProjectAirSim.git ProjectAirSim_src
+          curl -fL --retry 5 -sS -o Blocks.zip "https://github.com/iamaisim/ProjectAirSim/releases/download/$PASIM_TAG/Blocks-Linux-1.0.1.zip"
+          mkdir -p pasim_bin && unzip -q Blocks.zip -d pasim_bin && rm Blocks.zip
+          nproc | tee ev/nproc.txt; free -m | tee ev/memory.txt; lscpu | head -20 > ev/lscpu.txt
+      - name: RT15 probe, two sizes, one Unreal start each
+        continue-on-error: true
+        run: |
+          SIMCFG="$PWD/ProjectAirSim_src/client/python/example_user_scripts/sim_config"
+          for SZ in 640x480 320x240; do
+            CLIENT_SCRIPT=rt15.py CLIENT_TIMEOUT=900 bash films_pasim/launch_film.sh RT15 "$PWD/out/s$SZ" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python" --size "$SZ"
+            pkill -KILL -f "Binaries/Linux/" 2>/dev/null || true; sleep 5
+          done
+          .pa/bin/python films_pasim/rt15_merge.py out | tee out/rt15_merge.log
+          cp -r ev out/ev
+          cat out/rt15.json | head -c 6000 >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rt15
+          path: out
           if-no-files-found: warn

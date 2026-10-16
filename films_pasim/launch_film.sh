@@ -20,7 +20,11 @@ T0=$(date +%s)
 SIM=$!
 sleep 8
 if ! kill -0 "$SIM" 2>/dev/null; then echo "Unreal exited within 8 s" | tee -a "$OUT/launch_info.txt"; fi
-timeout -k 10 "${CLIENT_TIMEOUT:-3300}" "$PY" "$HERE/pasim_films.py" --film "$FILM" --out "$OUT" --sim-config "$SIMCFG" "$@" > "$OUT/client.log" 2>&1
+if [ -n "${CLIENT_SCRIPT:-}" ]; then   # another client (the RT15 probe): no --film
+  timeout -k 10 "${CLIENT_TIMEOUT:-3300}" "$PY" "$HERE/$CLIENT_SCRIPT" --out "$OUT" --sim-config "$SIMCFG" "$@" > "$OUT/client.log" 2>&1
+else
+  timeout -k 10 "${CLIENT_TIMEOUT:-3300}" "$PY" "$HERE/pasim_films.py" --film "$FILM" --out "$OUT" --sim-config "$SIMCFG" "$@" > "$OUT/client.log" 2>&1
+fi
 RC=$?
 echo "client exit status $RC after $(( $(date +%s) - T0 )) s" | tee -a "$OUT/launch_info.txt"
 echo "unreal alive at the end: $(kill -0 "$SIM" 2>/dev/null && echo yes || echo no)" | tee -a "$OUT/launch_info.txt"
