@@ -71,7 +71,7 @@ jobs:
                 --args "$3" --settings "$2" --home "/tmp/home_$1" --vk "$LVP" --cap 150
             fi
             echo "---- $1 summary"; cat "ev/$1/summary.txt" 2>/dev/null
-            pkill -9 -f Blocks 2>/dev/null; sleep 3
+            pkill -9 -f "Binaries/Linux/Blocks" 2>/dev/null || true; sleep 3
           }
           VK="-RenderOffScreen -ResX=640 -ResY=480 -nosound -windowed"
           case ",$V," in *,A1,*) run A1 minimal "$VK" runner ;; esac
