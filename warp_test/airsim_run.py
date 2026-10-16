@@ -275,9 +275,9 @@ def main():
     (out / "pictures").mkdir(parents=True, exist_ok=True)
     logdir = out / "unreal_logs"
     logdir.mkdir(exist_ok=True)
-    exes = sorted(Path(a.bin).rglob("Blocks.exe"))
+    exes = sorted(Path(a.bin).rglob("Blocks.exe"), key=lambda p: (len(p.parts), str(p)))
     result = {"simulator": "AirSim v1.8.1 Blocks (Unreal Engine 4.27)", "sessions": [], "winner": None}
-    roots = [Path(a.bin), Path(os.environ.get("LOCALAPPDATA", "")) / "Blocks", Path(os.path.expanduser("~")) / "Documents" / "AirSim"]
+    roots = [Path(a.bin), Path(os.environ.get("LOCALAPPDATA", "")) / "Blocks", Path(os.environ.get("LOCALAPPDATA", "")) / "AirSim", Path(os.path.expanduser("~")) / "Documents" / "AirSim"]
     if not exes:
         result["error"] = "Blocks.exe not found"
         (out / "result.json").write_text(json.dumps(result, indent=2))

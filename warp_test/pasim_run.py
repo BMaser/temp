@@ -320,7 +320,7 @@ async def amain(a):
     except Exception:
         result["config_error"] = traceback.format_exc()[-1500:]
     has_front = "FrontCamera" in (result.get("config", {}).get("sensor_ids_after") or [])
-    roots = [Path(a.bin), Path(os.environ.get("LOCALAPPDATA", ""))]
+    roots = [Path(a.bin), Path(os.environ.get("LOCALAPPDATA", "")) / "Blocks", Path(os.environ.get("LOCALAPPDATA", "")) / "ProjectAirSim"]
     win = None
     for v in ("a", "b", "c"):
         s = Session(exe, out, logdir, v, sim_config)

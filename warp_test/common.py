@@ -59,22 +59,28 @@ def tail(path, n=40):
 
 
 def collect_logs(search_roots, dest: Path, tag: str, since: float):
-    """Copy every *.log written since `since` (epoch seconds) under the roots to dest/<tag>__<name>."""
+    """Copy every *.log written since `since` (epoch seconds) under the roots to dest/<tag>__<name>. Never follows links."""
+    import os
     dest.mkdir(parents=True, exist_ok=True)
     got, seen = [], set()
     for root in search_roots:
-        root = Path(root)
-        if not root.exists():
+        root = str(root)
+        if not os.path.isdir(root):
             continue
-        for p in root.rglob("*.log"):
-            try:
-                if p.stat().st_mtime >= since - 5 and str(p) not in seen:
-                    seen.add(str(p))
-                    q = dest / f"{tag}__{p.name}"
-                    shutil.copy(p, q)
-                    got.append(q)
-            except Exception:
-                pass
+        for dp, dn, fn in os.walk(root, followlinks=False, onerror=lambda e: None):
+            dn[:] = [d for d in dn if d not in ("Application Data", "node_modules") and not os.path.islink(os.path.join(dp, d))]
+            for f in fn:
+                if not f.lower().endswith(".log"):
+                    continue
+                p = os.path.join(dp, f)
+                try:
+                    if os.stat(p).st_mtime >= since - 5 and p not in seen:
+                        seen.add(p)
+                        q = dest / f"{tag}__{f}"
+                        shutil.copy(p, q)
+                        got.append(q)
+                except Exception:
+                    pass
     return got
 
 
