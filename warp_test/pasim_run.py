@@ -27,6 +27,7 @@ VARIANTS = {
     "a": f"-RenderOffscreen -dx12 -WARP {BASE}",
     "b": f"-RenderOffscreen -dx12 -WARP -AllowSoftwareRendering {BASE}",
     "c": f"-dx12 -WARP -AllowSoftwareRendering -windowed {BASE}",
+    "d": f"-RenderOffscreen -dx12 -sm5 -WARP -AllowSoftwareRendering {BASE}",
 }
 KILL = ["*-Win64-Shipping.exe", "CrashReportClient.exe"]
 
@@ -139,11 +140,16 @@ class Session:
     def sensors(self):
         return self.cams
 
-    def probe(self, wait_s=90):
+    def probe(self, wait_s=360):
         t0 = time.time()
         hist = []
         self.cams = ["Chase", "DownCamera"] + (["FrontCamera"] if self.has_front else [])
+        dd = set()
         while time.time() - t0 < wait_s:
+            for mark in (1, 60, 200):
+                if time.time() - t0 >= mark and mark not in dd:
+                    dd.add(mark)
+                    common.diag(self.out, f"{self.tag}_probe_t{mark}")
             if not ue_running():
                 self.info["error"] = "Unreal process ended while waiting for a picture"
                 break
@@ -322,7 +328,7 @@ async def amain(a):
     has_front = "FrontCamera" in (result.get("config", {}).get("sensor_ids_after") or [])
     roots = [Path(a.bin), Path(os.environ.get("LOCALAPPDATA", "")) / "Blocks", Path(os.environ.get("LOCALAPPDATA", "")) / "ProjectAirSim"]
     win = None
-    for v in ("a", "b", "c"):
+    for v in ("a", "b", "c", "d"):
         s = Session(exe, out, logdir, v, sim_config)
         s.has_front = has_front
         try:

@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install setuptools wheel
-          python -m pip install msgpack-rpc-python numpy opencv-python-headless imageio-ffmpeg psutil
+          python -m pip install msgpack-rpc-python numpy pillow opencv-python-headless imageio-ffmpeg psutil
           python -m pip install --no-deps --no-build-isolation airsim==1.8.1
           python -c "import airsim; print('airsim client', airsim.__version__)"
       - name: Machine report

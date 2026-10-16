@@ -229,3 +229,25 @@ class Planner:
             return s * dn / dist, s * de / dist, self.yaw, False
         self.hover_left -= dt
         return 0.0, 0.0, self.yaw, self.hover_left <= 0
+
+
+def diag(out: Path, tag: str):
+    """Screenshot of the desktop, process list with state and CPU time, and which processes loaded the WARP/Vulkan modules."""
+    d = out / "diag"
+    d.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import ImageGrab
+        ImageGrab.grab(all_screens=True).save(d / f"{tag}_desktop.png")
+    except Exception as e:
+        (d / f"{tag}_desktop_error.txt").write_text(str(e))
+    txt = []
+    for args in (["tasklist", "/V", "/FO", "LIST"], ["tasklist", "/FI", "MODULES eq d3d12warp.dll"],
+                 ["tasklist", "/FI", "MODULES eq d3d12.dll"], ["tasklist", "/FI", "MODULES eq vulkan-1.dll"],
+                 ["tasklist", "/FI", "MODULES eq d3d11.dll"]):
+        r = subprocess.run(args, capture_output=True, text=True)
+        o = r.stdout
+        if args[1] == "/V":
+            blocks = o.replace("\r\n", "\n").split("\n\n")
+            o = "\n\n".join(b for b in blocks if any(k in b for k in ("Blocks", "Shipping", "Unreal", "CrashReport")))
+        txt.append("== " + " ".join(args) + "\n" + o + r.stderr)
+    (d / f"{tag}_processes.txt").write_text("\n".join(txt))

@@ -28,6 +28,7 @@ VARIANTS = {
     "a": f"-RenderOffscreen -dx12 -WARP {BASE}",
     "b": f"-RenderOffscreen -dx12 -WARP -AllowSoftwareRendering {BASE}",
     "c": f"-dx12 -WARP -AllowSoftwareRendering -windowed {BASE}",
+    "d": f"-RenderOffscreen -dx12 -sm5 -WARP -AllowSoftwareRendering {BASE}",
 }
 CAP = {"ImageType": 0, "Width": 640, "Height": 480, "FOV_Degrees": 90}
 
@@ -108,7 +109,12 @@ class Session:
         log(f"start {self.tag}: {self.exe} {' '.join(args)}")
         self.proc = subprocess.Popen([str(self.exe)] + args, stdout=open(sim_log, "w"), stderr=subprocess.STDOUT, cwd=str(self.exe.parent))
         t0 = time.time()
+        dd = set()
         while time.time() - t0 < wait_s:
+            for mark in (20, 90, 200):
+                if time.time() - t0 > mark and mark not in dd:
+                    dd.add(mark)
+                    common.diag(self.out, f"{self.tag}_t{mark}")
             if port_open():
                 break
             if time.time() - t0 > 40 and not ue_running():
@@ -123,7 +129,7 @@ class Session:
         self.client.confirmConnection()
         return True
 
-    def probe(self, wait_s=90):
+    def probe(self, wait_s=300):
         """Ask for a front and a chase picture until one has a standard deviation above 5."""
         t0 = time.time()
         stds = []
@@ -285,7 +291,7 @@ def main():
     exe = exes[0]
     log(f"exe {exe}")
     win = None
-    for v in ("a", "b", "c"):
+    for v in ("a", "b", "c", "d"):
         s = Session(exe, out, logdir, v, None)
         try:
             ok = s.start() and s.probe()
