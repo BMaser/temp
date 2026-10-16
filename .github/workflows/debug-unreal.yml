@@ -122,6 +122,9 @@ jobs:
           grep -i "vulkan" /tmp/strings_wide.txt | head -n 800 > ev/wide_vulkan.txt || true
           grep -i -E "compatible|physical device|profile|r\.vulkan|skip|cpu" /tmp/strings_wide.txt | grep -i -E "vulkan|device|rhi|gpu" | head -n 800 > ev/wide_profile_grep.txt || true
           wc -l ev/strings_*.txt ev/wide_*.txt
+          grep -n -i -B6 -A6 "AllowCPUDevices" /tmp/strings_wide.txt | cut -c1-300 > ev/wide_context_AllowCPUDevices.txt || true
+          grep -n -i -B3 -A3 -E "Cannot find a compatible Vulkan device\.|Vulkan device creation failed|Incompatible Vulkan driver" /tmp/strings_wide.txt | cut -c1-300 > ev/wide_context_messages.txt || true
+          grep -n -i -E "^(allow|prefer|force|no)[a-z]*(cpu|software|integrated|gpu|device)" /tmp/strings_wide.txt | head -n 50 > ev/wide_switch_candidates.txt || true
       - name: P1 and P2, start under strace
         if: inputs.skip_p1 != 'true'
         continue-on-error: true
