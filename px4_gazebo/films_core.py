@@ -126,11 +126,18 @@ CONDITIONS = {
                             scene=dict(ambient="0.6 0.6 0.65", background="0.7 0.7 0.74", sky=SKY_NONE,
                                        fog="<fog><color>0.7 0.7 0.74 1</color><type>linear</type><start>3</start><end>25</end><density>1</density></fog>"),
                             sun=OVERCAST_SUN, headlamp=False, lamps=False, extras=[], prefill_s=2.0),
+    # probes of the particle emitter: which part makes the world slow to start? (run 38946015743: rain, snow and fog worlds never got /scene/info within PX4's 30 s)
+    "probe_rain_noplugin": dict(film="P", label="PROBE: rain emitter model but NO particle emitter system plugin",
+                                scene=dict(ambient="0.5 0.5 0.55", background="0.5 0.52 0.56", sky=SKY_NONE), sun=OVERCAST_SUN, headlamp=False, lamps=False,
+                                extras=["rain_noplugin"], prefill_s=4.0),
+    "probe_plugin_only": dict(film="P", label="PROBE: particle emitter system plugin but no emitter",
+                              scene=dict(ambient="0.5 0.5 0.55", background="0.5 0.52 0.56", sky=SKY_NONE), sun=OVERCAST_SUN, headlamp=False, lamps=False,
+                              extras=["plugin_only"], prefill_s=2.0),
 }
 
 FILMS = {
     "F05": dict(short="night", feature="Night", conditions=["day", "dusk", "night"], probes=["probe_sky_time_22", "probe_no_sky"], doc_ids=["D15"]),
-    "F06": dict(short="clouds_rain", feature="Clouds and rain", conditions=["overcast", "fog", "rain", "snow"], probes=["probe_scene_fog"], doc_ids=["D16"]),
+    "F06": dict(short="clouds_rain", feature="Clouds and rain", conditions=["overcast", "fog", "rain", "snow"], probes=["probe_scene_fog", "probe_rain_noplugin", "probe_plugin_only"], doc_ids=["D16"]),
 }
 
 # the document claims, copied from runs/2026-10-14_feature_matrix/features_data.json (answers.px4_gazebo) and recheck.json
@@ -155,10 +162,12 @@ VERDICTS = {
 def world_extras(cond: dict) -> str:
     parts = []
     for e in cond.get("extras", []):
-        parts.append({"rain": rain_xml, "snow": snow_xml, "fog": fog_xml}[e]())
+        if e == "plugin_only":
+            continue
+        parts.append({"rain": rain_xml, "rain_noplugin": rain_xml, "snow": snow_xml, "fog": fog_xml}[e]())
     if cond.get("lamps"):
         parts += [lamp_xml(k, x, y) for k, (x, y) in enumerate(LAMP_POSITIONS)]
-    if any(e in ("rain", "snow", "fog") for e in cond.get("extras", [])):
+    if any(e in ("rain", "snow", "fog", "plugin_only") for e in cond.get("extras", [])):
         parts.append(PARTICLE_PLUGIN)
     return "".join(parts)
 

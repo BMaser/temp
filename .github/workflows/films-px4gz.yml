@@ -20,7 +20,7 @@ permissions:
 
 env:
   PX4_TAG: v1.17.0
-  FILMS: ${{ inputs.films || 'F05,F06' }}
+  FILMS: ${{ inputs.films || 'F06' }}
 
 jobs:
   films:
@@ -78,7 +78,7 @@ jobs:
         if: always()
         run: |
           rm -f results/conds/*/*.rgb
-          for f in results/conds/*/sim.log; do [ -f "$f" ] && tail -n 300 "$f" > "${f%.log}_tail.log" && if [ "$(stat -c %s "$f")" -gt 3000000 ]; then rm -f "$f"; fi; done
+          for f in results/conds/*/sim.log results/conds/*/gz_server.log; do [ -f "$f" ] && tail -n 400 "$f" > "${f%.log}_tail.log" && if [ "$(stat -c %s "$f")" -gt 4000000 ]; then head -n 400 "$f" > "${f%.log}_head.log"; rm -f "$f"; fi; done
           true
 
       - uses: actions/upload-artifact@v4

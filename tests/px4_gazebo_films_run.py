@@ -18,6 +18,7 @@ import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -37,6 +38,7 @@ PX4_WORLD = "Tools/simulation/gz/worlds/baylands.sdf"
 PX4_MODELS = "Tools/simulation/gz/models"
 CONDITION_TIMEOUT_S = 25 * 60
 HEALTHY_TIMEOUT_S = 600
+SCENE_TIMEOUT_S = 240
 
 
 def log(msg):
@@ -157,6 +159,43 @@ async def fly_segment(S, child: dict, cond: dict, base):
         S.node.unsubscribe(S.cam_topics[name])
 
 
+
+def find_gz_env(px4: Path):
+    for p in sorted((px4 / "build" / "px4_sitl_default").rglob("gz_env.sh")):
+        return p
+    return None
+
+
+def start_stack_standalone(out: Path, px4: Path, base, verbose: int = 3):
+    """Xvfb, then the Gazebo SERVER by ourselves (so that its messages are kept at verbosity `verbose` and PX4's 30 s wait for the
+    world does not apply), wait for the scene/info service, then PX4 SITL, which finds the running world (px4-rc.gzsim: 'already running')."""
+    procs = {}
+    env = {**os.environ, "DISPLAY": ":99", "LIBGL_ALWAYS_SOFTWARE": "1", "HEADLESS": "1", "GZ_IP": "127.0.0.1"}
+    procs["xvfb"] = subprocess.Popen(["Xvfb", ":99", "-screen", "0", "1280x1024x24", "+extension", "GLX", "+render", "-noreset"],
+                                     stdout=open(out / "xvfb.log", "w"), stderr=subprocess.STDOUT, start_new_session=True)
+    time.sleep(3)
+    os.environ.update(env)
+    genv = find_gz_env(px4)
+    if genv is None:
+        raise RuntimeError("gz_env.sh not found under px4/build/px4_sitl_default")
+    log(f"gz_env.sh: {genv}")
+    t0 = time.time()
+    gz_cmd = f'cd "{genv.parent}" && . ./{genv.name} && exec gz sim --verbose={verbose} -r -s "$PX4_GZ_WORLDS/{base.WORLD}.sdf" > "{out / "gz_server.log"}" 2>&1'
+    procs["gz"] = subprocess.Popen(["bash", "-c", gz_cmd], env=env, start_new_session=True)
+    ok = False
+    while time.time() - t0 < SCENE_TIMEOUT_S:
+        r = base.sh(f"gz service -i --service /world/{base.WORLD}/scene/info", 20)
+        if "Service providers" in r:
+            ok = True
+            break
+        time.sleep(2)
+    procs["scene_info_after_s"] = round(time.time() - t0, 1) if ok else None
+    log(f"scene/info {'after %.1f s' % (time.time() - t0) if ok else 'NOT there after %d s' % SCENE_TIMEOUT_S}")
+    cmd = f'cd "{px4}" && sleep 4000 | setsid make px4_sitl gz_x500_mono_cam_{base.WORLD} > "{out / "sim.log"}" 2>&1'
+    procs["px4"] = subprocess.Popen(["bash", "-c", cmd], env=env, start_new_session=True)
+    return procs
+
+
 def run_condition(name: str, out_root: Path, px4: Path) -> dict:
     import px4_gazebo_base_run as base
     global wall_start
@@ -171,7 +210,8 @@ def run_condition(name: str, out_root: Path, px4: Path) -> dict:
     S = base.Shared(out)
     sh = base.sh
     sh("rm -f /tmp/.X99-lock", 5)
-    procs = base.start_stack(out, px4)
+    procs = start_stack_standalone(out, px4, base)
+    child['scene_info_after_s'] = procs.get('scene_info_after_s')
     try:
         m, topics = base.wait_for(r"^/world/([^/]+)/clock$", base.STACK_START_TIMEOUT_S)
         (out / "gz_topics.txt").write_text(topics)
@@ -232,10 +272,17 @@ def run_condition(name: str, out_root: Path, px4: Path) -> dict:
     finally:
         try:
             child["sim_log_hits"] = grep_sim_log(out / "sim.log")
+            child["gz_server_log_hits"] = grep_sim_log(out / "gz_server.log", 120)
         except Exception:  # noqa: BLE001
             pass
         (out / "child.json").write_text(json.dumps(child, indent=2, default=str))
-        base.stop_stack(procs)
+        base.stop_stack({k: v for k, v in procs.items() if hasattr(v, 'pid')})
+        g = procs.get('gz')
+        if g is not None:
+            try:
+                os.killpg(g.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
         time.sleep(5)
     return child
 
