@@ -789,6 +789,36 @@ def early_frames(out: Path) -> dict:
     return res
 
 
+def night_sheet(out: Path) -> dict:
+    """The night test shot alone, as soon as night_test.json exists (before the take-off, so it also exists when the take-off never happens).
+    Writes out/early/night_test_contact.png (900 px wide) and out/early/night_test_checks.json; the raw pictures are deleted at the end of the job, this is what stays."""
+    ed = out / "early"
+    ed.mkdir(exist_ok=True)
+    nt = out / "night_test.json"
+    res = {"problems": []}
+    if not nt.is_file():
+        res["problems"].append("no night_test.json")
+    else:
+        n = json.loads(nt.read_text())
+        nrun = Run(out, child={"panel_times": n["panel_times"], "panel_nbytes": n["panel_nbytes"], "arm_sim_s": 0.0}, prefix="nt_")
+        res["frames"] = {k: len(v) for k, v in n["panel_times"].items()}
+        if nrun.has("chase") and nrun.has("fpv"):
+            tl = float(nrun.times["chase"][-1])
+            nrun.t_arm = tl - 60.0
+            nrun.child["record_end_sim_s"] = tl + 1
+            r = build_film(nrun, {"passage_log": [], "landing": {}}, {}, default_phases(), out / "y_night.mp4", {"n": -1e9}, only_times=[tl])
+            kept = r.get("kept", {})
+            if "n" in kept:
+                labelled_sheet([kept["n"][0]], ["NIGHT TEST SHOT (before the race, drone on the pad)"], cols=1, tile_w=900).save(ed / "night_test_contact.png")
+                res["fpv_mean_grey"] = round(float(gray(np.asarray(nrun.get("fpv", tl)[0])).mean()), 1)
+            else:
+                res["problems"].append("no frame kept")
+        else:
+            res["problems"].append("night test: no chase or fpv pictures")
+    (ed / "night_test_checks.json").write_text(json.dumps(res, indent=2, default=str))
+    return res
+
+
 def labelled_sheet(images, labels, cols=2, tile_w=800):
     """Grid of pictures, each with its label in a strip ABOVE it (so the label hides nothing of the banner)."""
     h, w = images[0].shape[:2]

@@ -500,6 +500,54 @@ def tilt_deg_from_quat(q):
     return math.degrees(math.acos(max(-1.0, min(1.0, 1 - 2 * (qx * qx + qy * qy)))))
 
 
+MAV_LOG = None          # set by run_variant: out / "mavsdk_server.log"
+MAV_PORT = 50051
+MAV_ADDRESS = "udpin://0.0.0.0:14540"
+
+
+class MavServer:
+    """Our own mavsdk_server process. MAVSDK-Python's own start (mavsdk/system.py, _start_mavsdk_server) pipes the server's output to a Python logging thread
+    that drops everything below WARNING, so run 39009068651 lost every word the server said before it became <defunct>. Here the output goes to a file
+    (uploaded with the results), the exit code is kept, and the server can be started again."""
+
+    def __init__(self, logpath):
+        self.logpath = Path(logpath)
+        self.proc = None
+        self.starts = 0
+        self.exits = []                       # one dict per death: wall time, exit code, sim time, real-time factor
+
+    def start(self, why):
+        import mavsdk
+        exe = os.path.join(os.path.dirname(mavsdk.__file__), "bin", "mavsdk_server")
+        cmd = [exe, "-p", str(MAV_PORT), "--sysid", "245", "--compid", "190", MAV_ADDRESS]
+        if os.path.exists("/usr/bin/stdbuf"):
+            cmd = ["/usr/bin/stdbuf", "-oL", "-eL"] + cmd       # line-buffered, so a crash does not take the last lines with it
+        with open(self.logpath, "ab") as f:
+            f.write(f"--- start {self.starts} ({why}) at {time.strftime('%H:%M:%S')}: {' '.join(cmd)}\n".encode())
+        lf = open(self.logpath, "ab", buffering=0)
+        self.proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=lf, stderr=subprocess.STDOUT, start_new_session=True)
+        lf.close()                                              # the child has its own copy of the file handle
+        self.starts += 1
+        log(f"mavsdk_server started ({why}): pid {self.proc.pid}, start no {self.starts}")
+
+    def dead(self):
+        return self.proc is None or self.proc.poll() is not None
+
+    def stop(self):
+        if self.proc is not None and self.proc.poll() is None:
+            self.proc.kill()
+            try:
+                self.proc.wait(5)
+            except Exception:  # noqa: BLE001
+                pass
+
+    def tail(self, n=2500):
+        try:
+            return self.logpath.read_bytes()[-n:].decode("utf-8", "replace")
+        except OSError:
+            return ""
+
+
 async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, panels: dict, ground, prep=None):
     from mavsdk import System
     from mavsdk.offboard import OffboardError, PositionNedYaw, VelocityNedYaw
@@ -512,9 +560,13 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
             p = S.pose
         return None if p is None else (p[0] - x0, p[1] - y0, p[2] - z0, p[3:])
 
-    d = System()
-    await d.connect(system_address="udpin://0.0.0.0:14540")
+    mav = MavServer(MAV_LOG if MAV_LOG is not None else Path("mavsdk_server.log"))
+    mav.start("first")
+    await asyncio.sleep(1.5)
+    d = System(mavsdk_server_address="localhost", port=MAV_PORT)
+    await d.connect()
     log("waiting for the connection to PX4")
+    tasks = []
 
     async def connected():
         async for st in d.core.connection_state():
@@ -535,9 +587,35 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
     await asyncio.wait_for(healthy(), HEALTHY_TIMEOUT_S)
     log("healthy")
     child["healthy_sim_s"] = S.now()
-    if prep is not None:
-        await loop.run_in_executor(ex, prep)
-        log("prep done (city, models, night test)")
+
+    def server_monitor():
+        # run 39009068651: the MAVSDK server was a zombie (<defunct>) after prep, which ran at about 0.12x real time. This line every 5 s wall shows WHEN it
+        # dies and the real-time factor and machine load at that moment (PX4 heartbeats come in simulation time, so a slow simulation = rare heartbeats).
+        prev = (time.monotonic(), S.now())
+        seen_dead = False
+        while not child.get("_mon_stop"):
+            time.sleep(5.0)
+            try:
+                now = (time.monotonic(), S.now())
+                rc_ = mav.proc.poll() if mav.proc is not None else "none"
+                try:
+                    load = open("/proc/loadavg").read().split()[0]
+                except OSError:
+                    load = "?"
+                rtf = (now[1] - prev[1]) / max(now[0] - prev[0], 1e-6)
+                log(f"mon: sim {now[1]:.1f} rtf {rtf:.2f} load {load} server pid {mav.proc.pid if mav.proc else None} exit code {rc_}")
+                if rc_ not in (None, "none") and not seen_dead:
+                    seen_dead = True
+                    ev = {"wall": time.strftime("%H:%M:%S"), "exit_code": rc_, "sim": round(now[1], 2), "rtf": round(rtf, 3), "load": load}
+                    mav.exits.append(ev)
+                    child["server_deaths"] = list(mav.exits)
+                    log("mon: SERVER DIED " + json.dumps(ev) + " | its last output: " + mav.tail(600).replace("\n", " / "))
+                elif rc_ is None:
+                    seen_dead = False
+                prev = now
+            except Exception as e:  # noqa: BLE001
+                log(f"mon: error {e!r}")
+    threading.Thread(target=server_monitor, daemon=True).start()
     state = {"armed": None, "landed": None}
 
     async def watch_armed():
@@ -547,6 +625,49 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
     async def watch_landed():
         async for l in d.telemetry.landed_state():
             state["landed"] = str(l)
+
+    async def new_session(why):
+        """Start our own server again, connect a new System to it, wait until PX4 is connected and healthy, restart the telemetry watchers."""
+        nonlocal d, tasks
+        if mav.starts > 6:
+            raise RuntimeError("mavsdk_server died too often: " + json.dumps(mav.exits))
+        for t_ in tasks:
+            t_.cancel()
+        if mav.proc is not None and mav.proc.poll() is not None and not any(e.get("exit_code") == mav.proc.returncode and e.get("sim") is not None for e in mav.exits):
+            mav.exits.append({"wall": time.strftime("%H:%M:%S"), "exit_code": mav.proc.returncode, "sim": round(S.now(), 2), "seen_by": why})
+        child["server_deaths"] = list(mav.exits)
+        log(f"mavsdk_server is gone ({why}), exit code {mav.proc.poll() if mav.proc else None}; its last output: " + mav.tail(800).replace("\n", " / "))
+        mav.stop()
+        await asyncio.sleep(1.0)
+        mav.start(why)
+        await asyncio.sleep(1.5)
+        d = System(mavsdk_server_address="localhost", port=MAV_PORT)
+        await d.connect()
+        await asyncio.wait_for(connected(), 300)
+        await asyncio.wait_for(healthy(), 300)
+        log(f"new MAVSDK server ({why}): connected and healthy again")
+        tasks = [asyncio.ensure_future(watch_armed()), asyncio.ensure_future(watch_landed())]
+
+    async def ensure_server(why):
+        if mav.dead():
+            await new_session(why)
+            return True
+        return False
+
+    async def setp(pos, vel):
+        """Offboard set-point; if the server has died, bring a new one up, restart offboard mode, and send it again."""
+        try:
+            await d.offboard.set_position_velocity_ned(pos, vel)
+        except Exception as e:  # noqa: BLE001
+            child.setdefault("flight_server_losses", []).append({"sim": round(S.now(), 2), "error": repr(e)[:200], "dead": mav.dead()})
+            await new_session("set-point failed in flight")
+            await d.offboard.set_position_velocity_ned(pos, vel)
+            await d.offboard.start()
+
+    if prep is not None:
+        await loop.run_in_executor(ex, prep)
+        log(f"prep done (city, models, night test); server dead: {mav.dead()}")
+    await ensure_server("after prep")
     tasks = [asyncio.ensure_future(watch_armed()), asyncio.ensure_future(watch_landed())]
 
     # prefill: the cameras render only while somebody listens; listen from here (not recorded) so the first recorded pictures are normal
@@ -570,6 +691,7 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
     t_arm = None
     for attempt in range(3):
         try:
+            await ensure_server(f"before arm attempt {attempt}")
             await d.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, yaw0))
             t_rec0 = S.now()
             while S.now() < t_rec0 + 1.0:
@@ -579,25 +701,13 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
             break
         except Exception as e:  # noqa: BLE001
             # run 39008289542: "Stream removed (Connection reset by peer)" on the arm call = the MAVSDK server process was gone. Say why, then start a new one.
-            diag = {"attempt": attempt, "error": repr(e)[:300], "mavsdk_server_processes": base.sh("pgrep -af mavsdk_server", 10).strip()[:300],
-                    "free_m": base.sh("free -m", 10).strip(), "dmesg_tail": base.sh("sudo -n dmesg 2>&1 | tail -n 25", 20).strip()[-1800:], "sim_now": S.now()}
+            diag = {"attempt": attempt, "error": repr(e)[:300], "mavsdk_server_processes": base.sh("pgrep -af mavsdk_server", 10).strip()[:300], "server_exit_code": mav.proc.poll() if mav.proc else None, "server_output_tail": mav.tail(1500),
+                    "free_m": base.sh("free -m", 10).strip(), "dmesg_tail": base.sh("sudo -n dmesg 2>&1 | tail -n 6", 20).strip()[-700:], "sim_now": S.now()}
             child.setdefault("arm_failures", []).append(diag)
             log("arm failed: " + json.dumps(diag))
             if attempt == 2:
                 raise
-            for t_ in tasks:
-                t_.cancel()
-            try:
-                d._stop_mavsdk_server()
-            except Exception:  # noqa: BLE001
-                pass
-            await asyncio.sleep(2.0)
-            d = System()
-            await d.connect(system_address="udpin://0.0.0.0:14540")
-            await asyncio.wait_for(connected(), 120)
-            await asyncio.wait_for(healthy(), 120)
-            log("new MAVSDK server: connected and healthy again")
-            tasks = [asyncio.ensure_future(watch_armed()), asyncio.ensure_future(watch_landed())]
+            await new_session(f"arm attempt {attempt} failed")
     child["arm_sim_s"] = t_arm
     try:
         await d.offboard.start()
@@ -707,7 +817,7 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
         if phase == "climb":
             zsp = min(rc.HOVER_Z, rc.CLIMB_RATE * max(0.0, tp))
             vz = rc.CLIMB_RATE if zsp < rc.HOVER_Z else 0.0
-            await d.offboard.set_position_velocity_ned(PositionNedYaw(0.0, 0.0, -zsp, yaw0), VelocityNedYaw(0.0, 0.0, -vz, yaw0))
+            await setp(PositionNedYaw(0.0, 0.0, -zsp, yaw0), VelocityNedYaw(0.0, 0.0, -vz, yaw0))
             if pf is not None and zsp >= rc.HOVER_Z:
                 near = math.dist(pf[:3], (0.0, 0.0, rc.HOVER_Z)) < 0.4
                 settled_since = (settled_since if settled_since is not None else t) if near else None
@@ -728,14 +838,14 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
                 continue
             p, v = rc.ref_pos_vel(tau)
             yaw = rc.ned_yaw_deg(rc.ref_heading(tau))
-            await d.offboard.set_position_velocity_ned(PositionNedYaw(float(p[1]), float(p[0]), float(-p[2]), yaw),
-                                                      VelocityNedYaw(float(v[1]), float(v[0]), float(-v[2]), yaw))
+            await setp(PositionNedYaw(float(p[1]), float(p[0]), float(-p[2]), yaw),
+                       VelocityNedYaw(float(v[1]), float(v[0]), float(-v[2]), yaw))
         elif phase == "descend":
             yaw = rc.ned_yaw_deg(rc.ref_heading(rc.T_ROUTE))
             z = max(rc.LAND_HANDOVER_M, rc.HOVER_Z - rc.DESCENT_RATE * (t - tau1))
             vz = rc.DESCENT_RATE if z > rc.LAND_HANDOVER_M else 0.0
-            await d.offboard.set_position_velocity_ned(PositionNedYaw(float(rc.END_PAD[1]), float(rc.END_PAD[0]), -float(z), yaw),
-                                                      VelocityNedYaw(0.0, 0.0, float(vz), yaw))
+            await setp(PositionNedYaw(float(rc.END_PAD[1]), float(rc.END_PAD[0]), -float(z), yaw),
+                       VelocityNedYaw(0.0, 0.0, float(vz), yaw))
             if z <= rc.LAND_HANDOVER_M + 1e-6 and (pf is None or abs(pf[2] - rc.LAND_HANDOVER_M) < 0.35):
                 try:
                     await d.action.land()
@@ -773,6 +883,10 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
         rec.active = False
     for t_ in tasks:
         t_.cancel()
+    child["_mon_stop"] = True
+    child["server_starts"] = mav.starts
+    child["server_deaths"] = list(mav.exits)
+    mav.stop()
     ex.shutdown(wait=False)
 
 
@@ -864,6 +978,8 @@ def run_variant(out: Path, px4: Path, variant: str) -> dict:
             live = Live(S, child, panels, out, ground)
             live.start()
             child["_live"] = live
+        global MAV_LOG
+        MAV_LOG = out / "mavsdk_server.log"
         asyncio.run(fly(S, child, gz, movers, turb, world, panels, ground, prep))
         live = child.pop("_live", None)
         if live is not None:
@@ -933,7 +1049,7 @@ def run(out: Path, px4: Path) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["run", "post", "early"])
+    ap.add_argument("command", choices=["run", "post", "early", "nightsheet"])
     ap.add_argument("--out", required=True)
     ap.add_argument("--px4", default="px4")
     a = ap.parse_args()
@@ -946,6 +1062,9 @@ def main():
     elif a.command == "early":
         import race_film
         race_film.early_frames(out)
+    elif a.command == "nightsheet":
+        import race_film
+        race_film.night_sheet(out)
     else:
         import race_film
         race_film.post(out)

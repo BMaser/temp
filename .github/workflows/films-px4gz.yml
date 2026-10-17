@@ -56,6 +56,29 @@ jobs:
           sleep 5
           echo "film started in the background"
 
+      - name: Night test sheet (as soon as the night test is done, before take-off)
+        timeout-minutes: 25
+        run: |
+          mkdir -p results/early
+          t0=$(date +%s)
+          while [ ! -f results/night_test.json ] && [ ! -f results/run.exit ]; do
+            sleep 10
+            if [ $(( $(date +%s) - t0 )) -gt 1200 ]; then echo "no night test after 20 minutes"; break; fi
+          done
+          if [ -f results/night_test.json ]; then
+            sleep 5
+            .venv/bin/python tests/px4_gazebo_fr_run.py nightsheet --out results 2>&1 | tail -n 20 || true
+          fi
+          ls -la results/early
+          tail -n 12 results/run.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: night-test-sheet
+          path: results/early/
+          if-no-files-found: warn
+
       - name: Early frames (wait for the first 16 simulated seconds of the flight)
         timeout-minutes: 60
         run: |
@@ -90,7 +113,7 @@ jobs:
           print('waited', round(time.time() - t0), 's, ok =', ok)
           if not ok:
               open('results/early/GAVE_UP.txt', 'w').write('no early frames: see run.log and sim_tail.log in this folder')
-              for f in ('results/run.log', 'results/sim.log', 'results/child.json', 'results/live.json'):
+              for f in ('results/run.log', 'results/sim.log', 'results/child.json', 'results/live.json', 'results/mavsdk_server.log'):
                   if os.path.exists(f):
                       subprocess.run(['bash', '-c', f'tail -n 400 {f} > results/early/{os.path.basename(f)}.tail'])
               sys.exit(1)
