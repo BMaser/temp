@@ -86,6 +86,39 @@ class Gz:
         self._note("cli", service, res if res else out.strip()[:200])
         return res
 
+    def scene_light_ids(self, world):
+        """name -> entity id of every light (world level and inside model links), from the scene/info service. Lights inside a model are found by id only."""
+        ids = {}
+        try:
+            from google.protobuf import text_format
+            from gz.msgs10.empty_pb2 import Empty
+            from gz.msgs10.scene_pb2 import Scene
+            ok, rep = self.S.node.request(f"/world/{world}/scene/info", Empty(), Empty, Scene, 20000)
+            if not ok:
+                raise RuntimeError("scene/info request failed")
+            sc = rep
+        except Exception as e:  # noqa: BLE001
+            self._note("scene_info_error", world, repr(e)[:200])
+            out = base.sh(f"gz service -s /world/{world}/scene/info --reqtype gz.msgs.Empty --reptype gz.msgs.Scene --timeout 20000 --req ''", 60)
+            from google.protobuf import text_format
+            from gz.msgs10.scene_pb2 import Scene
+            sc = Scene()
+            try:
+                text_format.Parse(out, sc)
+            except Exception as e2:  # noqa: BLE001
+                self._note("scene_info_parse_error", world, repr(e2)[:200] + out[:100])
+                return ids
+
+        def walk_links(links):
+            for lk in links:
+                for l in lk.light:
+                    ids[l.name] = l.id
+        for l in sc.light:
+            ids[l.name] = l.id
+        for m in sc.model:
+            walk_links(m.link)
+        return ids
+
     def publish(self, topic, msgtype, text):
         try:
             from google.protobuf import text_format
@@ -370,82 +403,24 @@ class Turbulence(threading.Thread):
 
 def set_night(gz: Gz, world: str, on: bool, child: dict):
     res = {}
+    ids = getattr(gz, "light_ids", {}) or {}
+
+    def call(name, text):
+        if name in ids:
+            text = f"id: {ids[name]} " + text
+        for _ in range(3):
+            if gz.service(f"/world/{world}/light_config", "Light", "Boolean", text, 20000):
+                return True
+            time.sleep(1.0)
+        return False
     for nm, spec in rw.LIGHTS.items():
         s = spec["night" if on else "day"]
-        res[nm] = gz.service(f"/world/{world}/light_config", "Light", "Boolean", rw.light_msg_text(nm, spec["type"], s), 5000)
+        res[nm] = call(nm, rw.light_msg_text(nm, spec["type"], s))
     for k in range(len(rw.LAMPS)):
-        res[f"lamp_{k}"] = gz.service(f"/world/{world}/light_config", "Light", "Boolean", rw.lamp_light_text(k, on), 5000)
-    res["headlamp"] = gz.service(f"/world/{world}/light_config", "Light", "Boolean", rw.headlamp_text(on), 5000)
+        res[f"lamp_{k}"] = call(f"lamp_light_{k}", rw.lamp_light_text(k, on))
+    res["headlamp"] = call("headlamp", rw.headlamp_text(on))
     child.setdefault("light_config_answers", {})["night" if on else "day"] = res
     return res
-
-
-class Live(threading.Thread):
-    """Writes live.json and poses_live_ready.npy every few wall seconds while the film is made, so that the `early` step can look at the first pictures."""
-
-    def __init__(self, S, child, panels, out: Path, ground):
-        super().__init__(daemon=True)
-        self.S, self.child, self.panels, self.out, self.ground = S, child, panels, out, ground
-        self.stop_flag = threading.Event()
-
-    def write(self):
-        with self.S.lock:
-            poses = np.array(self.S.poses, dtype=float)
-        if len(poses):
-            np.save(self.out / "poses_live_tmp.npy", poses)
-            (self.out / "poses_live_tmp.npy").replace(self.out / "poses_live_ready.npy")
-        d = {"arm_sim_s": self.child.get("arm_sim_s"), "route_start_sim_s": self.child.get("route_start_sim_s"), "record_start_sim_s": self.child.get("record_start_sim_s"),
-             "ground_reference_world": list(self.ground), "sim_now": self.S.now(),
-             "panel_times": {k: [round(t, 4) for t in v.times] for k, v in self.panels.items()}, "panel_nbytes": {k: v.nbytes for k, v in self.panels.items()},
-             "events": self.child.get("events")}
-        tmp = self.out / "live.tmp"
-        tmp.write_text(json.dumps(d))
-        tmp.replace(self.out / "live.json")
-
-    def run(self):
-        while not self.stop_flag.is_set():
-            try:
-                self.write()
-            except Exception:  # noqa: BLE001
-                pass
-            time.sleep(4.0)
-
-
-def night_test(S, gz: Gz, movers: Movers, world: str, topics: dict, out: Path, child: dict):
-    """2.5 simulated seconds of pictures with the night settings, before the race (the night phase is the last one and the one that fails most often)."""
-    res = {}
-    recs = {}
-    sizes = {"fpv": [rw.PW * rw.PH * 3], "chase": [rw.PW * rw.PH * 3], "depth": [rw.PW * rw.PH * 4], "seg_labels": [rw.PW * rw.PH * k for k in (1, 2, 3, 4)]}
-    for nm, allowed in sizes.items():
-        if topics.get(nm):
-            rec = PanelRec(out / f"nt_{nm}.raw", nm, allowed)
-            rec.topic = topics[nm]
-            subscribe_panel(S, rec, rec.topic)
-            recs[nm] = rec
-    movers.night_on = True
-    res["lights"] = set_night(gz, world, True, child)
-    t0 = S.now()
-    while S.now() < t0 + 3.0:
-        time.sleep(0.2)
-    for rec in recs.values():
-        rec.active = True
-    t1 = S.now()
-    while S.now() < t1 + 2.5:
-        time.sleep(0.2)
-    for rec in recs.values():
-        rec.active = False
-        S.node.unsubscribe(rec.topic)
-        rec.sub = None
-        rec.close()
-    movers.night_on = False
-    set_night(gz, world, False, child)
-    t2 = S.now()
-    while S.now() < t2 + 1.5:
-        time.sleep(0.2)
-    res["panel_times"] = {k: [round(x, 4) for x in v.times] for k, v in recs.items()}
-    res["panel_nbytes"] = {k: v.nbytes for k, v in recs.items()}
-    (out / "night_test.json").write_text(json.dumps(res, default=str))
-    return {k: len(v.times) for k, v in recs.items()}
 
 
 # ------------------------------------------------------------------------------------------------ the flight
@@ -454,7 +429,7 @@ def tilt_deg_from_quat(q):
     return math.degrees(math.acos(max(-1.0, min(1.0, 1 - 2 * (qx * qx + qy * qy)))))
 
 
-async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, panels: dict, ground):
+async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, panels: dict, ground, prep=None):
     from mavsdk import System
     from mavsdk.offboard import OffboardError, PositionNedYaw, VelocityNedYaw
     ex = ThreadPoolExecutor(max_workers=4)
@@ -475,13 +450,23 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
             if st.is_connected:
                 return
     await asyncio.wait_for(connected(), 300)
+    log("connected to PX4")
 
     async def healthy():
+        last = 0.0
         async for h in d.telemetry.health():
             if h.is_global_position_ok and h.is_home_position_ok:
                 return h
+            if time.monotonic() - last > 20:
+                last = time.monotonic()
+                log(f"health: global {h.is_global_position_ok} home {h.is_home_position_ok} armable {h.is_armable} gyro {h.is_gyrometer_calibration_ok} "
+                    f"accel {h.is_accelerometer_calibration_ok} mag {h.is_magnetometer_calibration_ok}; sim time {S.now()}")
     await asyncio.wait_for(healthy(), HEALTHY_TIMEOUT_S)
     log("healthy")
+    child["healthy_sim_s"] = S.now()
+    if prep is not None:
+        await loop.run_in_executor(ex, prep)
+        log("prep done (city, models, night test)")
     state = {"armed": None, "landed": None}
 
     async def watch_armed():
@@ -759,9 +744,6 @@ def run_variant(out: Path, px4: Path, variant: str) -> dict:
         topics_now = base.sh("gz topic -l", 30)
         child["wind_topic_seen"] = bool(re.search(r"/wind$", topics_now, re.M))
         log(f"particle service seen: {child['particle_service_seen']}, wind topic seen: {child['wind_topic_seen']}")
-        child["create_answers"] = create_models(gz, out, world, ["city", "car", "truck", "person_body", "person_leg_l", "person_leg_r", "night_dome", "rain"], child)
-        child["topics_after_create"] = [l for l in base.sh("gz topic -l", 30).splitlines() if re.search(r"particle|wind|wrench|label|segmentation", l)]
-        # panels
         sizes = {"fpv": [rw.PW * rw.PH * 3], "fpvn": [rw.PW * rw.PH * 3], "chase": [rw.PW * rw.PH * 3], "depth": [rw.PW * rw.PH * 4],
                  "seg_colored": [rw.PW * rw.PH * 3, rw.PW * rw.PH * 4], "seg_labels": [rw.PW * rw.PH * k for k in (1, 2, 3, 4)]}
         for nm, topic in topics_found.items():
@@ -769,15 +751,27 @@ def run_variant(out: Path, px4: Path, variant: str) -> dict:
             rec.topic = topic
             panels[nm] = rec
         movers = Movers(S, gz, world, 0.0)
-        movers.start()
         turb = Turbulence(S, gz, world)
-        turb.start()
-        child["night_test_frames"] = night_test(S, gz, movers, world, topics_found, out, child)
-        log(f"night test: {child['night_test_frames']}")
-        live = Live(S, child, panels, out, ground)
-        live.start()
-        asyncio.run(fly(S, child, gz, movers, turb, world, panels, ground))
-        live.stop_flag.set()
+
+        def prep():
+            # PX4 is healthy; now the city, the moving things and the night test (the order of the base lap: connect first, build after)
+            child["create_answers"] = create_models(gz, out, world, ["city", "car", "truck", "person_body", "person_leg_l", "person_leg_r", "night_dome", "rain"], child)
+            child["topics_after_create"] = [l for l in base.sh("gz topic -l", 30).splitlines() if re.search(r"particle|wind|wrench|label|segmentation", l)]
+            time.sleep(5)
+            gz.light_ids = gz.scene_light_ids(world)
+            child["light_ids"] = {k: v for k, v in gz.light_ids.items()}
+            log(f"lights found: {sorted(gz.light_ids)}")
+            movers.start()
+            turb.start()
+            child["night_test_frames"] = night_test(S, gz, movers, world, topics_found, out, child)
+            log(f"night test: {child['night_test_frames']}")
+            live = Live(S, child, panels, out, ground)
+            live.start()
+            child["_live"] = live
+        asyncio.run(fly(S, child, gz, movers, turb, world, panels, ground, prep))
+        live = child.pop("_live", None)
+        if live is not None:
+            live.stop_flag.set()
         child["pose_messages"] = S.pose_n
         child["image_problems"] = {k: v.problems for k, v in panels.items() if v.problems}
         child["frames_seen"] = {k: v.n_seen for k, v in panels.items()}
@@ -851,6 +845,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if a.command == "run":
         run(out, Path(a.px4).resolve())
+        sys.stdout.flush()
+        os._exit(0)          # the MAVSDK server child and gRPC threads can keep a normal exit waiting
     elif a.command == "early":
         import race_film
         race_film.early_frames(out)

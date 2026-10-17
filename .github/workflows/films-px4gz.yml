@@ -57,28 +57,45 @@ jobs:
           echo "film started in the background"
 
       - name: Early frames (wait for the first 16 simulated seconds of the flight)
-        continue-on-error: true
-        timeout-minutes: 120
+        timeout-minutes: 60
         run: |
+          mkdir -p results/early
           python3 - <<'PYEOF'
-          import json, os, time
+          import json, os, time, subprocess, sys
           t0 = time.time()
-          while time.time() - t0 < 6600:
-              if os.path.exists('results/run.exit'):
-                  break
+          LIMIT = 22 * 60          # no arm command after 22 minutes = something is stuck: give up, keep the logs
+          def tail(path, n):
+              try:
+                  return ' | '.join(open(path, errors='replace').read().splitlines()[-n:])[-400:]
+              except Exception:
+                  return ''
+          ok = False
+          while time.time() - t0 < LIMIT:
+              ta, last = None, None
               try:
                   d = json.load(open('results/live.json'))
                   ta = d.get('arm_sim_s')
                   ts = d['panel_times'].get('chase') or []
-                  if ta is not None and ts and ts[-1] >= ta + 16.5:
+                  last = ts[-1] if ts else None
+                  if ta is not None and last is not None and last >= ta + 16.5:
+                      ok = True
                       break
               except Exception:
                   pass
-              time.sleep(10)
-          print('waited', round(time.time() - t0), 's')
+              if os.path.exists('results/run.exit'):
+                  print('film process ended early, exit', open('results/run.exit').read().strip())
+                  break
+              print(f"{round(time.time() - t0)} s: arm {ta}, last chase picture {last}; run.log: {tail('results/run.log', 2)}", flush=True)
+              time.sleep(30)
+          print('waited', round(time.time() - t0), 's, ok =', ok)
+          if not ok:
+              open('results/early/GAVE_UP.txt', 'w').write('no early frames: see run.log and sim_tail.log in this folder')
+              for f in ('results/run.log', 'results/sim.log', 'results/child.json', 'results/live.json'):
+                  if os.path.exists(f):
+                      subprocess.run(['bash', '-c', f'tail -n 400 {f} > results/early/{os.path.basename(f)}.tail'])
+              sys.exit(1)
           PYEOF
-          mkdir -p results/early
-          .venv/bin/python tests/px4_gazebo_fr_run.py early --out results 2>&1 | tail -n 30 || true
+          .venv/bin/python tests/px4_gazebo_fr_run.py early --out results 2>&1 | tail -n 30
           ls -la results/early
 
       - uses: actions/upload-artifact@v4
