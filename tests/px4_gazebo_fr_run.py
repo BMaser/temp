@@ -709,11 +709,21 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
                 raise
             await new_session(f"arm attempt {attempt} failed")
     child["arm_sim_s"] = t_arm
-    try:
-        await d.offboard.start()
-    except OffboardError as e:
-        child["offboard_error"] = str(e)
-        raise
+    # run 39010328459: arm worked, then offboard.start() said NO_SETPOINT_SET. The simulation ran at 0.1-0.4x real time, PX4 heartbeats came every 4-5 s of wall
+    # time, the MAVSDK server logged "heartbeats timed out" / "Discovered 1 component" over and over, and each re-discovery drops the stored set-point.
+    # So: send the set-point again right before every start() and try again if the server says it has none.
+    for k_ in range(8):
+        try:
+            await d.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, yaw0))
+            await d.offboard.start()
+            break
+        except OffboardError as e:
+            child.setdefault("offboard_start_retries", []).append({"k": k_, "error": str(e)[:120], "sim": round(S.now(), 2)})
+            log(f"offboard start try {k_} failed: {str(e)[:100]}")
+            if k_ == 7:
+                child["offboard_error"] = str(e)
+                raise
+            await asyncio.sleep(0.3)
     log(f"armed at sim time {t_arm}, offboard started")
     fired = set()
     child["events"] = {}
