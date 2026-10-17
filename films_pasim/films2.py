@@ -748,6 +748,23 @@ async def film_race(s, a):
             yaw_state["yaw"] += max(-0.35, min(0.35, diff))   # at most 0.35 rad per pair
         rec["s_along"] = pf.s
         rec["done"] = done
+        # run 38983260960 (F11): the drone once sat still at 2.8 m and ignored every command; recover: take off again, then teleport up
+        if k == 8 and pf.s < 0.5:
+            rec["recovery"] = "takeoff again"
+            try:
+                s.drone.cancel_last_task()
+                tk = await s.drone.takeoff_async()
+                t_ = time.perf_counter()
+                while not tk.done() and time.perf_counter() - t_ < 60:
+                    await asyncio.sleep(0.5)
+            except Exception as e:  # noqa: BLE001
+                rec["recovery_error"] = repr(e)[:150]
+        if k == 16 and pf.s < 0.5:
+            rec["recovery"] = "set_pose up"
+            try:
+                s.call("drone.set_pose(start, 3.2 m up)", s.drone.set_pose, make_pose(n0, e0, -3.2, yaw0), True)
+            except Exception as e:  # noqa: BLE001
+                rec["recovery_error"] = repr(e)[:150]
         await s.drone.move_by_velocity_async(v[0], v[1], v[2], 2.0, YawControlMode.MaxDegreeOfFreedom, False, yaw_state["yaw"])
     await s.run_phase("race", a.frames, control, cams, record_from=1)
     s.cap["path_progress_m"] = {"total": pf.total, "reached": pf.s}
