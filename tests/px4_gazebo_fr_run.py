@@ -423,6 +423,74 @@ def set_night(gz: Gz, world: str, on: bool, child: dict):
     return res
 
 
+class Live(threading.Thread):
+    """Writes live.json and poses_live_ready.npy every few wall seconds while the film is made, so that the `early` step can look at the first pictures."""
+
+    def __init__(self, S, child, panels, out: Path, ground):
+        super().__init__(daemon=True)
+        self.S, self.child, self.panels, self.out, self.ground = S, child, panels, out, ground
+        self.stop_flag = threading.Event()
+
+    def write(self):
+        with self.S.lock:
+            poses = np.array(self.S.poses, dtype=float)
+        if len(poses):
+            np.save(self.out / "poses_live_tmp.npy", poses)
+            (self.out / "poses_live_tmp.npy").replace(self.out / "poses_live_ready.npy")
+        d = {"arm_sim_s": self.child.get("arm_sim_s"), "route_start_sim_s": self.child.get("route_start_sim_s"), "record_start_sim_s": self.child.get("record_start_sim_s"),
+             "ground_reference_world": list(self.ground), "sim_now": self.S.now(),
+             "panel_times": {k: [round(t, 4) for t in v.times] for k, v in self.panels.items()}, "panel_nbytes": {k: v.nbytes for k, v in self.panels.items()},
+             "events": self.child.get("events")}
+        tmp = self.out / "live.tmp"
+        tmp.write_text(json.dumps(d))
+        tmp.replace(self.out / "live.json")
+
+    def run(self):
+        while not self.stop_flag.is_set():
+            try:
+                self.write()
+            except Exception:  # noqa: BLE001
+                pass
+            time.sleep(4.0)
+
+
+def night_test(S, gz: Gz, movers: Movers, world: str, topics: dict, out: Path, child: dict):
+    """2.5 simulated seconds of pictures with the night settings, before the race (the night phase is the last one and the one that fails most often)."""
+    res = {}
+    recs = {}
+    sizes = {"fpv": [rw.PW * rw.PH * 3], "chase": [rw.PW * rw.PH * 3], "depth": [rw.PW * rw.PH * 4], "seg_labels": [rw.PW * rw.PH * k for k in (1, 2, 3, 4)]}
+    for nm, allowed in sizes.items():
+        if topics.get(nm):
+            rec = PanelRec(out / f"nt_{nm}.raw", nm, allowed)
+            rec.topic = topics[nm]
+            subscribe_panel(S, rec, rec.topic)
+            recs[nm] = rec
+    movers.night_on = True
+    res["lights"] = set_night(gz, world, True, child)
+    t0 = S.now()
+    while S.now() < t0 + 3.0:
+        time.sleep(0.2)
+    for rec in recs.values():
+        rec.active = True
+    t1 = S.now()
+    while S.now() < t1 + 2.5:
+        time.sleep(0.2)
+    for rec in recs.values():
+        rec.active = False
+        S.node.unsubscribe(rec.topic)
+        rec.sub = None
+        rec.close()
+    movers.night_on = False
+    set_night(gz, world, False, child)
+    t2 = S.now()
+    while S.now() < t2 + 1.5:
+        time.sleep(0.2)
+    res["panel_times"] = {k: [round(x, 4) for x in v.times] for k, v in recs.items()}
+    res["panel_nbytes"] = {k: v.nbytes for k, v in recs.items()}
+    (out / "night_test.json").write_text(json.dumps(res, default=str))
+    return {k: len(v.times) for k, v in recs.items()}
+
+
 # ------------------------------------------------------------------------------------------------ the flight
 def tilt_deg_from_quat(q):
     qx, qy = q[0], q[1]

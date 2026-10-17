@@ -46,7 +46,7 @@ jobs:
       - name: Offline checks (route, city, picture code)
         run: |
           set -o pipefail
-          { .venv/bin/python tests/test_race_world.py; RACE_FILM_NO_FFMPEG=1 .venv/bin/python tests/test_race_film.py; } 2>&1 | tee results/offline_checks.log
+          { python3 tests/check_undefined_names.py tests/px4_gazebo_fr_run.py tests/px4_gazebo_base_run.py px4_gazebo/race_film.py px4_gazebo/race_world.py px4_gazebo/race_core.py; .venv/bin/python tests/test_race_world.py; RACE_FILM_NO_FFMPEG=1 .venv/bin/python tests/test_race_film.py; } 2>&1 | tee results/offline_checks.log
 
       - name: Start the film in the background
         run: |
