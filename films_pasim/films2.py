@@ -217,7 +217,43 @@ class Sess:
     def pose(self):
         return pose_nedyaw(self.drone.get_ground_truth_pose())
 
-    async def run_phase(self, phase: str, n: int, control, cams: dict, record_from: int = 0, extra=None):
+    async def land(self, cams, label="landing", hold_s=2.0, max_pairs=100, pad_ned=None):
+        """Owner's order 2026-10-16: every flight film ends with the landing. land_async, then pairs until the task is done, the motors are
+        stopped (disarm) and `hold_s` simulated seconds have passed."""
+        try:
+            self.drone.set_external_force([0.0, 0.0, 0.0])
+        except Exception:  # noqa: BLE001
+            pass
+        n_a, e_a, d_a, _ = self.pose()
+        task = await self.drone.land_async()
+        st = {"t_done": None}
+
+        async def control(k, rec):
+            if st["t_done"] is None and task.done():
+                st["t_done"] = self.world.get_sim_time() / 1e9
+                r = self.call("drone.disarm() after landing", self.drone.disarm)
+                rec["disarm_ok"] = r["ok"]
+            rec["landing_task_done"] = st["t_done"] is not None
+
+        def stop(k, rec):
+            return st["t_done"] is not None and rec["t_abs"] - st["t_done"] >= hold_s
+        await self.run_phase(label, max_pairs, control, cams, stop=stop)
+        n_b, e_b, d_b, _ = self.pose()
+        info = {"phase": label, "start_ned": [n_a, e_a, d_a], "end_ned": [n_b, e_b, d_b], "task_done": st["t_done"] is not None, "pad_ned": pad_ned}
+        self.cap.setdefault("landings", []).append(info)
+        return info
+
+    async def rearm_takeoff(self, start_pose):
+        """After a landing: arm again, put the drone back at the start pose and take off (the multi-run films F07)."""
+        self.drone.enable_api_control()
+        self.drone.arm()
+        try:
+            self.call("drone.set_pose(start)", self.drone.set_pose, start_pose, True)
+        except Exception as e:  # noqa: BLE001
+            self.cap.setdefault("reset_errors", []).append(repr(e)[:200])
+        return await self.takeoff()
+
+    async def run_phase(self, phase: str, n: int, control, cams: dict, record_from: int = 0, extra=None, stop=None):
         """n pairs. control(k, rec) is an async function that sends the commands for this pair (may fill rec). cams = {key: (sensor, [types])}.
         Pairs with k < record_from are taken but not saved (settle). Returns the records of the saved pairs."""
         from PIL import Image
@@ -265,6 +301,8 @@ class Sess:
             if self.idx % 10 == 0:
                 log(f"{phase} pair {k}/{n} t_sim={rec['t_abs']:.1f}s wall={rec['wall_s']:.0f}s fails={self.fails}")
                 self.save()
+            if stop and stop(k, rec):
+                break
         ph.update({"last_frame": self.idx - 1, "wall_end_s": round(time.perf_counter() - self.t_wall0, 1),
                    "sim_end_s": round(self.world.get_sim_time() / 1e9, 3)})
         self.cap["phases"].append(ph)
@@ -407,6 +445,7 @@ async def film_nature(s, a, kind):
     s.save()
     ctl = forward_flight(s, yaw0, d0, a.speed)
     await s.run_phase("fly", a.frames, ctl, cams, record_from=1)
+    await s.land(cams)
 
 
 async def film_moving(s, a):
@@ -433,6 +472,7 @@ async def film_moving(s, a):
         return out
     s.cap["stage"] = "film"
     await s.run_phase("moving", a.frames, ctl, cams, record_from=1, extra=extra)
+    await s.land(cams)
 
 
 async def film_sun(s, a):
@@ -461,6 +501,7 @@ async def film_sun(s, a):
     z_up = 0.4
     s.call(f"world.spawn_object(Water1, WaterPlane10km) {z_up} m above the floor", s.world.spawn_object, "Water1", "WaterPlane10km", make_pose(n0, e0, d0 + 3.7 - z_up), [1.0, 1.0, 1.0], False)
     await s.run_phase("water", a.frames, turn(a.frames), cams, record_from=1)
+    await s.land(cams)
 
 
 async def film_wind(s, a):
@@ -492,7 +533,9 @@ async def film_wind(s, a):
         return control
 
     s.cap["stage"] = "film"
-    for mode in ("off", "wind_api", "force"):
+    for mi, mode in enumerate(("off", "wind_api", "force")):
+        if mi > 0:
+            await s.rearm_takeoff(start)
         try:
             s.call("drone.set_external_force([0,0,0])", s.drone.set_external_force, [0.0, 0.0, 0.0])
             s.call("world.set_wind_velocity(%s)" % (WIND if mode == "wind_api" else (0, 0, 0)), s.world.set_wind_velocity, *(WIND if mode == "wind_api" else (0.0, 0.0, 0.0)))
@@ -501,6 +544,7 @@ async def film_wind(s, a):
             s.cap.setdefault("reset_errors", []).append(repr(e)[:200])
         await asyncio.sleep(1.0)
         await s.run_phase(mode, a.frames + 3, flight(mode), cams, record_from=3)
+        await s.land(cams, label=f"{mode}_landing")
         s.save()
     s.call("world.set_wind_velocity(0,0,0)", s.world.set_wind_velocity, 0.0, 0.0, 0.0)
     s.call("drone.set_external_force([0,0,0])", s.drone.set_external_force, [0.0, 0.0, 0.0])
@@ -536,6 +580,7 @@ async def film_disturb(s, a):
     await s.run_phase("no_disturbance", a.frames // 4, hold(False), cams, record_from=1)
     await s.run_phase("random_force", a.frames, hold(True), cams)
     s.call("drone.set_external_force([0,0,0])", s.drone.set_external_force, [0.0, 0.0, 0.0])
+    await s.land(cams)
 
 
 async def film_ab(s, a, what):
@@ -558,6 +603,7 @@ async def film_ab(s, a, what):
         else:
             ctl = forward_flight(s, yaw0 - math.radians(45), d0, a.speed)  # a fast pass along the blocks
         await s.run_phase(label, a.frames, ctl, cams, record_from=1)
+        await s.land(cams, label=f"{label}_landing")
         s.save()
 
 
@@ -733,6 +779,10 @@ async def film_race(s, a):
     tex_p = solid_png(s.out / "pole.png", (240, 220, 40), noise=10, seed=12)
     tex_b = solid_png(s.out / "box.png", (40, 90, 200), noise=10, seed=13)
     s.cap["course_objects"] = spawn_course(s, geo, tex_g, tex_p, tex_b)
+    pad_end = (n0 - 0.3 * scale, e0 - 2.0 * scale)
+    for nm, (pn, pe) in (("PadStart", (n0, e0)), ("PadEnd", pad_end)):
+        s.call(f"world.spawn_object({nm}, BasicLandingPad)", s.world.spawn_object, nm, "BasicLandingPad", make_pose(pn, pe, -0.02), [scale, scale, scale], False)
+    s.cap["pad_ned"] = {"start": [n0, e0], "end": list(pad_end)}
     # flight: climb to the first waypoint height, then follow the path
     pf = PathFollower([(n0, e0, d0)] + geo["waypoints"][1:], a.speed, 1.6 * scale / 2)
     s.cap["stage"] = "film"
@@ -766,8 +816,9 @@ async def film_race(s, a):
             except Exception as e:  # noqa: BLE001
                 rec["recovery_error"] = repr(e)[:150]
         await s.drone.move_by_velocity_async(v[0], v[1], v[2], 2.0, YawControlMode.MaxDegreeOfFreedom, False, yaw_state["yaw"])
-    await s.run_phase("race", a.frames, control, cams, record_from=1)
+    await s.run_phase("race", a.frames, control, cams, record_from=1, stop=lambda k, rec: bool(rec.get("done")))
     s.cap["path_progress_m"] = {"total": pf.total, "reached": pf.s}
+    await s.land(cams, pad_ned=list(pad_end))
 
 
 # ------------------------------------------------------------------------------------------------ main

@@ -4,5 +4,55 @@
     "reason": "Fog and snow are shown clearly. Rain is shown only weakly: small water drops on the surfaces and a damp look, no falling rain streaks visible at 640 x 360. There is no cloud layer: an overcast look is made only by combining fog, a dimmed sun and cloud-shadow strength.",
     "reviewed": "main-session helper looked at F06_segments.png and full-size rain and storm frames of run 38948040235",
     "notes": "The automatic test (mean difference to the clear pictures) could not tell rain from a turn of the drone's nose, so it is not used for the verdict."
+  },
+  "F05@lights": {
+    "verdict": "native",
+    "reason": "set_time_of_day gives day, dusk and darkness; the night is pitch black unless lights are added. Lights come from the simulator's own packaged assets PointLightActor and SpotLightActor (spawn_object plus set_light_object_*): settings and ready assets only. Caveat: the lights are weak and the nose camera sees little of them.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F01@cover": {
+    "verdict": "added_by_our_code",
+    "reason": "LandscapeMountains (packaged scene) has mountains, sky with real clouds and shadows but a CHECKERBOARD floor that cannot be moved or retextured (StaticMeshActor is not movable; its texture call changed the sky instead). Our code covers it with a spawned 240 m plane carrying a generated grass picture and adds 14 trees, 10 rocks and 10 bushes from the packaged Cylinder and Sphere primitives with generated textures. The trees are simple shapes: the scene has no tree assets.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F02@cityenviron_min_sub": {
+    "verdict": "native",
+    "reason": "CityEnviron (packaged scene) shows a city: roads, lane marks, crossings, tall buildings, trees. It only works on the free machine with cheaper Unreal settings (ExecCmds and sg.*=0, 320x180) and with pictures received by subscription; with drone.get_images every call timed out and without the reduced settings Unreal crashed (signal 11) while loading.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F02@neighborhood_min_sub": {
+    "verdict": "native",
+    "reason": "Neighborhood (packaged scene) shows houses, cars, driveways, hedges, grass, trees and power poles close to the drone. Same conditions as CityEnviron: reduced settings, 320x180, pictures by subscription.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F03": {
+    "verdict": "native",
+    "reason": "Two environment actors of the scene file (a quadrotor and a tiltrotor air taxi) fly their own looping trajectories in front of the nose camera; our code only reads their poses. The pose of the air taxi stayed fixed in the API (get_object_pose) although it moves on screen, so the travel number is only reliable for the quadrotor.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F04": {
+    "verdict": "partly",
+    "reason": "Shadows (blocks, drone) and sun glare (sun disc and bloom when the nose turns toward the low sun) are shown. Reflections: only specular highlights on the glossy blocks; the packaged WaterPlane10km spawns without error but is not visible, and the Ground could not be moved, so no mirror-like water was shown.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F07": {
+    "verdict": "added_by_our_code",
+    "reason": "world.set_wind_velocity(0, 5, 0) is accepted but the drone does not drift in v1.0.1 (0.0 m). Wind made by our code (external force with linear drag toward the wind velocity, the idea of the shipped wind.py) drifts the drone about 8 m east in 4.6 s and tilts the camera.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F08": {
+    "verdict": "added_by_our_code",
+    "reason": "No native turbulence. Our code applies a zero-mean Gaussian force every pair through set_external_force, ported from the idea of Crazyflow's disturbance_fn (MIT); the position error grows from 0.08 m to 0.25 m rms. Torque disturbance is not possible (no torque call).",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F09@strong": {
+    "verdict": "native",
+    "reason": "The camera noise-settings block (enabled true) works, but with the shipped sample values nothing is visible; with our stronger values (declared in config) it shows as jagged horizontal distortion at edges and lines, not as grain. It is pattern noise, not a shot-noise model.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
+  },
+  "F10@spin": {
+    "verdict": "added_by_our_code",
+    "reason": "The simulator's motion-blur-amount 0.8 changed nothing, neither in a fast forward pass at the slowed clock nor in a 172 deg/s spin at real-time clock (inferred cause: scene-capture cameras have no velocity buffer). Rolling shutter does not exist. Our Python blur and rolling-shutter shear, computed from the known turn rate, are shown in the third column.",
+    "reviewed": "main-session helper looked at the contact sheet(s) of the slice 2 runs (38979221353, 38981676570, 38983260960, 38984973894 and the final landing run)"
   }
 }

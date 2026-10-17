@@ -28,7 +28,7 @@ permissions:
 
 env:
   PASIM_TAG: v1.0.1
-  FILMS: ${{ github.event.inputs.films || 'F02@cityenviron_min_sub,F02@neighborhood_min_sub,F11' }}
+  FILMS: ${{ github.event.inputs.films || 'F01@cover,F02@cityenviron_min_sub,F02@neighborhood_min_sub,F03,F04,F07,F08,F09@strong,F10@spin,F11' }}
   RTF: ${{ github.event.inputs.rtf || '0.03' }}
   FRAMES: ${{ github.event.inputs.frames || '90' }}
   EXTRA: ${{ github.event.inputs.extra || '' }}
@@ -63,8 +63,10 @@ jobs:
                   rtf, frames = "1.0", "30"
               if fid == "F11":
                   rtf, frames = "0.04", "200"
-              if fid == "F02":
-                  frames = "60"
+              if fid == "F02" and "cityenviron" in flags:
+                  rtf, frames, speed = "0.08", "70", "3.0"
+              elif fid == "F02":
+                  rtf, frames, speed = "0.04", "50", "1.2"
               cv = "r.DynamicGlobalIlluminationMethod 0,r.ReflectionMethod 0,r.Shadow.Virtual.Enable 0,r.ScreenPercentage 50,r.VolumetricCloud 0,r.Nanite 0"
               if "min" in flags:
                   cv += ",sg.ViewDistanceQuality 0,sg.ShadowQuality 0,sg.PostProcessQuality 0,sg.TextureQuality 0,sg.EffectsQuality 0,sg.FoliageQuality 0,sg.ShadingQuality 0,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0"

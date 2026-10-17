@@ -205,6 +205,36 @@ def race_metrics(cap, recs):
             "lap_time_sim_s": round(ts[-1] - ts[0], 1) if ts else None, "path_flown_m": round(sum(math.dist(a, b) for a, b in zip(pos[:-1], pos[1:])), 1)}
 
 
+def landing_metrics(cap, recs, phases):
+    """Per landing phase: landed, landing point, distance from the pad centre (if a pad exists), touchdown speed, seconds kept after touchdown."""
+    out = []
+    lands = {l["phase"]: l for l in cap.get("landings", [])}
+    for ph in [p for p in phases if p.endswith("landing")]:
+        rs = [r for r in recs if r["phase"] == ph]
+        if not rs:
+            continue
+        done = [i for i, r in enumerate(rs) if r.get("landing_task_done")]
+        i0 = done[0] if done else None
+        td_speed = None
+        if i0 is not None and i0 >= 1:
+            vs = []
+            for a, b in zip(rs[max(0, i0 - 5): i0], rs[max(0, i0 - 4): i0 + 1]):
+                dt = b["t_abs"] - a["t_abs"]
+                if dt > 1e-6:
+                    vs.append((b["d"] - a["d"]) / dt)
+            td_speed = round(max(vs), 2) if vs else None
+        info = lands.get(ph, {})
+        pad = info.get("pad_ned")
+        last = rs[-1]
+        out.append({"phase": ph, "landed": bool(done), "landing_point_ned_m": [round(last["n"], 2), round(last["e"], 2), round(last["d"], 2)],
+                    "pad_centre_ned_m": pad, "distance_from_pad_centre_m": round(math.hypot(last["n"] - pad[0], last["e"] - pad[1]), 2) if pad else None,
+                    "pad": "end pad" if pad else "none in this film (landed where the flight ended)", "touchdown_vertical_speed_m_s": td_speed,
+                    "descent_started_height_m": round(-rs[0]["d"], 2), "height_after_touchdown_m": round(-last["d"], 2),
+                    "seconds_kept_after_touchdown": round(last["t_abs"] - rs[done[0]]["t_abs"], 2) if done else None,
+                    "motors_stopped_disarm_ok": next((r.get("disarm_ok") for r in rs if "disarm_ok" in r), None)})
+    return out
+
+
 # ------------------------------------------------------------------ main
 def main():
     film, out = sys.argv[1], Path(sys.argv[2])
@@ -236,7 +266,7 @@ def main():
     extra = {}
 
     if film in ("F01", "F02", "F03", "F04"):
-        cap_for = {"fly": "forward flight", "moving": "other drones fly their own paths", "shadows_and_glare": "sun low, nose turns a full circle", "water": "spawned water plane, same turn"}
+        cap_for = {"landing": "landing: descend, touch down, motors off", "fly": "forward flight", "moving": "other drones fly their own paths", "shadows_and_glare": "sun low, nose turns a full circle", "water": "spawned water plane, same turn"}
         for r in recs_all:
             f1 = tile(fd / r["fpv"] if r.get("fpv") else None, 640, 360, "drone camera (nose)")
             f2 = tile(fd / r["chase"] if r.get("chase") else None, 640, 360, "chase camera")
@@ -244,9 +274,18 @@ def main():
             frames.append(np.concatenate([body, strip(body.shape[1], f"{film} {r['phase']}: {cap_for.get(r['phase'], '')}  |  simulated time {r['t']:.2f} s  |  pair {r['i']}")], axis=0))
             labels.append(f"{r['phase']} t={r['t']:.1f}s")
     elif film in ("F07", "F09", "F10"):
-        modes = phases
-        by = {m: [r for r in recs_all if r["phase"] == m] for m in modes}
-        n = min(len(v) for v in by.values()) if by else 0
+        def base_of(p):
+            return p[: -len("_landing")] if p.endswith("_landing") else p
+        modes = []
+        for p_ in phases:
+            if base_of(p_) not in modes:
+                modes.append(base_of(p_))
+        by = {m: [r for r in recs_all if base_of(r["phase"]) == m] for m in modes}
+        byf = {m: [r for r in by[m] if not r["phase"].endswith("_landing")] for m in modes}
+        n = max(len(v) for v in by.values()) if by else 0
+
+        def pick(m, j):
+            return by[m][min(j, len(by[m]) - 1)]
         names = {"off": "feature OFF", "on": "feature ON", "wind_api": "wind: world.set_wind_velocity 5 m/s east", "force": "wind: our external force"}
         spin = film == "F10" and "spin" in variant.split("_")
         if spin:
@@ -255,9 +294,9 @@ def main():
             base = by.get("off", [])
             ref = (base[0]["n"], base[0]["e"]) if base else (0, 0)
         for j in range(n):
-            tiles = [tile(fd / by[m][j]["fpv"] if by[m][j].get("fpv") else None, TW if film == "F07" else 640, TH if film == "F07" else 360, names.get(m, m)) for m in modes]
-            if spin and by.get("off") and by["off"][j].get("fpv"):
-                src = load_img(fd / by["off"][j]["fpv"])
+            tiles = [tile(fd / pick(m, j)["fpv"] if pick(m, j).get("fpv") else None, TW if film == "F07" else 640, TH if film == "F07" else 360, names.get(m, m)) for m in modes]
+            if spin and by.get("off") and pick("off", j).get("fpv"):
+                src = load_img(fd / pick("off", j)["fpv"])
                 syn, blur_px, shear_px = synth_blur(src)
                 im = Image.fromarray(syn).resize((640, 360))
                 d_ = ImageDraw.Draw(im)
@@ -272,10 +311,10 @@ def main():
             if film == "F07":
                 fig, ax = plt.subplots(1, 2, figsize=(body.shape[1] / 100, 2.7))
                 for m, colr in zip(modes, ("tab:gray", "tab:red", "tab:blue")):
-                    rr = by[m][: j + 1]
-                    t0 = by[m][0]["t_abs"]
-                    ax[0].plot([r["t_abs"] - t0 for r in rr], [r["e"] - by[m][0]["e"] for r in rr], color=colr, label=names.get(m, m))
-                    ax[1].plot([r["e"] - by[m][0]["e"] for r in rr], [r["n"] - by[m][0]["n"] for r in rr], color=colr)
+                    rr = byf[m][: j + 1]
+                    t0 = byf[m][0]["t_abs"]
+                    ax[0].plot([r["t_abs"] - t0 for r in rr], [r["e"] - byf[m][0]["e"] for r in rr], color=colr, label=names.get(m, m))
+                    ax[1].plot([r["e"] - byf[m][0]["e"] for r in rr], [r["n"] - byf[m][0]["n"] for r in rr], color=colr)
                 ax[0].set_xlabel("simulated time (s)")
                 ax[0].set_ylabel("east drift (m)")
                 ax[0].legend(fontsize=7, loc="upper left")
@@ -286,20 +325,20 @@ def main():
                 ax[1].set_aspect("equal", adjustable="datalim")
                 fig.tight_layout()
                 parts.append(fig_to_img(fig, body.shape[1], 270))
-            parts.append(strip(body.shape[1], f"{film}   simulated time {by[modes[0]][j]['t']:.2f} s (phase 1)   |   pair {j}"))
+            parts.append(strip(body.shape[1], f"{film}   {pick(modes[0], j)['phase']}   simulated time {pick(modes[0], j)['t']:.2f} s (first run)   |   pair {j}"))
             frames.append(np.concatenate(parts, axis=0))
-            labels.append(f"pair {j} ({by[modes[0]][j]['t']:.1f}s)")
+            labels.append(f"pair {j} {pick(modes[0], j)['phase']}")
         # numbers
         if film == "F07":
             drift = {}
             for m in modes:
-                rr = by[m]
+                rr = byf[m]
                 drift[m] = {"east_drift_end_m": round(rr[-1]["e"] - rr[0]["e"], 2), "north_travel_m": round(rr[-1]["n"] - rr[0]["n"], 2),
                             "max_abs_east_drift_m": round(max(abs(r["e"] - rr[0]["e"]) for r in rr), 2), "sim_seconds": round(rr[-1]["t_abs"] - rr[0]["t_abs"], 2)}
             extra["drift"] = drift
             fig, ax = plt.subplots(1, 2, figsize=(11, 4))
             for m, colr in zip(modes, ("tab:gray", "tab:red", "tab:blue")):
-                rr = by[m]
+                rr = byf[m]
                 ax[0].plot([r["t_abs"] - rr[0]["t_abs"] for r in rr], [r["e"] - rr[0]["e"] for r in rr], color=colr, label=names.get(m, m))
                 ax[1].plot([r["e"] - rr[0]["e"] for r in rr], [r["n"] - rr[0]["n"] for r in rr], color=colr)
             ax[0].set_xlabel("simulated time (s)")
@@ -324,7 +363,7 @@ def main():
                 return float(lap.std()), float(lap.var())
             met = {}
             for m in modes:
-                vals = [hf(fd / r["fpv"]) for r in by[m] if r.get("fpv")]
+                vals = [hf(fd / r["fpv"]) for r in byf[m] if r.get("fpv")]
                 vals = [v for v in vals if v]
                 met[m] = {"laplacian_std_mean": round(float(np.mean([v[0] for v in vals])), 2) if vals else None,
                           "laplacian_var_mean": round(float(np.mean([v[1] for v in vals])), 1) if vals else None}
@@ -343,7 +382,7 @@ def main():
                 ax.axvline(sw, color="k", linestyle="--", lw=1)
                 ax.text(sw, ax.get_ylim()[1] * 0.9, " random force on", fontsize=8)
             ax.set_xlim(0, recs_all[-1]["t_abs"] - t0)
-            ax.set_ylim(0, max(err) * 1.1 + 0.05)
+            ax.set_ylim(0, max([e_ for e_, q_ in zip(err, recs_all) if q_["phase"] != "landing"] or [0.1]) * 1.1 + 0.05)
             ax.set_xlabel("simulated time (s)")
             ax.set_ylabel("position error from hold point (m)")
             ax.grid(alpha=0.3)
@@ -368,7 +407,7 @@ def main():
         plt.close(fig)
     elif film == "F11":
         geo = cap["race"]["geometry"]
-        met = race_metrics(cap, recs_all)
+        met = race_metrics(cap, [r for r in recs_all if r["phase"] == "race"])
         extra["race"] = met
         extra["race_scale"] = cap["race"]["scale"]
         extra["course_objects_spawned"] = len(cap.get("course_objects", []))
@@ -421,6 +460,8 @@ def main():
                       "max": round(float(dts.max()), 3) if len(dts) else None}, "wall_seconds_total": cap.get("wall_total_s"),
                       "wall_seconds_per_pair": round(float(np.median(np.diff([r["wall_s"] for r in recs_all]))), 2) if len(recs_all) > 2 else None,
                       "picture_failures": cap.get("failures"), "phases": cap.get("phases"), "takeoff": cap.get("takeoff"), "stop_reason": cap.get("stop_reason"), **extra}
+    res["landing"] = landing_metrics(cap, recs_all, phases)
+    res["numbers"]["landing_phases_in_film"] = [p for p in phases if p.endswith("landing")]
     res["config"] = cap.get("config")
     res["scene_exploration"] = {k: (v[:60] if isinstance(v, list) else v) for k, v in (cap.get("scene_exploration") or {}).items()}
     res["nature_notes"] = cap.get("nature_notes")
