@@ -113,7 +113,7 @@ jobs:
         run: |
           SIMCFG="$PWD/ProjectAirSim_src/client/python/example_user_scripts/sim_config"
           if [ "${{ matrix.film }}" = "FR" ]; then
-            UNREAL_EXTRA='${{ matrix.uextra }}' UNREAL_RESX='${{ matrix.rx }}' UNREAL_RESY='${{ matrix.ry }}' CLIENT_SCRIPT=films_fr.py CLIENT_TIMEOUT=18500 bash films_pasim/launch_film.sh "FR" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --variant "${{ matrix.variant }}" --rtf "${{ matrix.rtf }}" $EXTRA
+            UNREAL_EXTRA='${{ matrix.uextra }}' UNREAL_RESX='${{ matrix.rx }}' UNREAL_RESY='${{ matrix.ry }}' bash films_pasim/run_fr.sh "${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python" "${{ matrix.variant }}" "${{ matrix.rtf }}" $EXTRA
           elif [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
             bash films_pasim/launch_film.sh "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --rtf "$RTF" --frames "$FRAMES" --variant "${{ matrix.variant }}" $EXTRA
           else
