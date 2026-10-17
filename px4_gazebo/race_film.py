@@ -777,6 +777,8 @@ def early_frames(out: Path) -> dict:
                 g = float(gray(np.asarray(nrun.get("fpv", tl)[0])).mean())
                 checks["night_test_mean_grey"] = round(g, 1)
                 checks["night_test_dark"] = g < 90.0
+                checks.update(sky_brightness(nrun.get("fpv", tl)[0]))
+                checks["night_sky_dark"] = checks["sky_ok"]
                 checks["night_test_frames"] = {k: len(v) for k, v in n["panel_times"].items()}
         else:
             checks["problems"].append("night test: no pictures")
@@ -784,9 +786,23 @@ def early_frames(out: Path) -> dict:
         checks["problems"].append("no night_test.json")
     if imgs:
         labelled_sheet(imgs, labs, cols=2, tile_w=800).save(ed / "early_contact.png")
-    checks["all_ok"] = bool(imgs) and not checks["problems"] and all(checks.get(k) for k in ("brightness_ok", "depth_is_a_picture", "gates_in_view", "picture_rate_ok", "night_test_dark"))
+    checks["all_ok"] = bool(imgs) and not checks["problems"] and all(checks.get(k) for k in ("brightness_ok", "depth_is_a_picture", "gates_in_view", "picture_rate_ok", "night_test_dark", "night_sky_dark"))
     (ed / "early_checks.json").write_text(json.dumps(res, indent=2, default=str))
     return res
+
+
+SKY_MAX_GREY = 80.0        # night test: mean grey of the upper third of the nose picture must stay below this (a night sky is dark)
+SKY_MAX_BRIGHT_FRACTION = 0.15   # ... and at most this share of that third may be brighter than grey 200 (run 39010328459: white sky, about a quarter)
+
+
+def sky_brightness(img) -> dict:
+    """The sky check of the night test: grey level of the upper third of the nose picture. Run 39010328459 showed a white sky at night while the
+    whole-picture mean (81.7) still passed the dark test, so the sky gets its own number."""
+    g = gray(np.asarray(img))
+    top = g[: max(1, g.shape[0] // 3)]
+    mean, frac = float(top.mean()), float((top > 200).mean())
+    return {"sky_upper_third_mean_grey": round(mean, 1), "sky_upper_third_bright_fraction": round(frac, 3),
+            "sky_ok": bool(mean < SKY_MAX_GREY and frac < SKY_MAX_BRIGHT_FRACTION)}
 
 
 def night_sheet(out: Path) -> dict:
@@ -811,6 +827,10 @@ def night_sheet(out: Path) -> dict:
             if "n" in kept:
                 labelled_sheet([kept["n"][0]], ["NIGHT TEST SHOT (before the race, drone on the pad)"], cols=1, tile_w=900).save(ed / "night_test_contact.png")
                 res["fpv_mean_grey"] = round(float(gray(np.asarray(nrun.get("fpv", tl)[0])).mean()), 1)
+                res.update(sky_brightness(nrun.get("fpv", tl)[0]))
+                if not res["sky_ok"]:
+                    res["problems"].append("night sky too bright: upper third of the nose picture has mean grey %s (limit %s), bright share %s (limit %s)"
+                                           % (res["sky_upper_third_mean_grey"], SKY_MAX_GREY, res["sky_upper_third_bright_fraction"], SKY_MAX_BRIGHT_FRACTION))
             else:
                 res["problems"].append("no frame kept")
         else:

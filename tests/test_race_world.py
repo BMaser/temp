@@ -88,6 +88,10 @@ def main():
         for nm, txt in (("car", rw.car_model()), ("truck", rw.truck_model()), ("rain", rw.rain_model()), ("dome", rw.dome_model(assets)), *rw.person_models().items()):
             r = ET.fromstring(txt)
             check(f"model {nm}: well-formed", r.find("model") is not None)
+        dm = ET.fromstring(rw.dome_model(assets)).find(".//visual/material")
+        em = [float(x) for x in dm.findtext("emissive").split()[:3]]
+        check("dome: the night sky glows by its own picture (emissive map), with no flat emissive colour (run 39010328459: white sky)",
+              dm.find("pbr/metal/emissive_map") is not None and max(em) == 0.0 and float(dm.findtext("diffuse").split()[0]) <= 0.1, f"{em}")
         rain = ET.fromstring(rw.rain_model())
         check("rain: one box particle emitter", len(rain.findall(".//particle_emitter")) == 1 and rain.find(".//particle_emitter").get("type") == "box")
         lines = Path(assets["dome.obj"]).read_text().splitlines()

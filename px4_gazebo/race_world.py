@@ -620,9 +620,18 @@ def rain_model(rate: int = 5000) -> str:
             f"<material><diffuse>0.9 0.92 1.0</diffuse><specular>0.3 0.3 0.3</specular></material></particle_emitter></link></model></sdf>")
 
 
+def dome_material(texture: str) -> str:
+    """Night dome material. Run 39010328459 showed a WHITE sky at night: the old material had a flat emissive colour of 0.9, and a flat emissive colour
+    is ADDED to the lit picture without the texture, so every sky pixel came out near white and the stars, clouds and moon were lost. Now the colour
+    is black and the texture itself is the emissive map (the sky glows with its own dark picture); the diffuse and ambient parts are small, so the
+    lights of the night phase (moon, lamps, headlamp) do not brighten it."""
+    return (f"<material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse><specular>0 0 0 1</specular><emissive>0 0 0 1</emissive>"
+            f"<pbr><metal><albedo_map>{uri(texture)}</albedo_map><emissive_map>{uri(texture)}</emissive_map><roughness>1.0</roughness><metalness>0.0</metalness></metal></pbr></material>")
+
+
 def dome_model(assets: dict) -> str:
     L = Link()
-    L.visual(geom_mesh(assets["dome.obj"]), material((1, 1, 1), emissive=(0.9, 0.9, 0.9), albedo=assets["night_dome"], rough=1.0), (0, 0, 0, 0, 0, 0))
+    L.visual(geom_mesh(assets["dome.obj"]), dome_material(assets["night_dome"]), (0, 0, 0, 0, 0, 0))
     return model_sdf("night_dome", L.text(), pose=(0, 0, -5000, 0, 0, 0), static=False, gravity=False)
 
 

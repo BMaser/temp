@@ -501,6 +501,41 @@ def tilt_deg_from_quat(q):
 
 
 MAV_LOG = None          # set by run_variant: out / "mavsdk_server.log"
+PX4_DIR = None          # set by run_variant: the PX4-Autopilot checkout (for the px4-mavlink client)
+HEARTBEAT_HZ = 20       # PX4 heartbeat rate while the simulation is slow (default 1 Hz of SIMULATION time)
+
+
+def px4_client(args: str, timeout: int = 60) -> str:
+    """Runs a PX4 shell command from outside through the px4 client (the px4 binary called as px4-<module>); PX4's own console reads a pipe that never speaks."""
+    if PX4_DIR is None:
+        return "no PX4_DIR"
+    bindir = Path(PX4_DIR).resolve() / "build" / "px4_sitl_default" / "bin"
+    link = bindir / "px4-mavlink"
+    cmd = f'"{link}" {args}' if link.exists() else f"bash -c 'exec -a px4-mavlink \"{bindir / 'px4'}\" {args}'"
+    return base.sh(cmd, timeout).strip()
+
+
+def boost_px4_heartbeat(child: dict) -> dict:
+    """Run 39010328459: the real-time factor was 0.06-0.42, PX4 sends its HEARTBEAT once per second of SIMULATION time (lockstep), so one heartbeat came
+    every 3-15 s of wall time, and mavsdk_server (heartbeat time-out fixed at 3 s of wall time; no command-line option, no gRPC call, checked in the v3.17.4
+    source) logged "heartbeats timed out" / "Discovered 1 component" again and again, which drops the stored offboard set-point (NO_SETPOINT_SET).
+    Fix on the PX4 side: raise the HEARTBEAT stream of the offboard MAVLink instance (local UDP port 14580 -> MAVSDK on 14540) so that it is
+    HEARTBEAT_HZ per simulated second, i.e. at least one per wall second down to a real-time factor of 0.05."""
+    res = {"rate_hz": HEARTBEAT_HZ}
+    status0 = px4_client("status")
+    res["status_before_tail"] = status0[-300:]
+    m = re.search(r"UDP \((\d+), remote port: 14540\)", status0)
+    port = int(m.group(1)) if m else 14580
+    res["udp_port"] = port
+    res["port_found_in_status"] = bool(m)
+    res["stream_answer"] = px4_client(f"stream -u {port} -s HEARTBEAT -r {HEARTBEAT_HZ}")[-300:]
+    status1 = px4_client("status")
+    res["heartbeat_lines_after"] = [l.strip() for l in status1.splitlines() if "HEARTBEAT" in l][:6]
+    child["px4_heartbeat_boost"] = res
+    log("PX4 heartbeat boost: " + json.dumps(res)[:700])
+    return res
+
+
 MAV_PORT = 50051
 MAV_ADDRESS = "udpin://0.0.0.0:14540"
 
@@ -587,6 +622,7 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
     await asyncio.wait_for(healthy(), HEALTHY_TIMEOUT_S)
     log("healthy")
     child["healthy_sim_s"] = S.now()
+    await loop.run_in_executor(ex, boost_px4_heartbeat, child)
 
     def server_monitor():
         # run 39009068651: the MAVSDK server was a zombie (<defunct>) after prep, which ran at about 0.12x real time. This line every 5 s wall shows WHEN it
@@ -603,7 +639,11 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
                 except OSError:
                     load = "?"
                 rtf = (now[1] - prev[1]) / max(now[0] - prev[0], 1e-6)
-                log(f"mon: sim {now[1]:.1f} rtf {rtf:.2f} load {load} server pid {mav.proc.pid if mav.proc else None} exit code {rc_}")
+                try:
+                    n_to = mav.logpath.read_bytes().count(b"heartbeats timed out")
+                except OSError:
+                    n_to = -1
+                log(f"mon: sim {now[1]:.1f} rtf {rtf:.2f} load {load} server pid {mav.proc.pid if mav.proc else None} exit code {rc_} hb_timeouts_total {n_to}")
                 if rc_ not in (None, "none") and not seen_dead:
                     seen_dead = True
                     ev = {"wall": time.strftime("%H:%M:%S"), "exit_code": rc_, "sim": round(now[1], 2), "rtf": round(rtf, 3), "load": load}
@@ -988,8 +1028,9 @@ def run_variant(out: Path, px4: Path, variant: str) -> dict:
             live = Live(S, child, panels, out, ground)
             live.start()
             child["_live"] = live
-        global MAV_LOG
+        global MAV_LOG, PX4_DIR
         MAV_LOG = out / "mavsdk_server.log"
+        PX4_DIR = px4
         asyncio.run(fly(S, child, gz, movers, turb, world, panels, ground, prep))
         live = child.pop("_live", None)
         if live is not None:

@@ -155,6 +155,7 @@ def main():
             ck = er["checks"]
             check(f"{cases}: early frames written, six plus the night test", (td / "early" / "early_contact.png").is_file() and ck.get("night_test_mean_grey") is not None, f"{ck}")
             check(f"{cases}: early checks see the picture and the gates in view are checked", "depth_is_a_picture" in ck and ck["depth_is_a_picture"] is True and ck["gates_in_view"] is False, f"{ck.get('depth_stripe_check')} {ck.get('depth')}")
+            check(f"{cases}: night sky number is in the early checks", "sky_upper_third_mean_grey" in ck and "night_sky_dark" in ck, f"{ck}")
             res = rf.post(td)
             check(f"{cases}: post wrote the result", (td / "film_result.json").is_file() and (td / "FR_contact.png").is_file() and (td / "summary.md").is_file(), f"{res.get('errors')}")
             r = json.loads((td / "film_result.json").read_text())
@@ -164,6 +165,12 @@ def main():
                 preview.mkdir(parents=True, exist_ok=True)
                 (preview / "FR_contact_synthetic.png").write_bytes((td / "FR_contact.png").read_bytes())
                 (preview / "overview_synthetic.png").write_bytes((td / "overview.png").read_bytes())
+    white = np.full((rw.PH, rw.PW, 3), 25, np.uint8)
+    white[: rw.PH // 3, : rw.PW // 2] = 255            # a white sky over half the width, as in run 39010328459
+    dark = np.full((rw.PH, rw.PW, 3), 25, np.uint8)
+    dark[5, 7:12] = 240                                # a few stars
+    check("sky number: white sky fails", rf.sky_brightness(white)["sky_ok"] is False, f"{rf.sky_brightness(white)}")
+    check("sky number: dark starry sky passes", rf.sky_brightness(dark)["sky_ok"] is True, f"{rf.sky_brightness(dark)}")
     print(f"{passed} of {passed + failed} passed")
     sys.exit(1 if failed else 0)
 
