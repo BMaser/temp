@@ -1,31 +1,27 @@
-name: PX4 Gazebo feature films
+name: PX4 Gazebo race film FR
 
-# Feature films of PX4 v1.17.0 SITL + Gazebo Harmonic (world baylands, x500 with a nose camera and a chase camera) on the free runner
-# (4 cores, no graphics card: Xvfb + Mesa software drawing). One job makes any subset of the films F01 to F11 (FILMS, default F05,F06 =
-# slice 1: night, clouds and rain). See tests/px4_gazebo_films_run.py (run, films, film_result.json) and px4_gazebo/films_core.py (conditions).
+# ONE film: the hard race route (hard_race_v1.json, scale 4) in a generated city, PX4 v1.17.0 SITL + Gazebo Harmonic, x500 with a nose camera, depth,
+# object labels and a chase camera, six timed phases (city, wind + turbulence, rain, camera noise, motion blur, night + clouds), then the landing.
+# Free runner (4 cores, no graphics card): Xvfb + Mesa software drawing. See tests/px4_gazebo_fr_run.py (run, early, post) and px4_gazebo/race_*.py.
+# The film is made in the BACKGROUND; a second step waits for the first 16 simulated seconds, makes the early frames and uploads them as the artifact
+# `early-frames` while the film goes on (owner's order 2026-10-17). The RT15 probe is not part of this job.
 # Runs on push to the branch films-px4gz only (and by hand).
 
 on:
   push:
     branches: [films-px4gz]
   workflow_dispatch:
-    inputs:
-      films:
-        description: "films to make, for example F05,F06"
-        required: false
-        default: "F05,F06"
 
 permissions:
   contents: read
 
 env:
   PX4_TAG: v1.17.0
-  FILMS: ${{ inputs.films || 'F05,F06' }}
 
 jobs:
-  films:
+  film:
     runs-on: ubuntu-latest
-    timeout-minutes: 170
+    timeout-minutes: 230
     steps:
       - uses: actions/checkout@v4
 
@@ -41,62 +37,81 @@ jobs:
           sudo apt-get install -y python3-gz-transport13 python3-gz-msgs10 python3-numpy python3-scipy python3-pil python3-venv
           python3 -m venv --system-site-packages .venv
           .venv/bin/pip install 'mavsdk<4' numpy scipy pillow
-          .venv/bin/python -c "import mavsdk, numpy, scipy, PIL; from gz.transport13 import Node; from gz.msgs10.pose_v_pb2 import Pose_V; from gz.msgs10.image_pb2 import Image; print('mavsdk', mavsdk.__file__, 'numpy', numpy.__version__, 'scipy', scipy.__version__, 'pillow', PIL.__version__, 'gz bindings ok')" | tee results/python_versions.txt
+          .venv/bin/python -c "import mavsdk, numpy, scipy, PIL; from gz.transport13 import Node; from gz.msgs10.pose_v_pb2 import Pose_V; from gz.msgs10.image_pb2 import Image; from gz.msgs10.light_pb2 import Light; from gz.msgs10.wind_pb2 import Wind; from gz.msgs10.entity_wrench_pb2 import EntityWrench; from gz.msgs10.entity_plugin_v_pb2 import EntityPlugin_V; from gz.msgs10.entity_factory_pb2 import EntityFactory; print('mavsdk', mavsdk.__file__, 'numpy', numpy.__version__, 'scipy', scipy.__version__, 'pillow', PIL.__version__, 'gz bindings ok')" | tee results/python_versions.txt
           gz sim --versions | tee results/gz_version.txt
           ffmpeg -version | head -n 1
           (cd px4 && make px4_sitl_default) > results/build.log 2>&1 || { tail -n 80 results/build.log; exit 1; }
           tail -n 3 results/build.log
 
-      - name: Offline checks (conditions, world patch)
+      - name: Offline checks (route, city, picture code)
         run: |
           set -o pipefail
-          .venv/bin/python tests/test_px4_gazebo_films.py 2>&1 | tee results/offline_checks.log
+          { .venv/bin/python tests/test_race_world.py; RACE_FILM_NO_FFMPEG=1 .venv/bin/python tests/test_race_film.py; } 2>&1 | tee results/offline_checks.log
 
-      - name: License of the Fuel model Fog Generator and the files of the stock world
-        continue-on-error: true
+      - name: Start the film in the background
         run: |
           mkdir -p results
-          curl -sS --max-time 60 "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fog%20Generator" -o results/fuel_fog_generator.json || true
-          cp px4/Tools/simulation/gz/worlds/baylands.sdf results/baylands_stock.sdf
-          cat px4/src/modules/simulation/gz_bridge/server.config > results/server.config || true
+          rm -f results/run.exit results/post.exit
+          setsid nohup bash -c '.venv/bin/python tests/px4_gazebo_fr_run.py run --out results --px4 px4 > results/run.log 2>&1; echo $? > results/run.exit; .venv/bin/python tests/px4_gazebo_fr_run.py post --out results > results/post.log 2>&1; echo $? > results/post.exit' > /dev/null 2>&1 &
+          sleep 5
+          echo "film started in the background"
 
-      - name: Make the films
-        id: films
+      - name: Early frames (wait for the first 16 simulated seconds of the flight)
         continue-on-error: true
+        timeout-minutes: 120
         run: |
-          mkdir -p results
-          set -o pipefail
-          .venv/bin/python tests/px4_gazebo_films_run.py all --films "$FILMS" --out results --px4 px4 2>&1 | tee results/run.log
+          python3 - <<'PYEOF'
+          import json, os, time
+          t0 = time.time()
+          while time.time() - t0 < 6600:
+              if os.path.exists('results/run.exit'):
+                  break
+              try:
+                  d = json.load(open('results/live.json'))
+                  ta = d.get('arm_sim_s')
+                  ts = d['panel_times'].get('chase') or []
+                  if ta is not None and ts and ts[-1] >= ta + 16.5:
+                      break
+              except Exception:
+                  pass
+              time.sleep(10)
+          print('waited', round(time.time() - t0), 's')
+          PYEOF
+          mkdir -p results/early
+          .venv/bin/python tests/px4_gazebo_fr_run.py early --out results 2>&1 | tail -n 30 || true
+          ls -la results/early
 
-      - name: RT15 probe (real-time camera, not a film)
-        id: rt15
-        continue-on-error: true
-        run: |
-          mkdir -p results
-          set -o pipefail
-          .venv/bin/python tests/px4_gazebo_rt15.py all --out results --px4 px4 2>&1 | tee results/rt15_run.log
-
-      - name: Why are the trees black? Material dump of the Fuel meshes, licenses of the Fuel models used
+      - uses: actions/upload-artifact@v4
         if: always()
-        continue-on-error: true
+        with:
+          name: early-frames
+          path: results/early/
+          if-no-files-found: warn
+
+      - name: Wait for the film and its post-processing to end
+        timeout-minutes: 150
         run: |
-          mkdir -p results/fuel_metadata
-          python3 tests/dump_fuel_materials.py results/fuel_materials.txt || true
-          find ~/.gz/fuel -name "metadata.pbtxt" | while read f; do d=$(echo "$f" | sed 's#.*/models/##; s#/#_#g'); cp "$f" "results/fuel_metadata/$d" || true; done
-          find ~/.gz/fuel -maxdepth 6 -type d | sed 's#.*/fuel.gazebosim.org/##' > results/fuel_cache_dirs.txt || true
+          t0=$(date +%s)
+          while [ ! -f results/post.exit ]; do
+            sleep 20
+            if [ $(( $(date +%s) - t0 )) -gt 8400 ]; then echo "film did not end in time"; exit 1; fi
+          done
+          echo "run exit $(cat results/run.exit 2>/dev/null), post exit $(cat results/post.exit)"
+          tail -n 5 results/run.log || true
+          test "$(cat results/post.exit)" = "0"
 
       - name: Job summary
         if: always()
         run: |
-          if [ -f results/summary.md ]; then cat results/summary.md >> "$GITHUB_STEP_SUMMARY"; else echo "No summary.md (films step: ${{ steps.films.outcome }})." >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f results/summary.md ]; then cat results/summary.md >> "$GITHUB_STEP_SUMMARY"; else echo "No summary.md." >> "$GITHUB_STEP_SUMMARY"; fi
           df -h / | tail -n 1
 
       - name: Remove files that are not results
         if: always()
         run: |
-          rm -rf results/_backup
-          rm -f results/conds/*/*.rgb
-          for f in results/conds/*/sim.log results/conds/*/gz_server.log; do [ -f "$f" ] && tail -n 400 "$f" > "${f%.log}_tail.log" && if [ "$(stat -c %s "$f")" -gt 4000000 ]; then head -n 400 "$f" > "${f%.log}_head.log"; rm -f "$f"; fi; done
+          rm -rf results/_backup results/assets
+          rm -f results/*.raw results/poses_live*.npy results/live.tmp
+          for f in results/sim.log; do [ -f "$f" ] && tail -n 600 "$f" > "${f%.log}_tail.log" && if [ "$(stat -c %s "$f")" -gt 4000000 ]; then rm -f "$f"; fi; done
           true
 
       - uses: actions/upload-artifact@v4
@@ -105,9 +120,3 @@ jobs:
           name: px4-gazebo-films-results
           path: results/
           if-no-files-found: warn
-
-      - name: Fail the job when a film is missing
-        if: always()
-        run: |
-          test "${{ steps.films.outcome }}" = success
-          python3 -c "import json,sys; c=json.load(open('results/films_check.json')); bad=[x for x in c if not x['ok']]; print(c); sys.exit(1 if bad else 0)"

@@ -86,13 +86,12 @@ def fog_xml() -> str:
 
 
 # natural objects close to the flight path (owner's order 2026-10-16), all from Gazebo Fuel (owner OpenRobotics); licenses read from the Fuel
-# API on 2026-10-16: Oak tree, Pine Tree, Juniper Tree = Creative Commons Zero v1.0; Falling Rock 1 to 3 = Creative Commons Attribution 4.0.
+# API on 2026-10-16: Oak tree, Pine Tree = Creative Commons Zero v1.0 ("Juniper Tree" does NOT exist on Fuel: run 38979273345 died on it, removed 2026-10-17); Falling Rock 1 to 3 = Creative Commons Attribution 4.0.
 # (name on Fuel, instance name, x, y, yaw in world coordinates; z = GROUND_Z)
 GROUND_Z = -0.1
 SCENERY = [
     ("Oak tree", "oak_a", 9.0, 4.5, 0.3), ("Oak tree", "oak_b", 13.0, -5.0, 1.2),
     ("Pine Tree", "pine_a", 6.5, -4.5, 0.0), ("Pine Tree", "pine_b", 11.0, 6.5, 2.0),
-    ("Juniper Tree", "juniper_a", 4.5, 3.2, 0.5), ("Juniper Tree", "juniper_b", 7.5, -2.8, 2.5),
     ("Falling Rock 1", "rock_a", 3.5, -2.2, 0.0), ("Falling Rock 2", "rock_b", 6.0, 2.2, 1.0), ("Falling Rock 3", "rock_c", 8.5, -1.5, 2.0),
 ]
 FUEL_BASE = "https://fuel.gazebosim.org/1.0/OpenRobotics/models/"
