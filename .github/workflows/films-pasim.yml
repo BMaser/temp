@@ -28,7 +28,7 @@ permissions:
 
 env:
   PASIM_TAG: v1.0.1
-  FILMS: ${{ github.event.inputs.films || 'F01@cover,F02@cityenviron_min_sub,F02@neighborhood_min_sub,F03,F04,F07,F08,F09@strong,F10@spin,F11' }}
+  FILMS: ${{ github.event.inputs.films || 'FR@cityenviron_min_sub,FR@neighborhood_min_sub' }}
   RTF: ${{ github.event.inputs.rtf || '0.03' }}
   FRAMES: ${{ github.event.inputs.frames || '90' }}
   EXTRA: ${{ github.event.inputs.extra || '' }}
@@ -63,6 +63,8 @@ jobs:
                   rtf, frames = "1.0", "30"
               if fid == "F11":
                   rtf, frames = "0.04", "200"
+              if fid == "FR":
+                  rtf = os.environ["RTF"] if os.environ["RTF"] != "0.03" else "0.04"
               if fid == "F02" and "cityenviron" in flags:
                   rtf, frames, speed = "0.08", "70", "3.0"
               elif fid == "F02":
@@ -110,7 +112,9 @@ jobs:
         continue-on-error: true
         run: |
           SIMCFG="$PWD/ProjectAirSim_src/client/python/example_user_scripts/sim_config"
-          if [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
+          if [ "${{ matrix.film }}" = "FR" ]; then
+            UNREAL_EXTRA='${{ matrix.uextra }}' UNREAL_RESX='${{ matrix.rx }}' UNREAL_RESY='${{ matrix.ry }}' CLIENT_SCRIPT=films_fr.py CLIENT_TIMEOUT=5600 bash films_pasim/launch_film.sh "FR" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --variant "${{ matrix.variant }}" --rtf "${{ matrix.rtf }}" $EXTRA
+          elif [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
             bash films_pasim/launch_film.sh "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --rtf "$RTF" --frames "$FRAMES" --variant "${{ matrix.variant }}" $EXTRA
           else
             UNREAL_EXTRA='${{ matrix.uextra }}' UNREAL_RESX='${{ matrix.rx }}' UNREAL_RESY='${{ matrix.ry }}' CLIENT_SCRIPT=films2.py CLIENT_TIMEOUT=5600 bash films_pasim/launch_film.sh "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "$PWD/pasim_bin" "$SIMCFG" "$PWD/.pa/bin/python"               --film "${{ matrix.film }}" --variant "${{ matrix.variant }}" --rtf "${{ matrix.rtf }}" --frames "${{ matrix.frames }}" --speed "${{ matrix.speed }}" $EXTRA
@@ -120,7 +124,9 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p "out/${{ matrix.key }}"
-          if [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
+          if [ "${{ matrix.film }}" = "FR" ]; then
+            .pa/bin/python films_pasim/make_film_fr.py "$PWD/out/${{ matrix.key }}" "${{ matrix.variant }}" 2>&1 | tee "out/${{ matrix.key }}/make_film.log"
+          elif [ "${{ matrix.film }}" = "F05" ] || [ "${{ matrix.film }}" = "F06" ]; then
             .pa/bin/python films_pasim/make_film.py "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "${{ matrix.variant }}" 2>&1 | tee "out/${{ matrix.key }}/make_film.log"
           else
             .pa/bin/python films_pasim/make_film2.py "${{ matrix.film }}" "$PWD/out/${{ matrix.key }}" "${{ matrix.variant }}" 2>&1 | tee "out/${{ matrix.key }}/make_film.log"
