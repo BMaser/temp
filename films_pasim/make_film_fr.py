@@ -283,6 +283,11 @@ def main():
             "largest_tilt": "not recorded (the program logs yaw only)"}
     res["race"] = race
     res["landing"] = m2.landing_metrics(cap, recs, ["landing"])
+    for l_ in res["landing"]:
+        l_["height_of_drone_centre_above_pad_plane_m"] = round(geo["ground_d"] - l_["landing_point_ned_m"][2], 2)
+        li = (cap.get("landings") or [{}])[-1]
+        l_["touchdown_speed_from_descent_m_s"] = li.get("touchdown_speed_m_s")
+        l_["method"] = li.get("method")
     # phases
     ev_by = {e["phase"]: e for e in cap.get("phase_events", [])}
     phases = []

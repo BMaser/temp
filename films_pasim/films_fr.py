@@ -386,15 +386,19 @@ async def film_fr(s, a):
     await _land_with_movers(s, sub, movers, st, pad_end)
 
 
-async def _land_with_movers(s, sub, movers, st, pad_end, hold_s=2.0, max_pairs=120):
+async def _land_with_movers(s, sub, movers, st, pad_end, hold_s=2.0, max_pairs=150, descent=0.8):
+    """Landing on the end pad by our own descent (drone.land_async never finished in the Blocks runs: the drone sat on the ground and the task stayed
+    open, run 38986109324). Horizontal hold over the pad centre, vertical velocity `descent` m/s, touchdown = the height stops changing while the
+    descent is still commanded; then disarm (motors stop) and keep `hold_s` simulated seconds. The movers keep moving all the time."""
     from PIL import Image
+    from projectairsim.drone import YawControlMode
     try:
         s.drone.set_external_force([0.0, 0.0, 0.0])
     except Exception:  # noqa: BLE001
         pass
     n_a, e_a, d_a, _ = s.pose()
-    task = await s.drone.land_async()
-    done_t = None
+    done_t, prev, still = None, None, 0
+    td_speed, max_v = None, 0.0
     for k in range(max_pairs):
         t_abs = s.world.get_sim_time() / 1e9
         t_air = t_abs - st["t_air0"]
@@ -404,11 +408,26 @@ async def _land_with_movers(s, sub, movers, st, pad_end, hold_s=2.0, max_pairs=1
                 s.world.set_object_pose(m.name, make_pose(n2, e2, m.ground_d - m.height_m / 2, yw2), True)
             except Exception:  # noqa: BLE001
                 pass
+        n, e, d, _ = s.pose()
         rec = {"i": s.idx, "phase": "landing", "k": k, "settle": False, "fr_phase": PHASES[-1][0], "t_air": round(t_air, 3)}
-        if done_t is None and task.done():
-            done_t = t_abs
-            r = s.call("drone.disarm() after landing", s.drone.disarm)
-            rec["disarm_ok"] = r["ok"]
+        if done_t is None:
+            vn = max(-1.0, min(1.0, -0.8 * (n - pad_end[0])))
+            ve = max(-1.0, min(1.0, -0.8 * (e - pad_end[1])))
+            await s.drone.move_by_velocity_async(vn, ve, descent, 2.0, YawControlMode.MaxDegreeOfFreedom, False, st["yaw"])
+            if prev is not None:
+                v = (d - prev[0]) / max(t_abs - prev[1], 1e-3)
+                max_v = max(max_v, v)
+                if (d - d_a) > 0.5 and v < 0.12 and max_v > 0.3:
+                    still += 1
+                else:
+                    still = 0
+                if still >= 2:
+                    done_t = t_abs
+                    td_speed = round(max_v, 2)
+                    r = s.call("drone.disarm() after touchdown", s.drone.disarm)
+                    rec["disarm_ok"] = r["ok"]
+                    rec["touchdown_detected_by"] = "height stopped changing under commanded descent"
+            prev = (d, t_abs)
         rec["landing_task_done"] = done_t is not None
         try:
             imgs = sub.next()
@@ -431,7 +450,8 @@ async def _land_with_movers(s, sub, movers, st, pad_end, hold_s=2.0, max_pairs=1
         if done_t is not None and rec["t_abs"] - done_t >= hold_s:
             break
     n_b, e_b, d_b, _ = s.pose()
-    s.cap.setdefault("landings", []).append({"phase": "landing", "start_ned": [n_a, e_a, d_a], "end_ned": [n_b, e_b, d_b], "task_done": done_t is not None, "pad_ned": list(pad_end)})
+    s.cap.setdefault("landings", []).append({"phase": "landing", "start_ned": [n_a, e_a, d_a], "end_ned": [n_b, e_b, d_b], "task_done": done_t is not None,
+                                             "pad_ned": list(pad_end), "touchdown_speed_m_s": td_speed, "method": "own velocity descent + disarm (land_async did not finish in earlier runs)"})
 
 
 def _spawn_course_at_ground(s, geo, ground_d, tex_g, tex_p, tex_b):
