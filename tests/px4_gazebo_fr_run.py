@@ -289,8 +289,11 @@ def add_systems(gz: Gz, world: str, child: dict) -> dict:
     for nm, fn, inner in (("ParticleEmitter", "gz-sim-particle-emitter-system", ""), ("WindEffects", "gz-sim-wind-effects-system", rw.WIND_PLUGIN_XML)):
         inner_q = inner.replace('"', '\\"')
         text = f'entity {{id: 1}} plugins {{name: "gz::sim::systems::{nm}" filename: "{fn}" innerxml: "{inner_q}"}}'
-        res[nm] = gz.service(svc, "EntityPlugin_V", "Boolean", text, 15000)
-        time.sleep(1.0)
+        for _ in range(3):         # run 39008289542: WindEffects answered false once and true the run before; try again
+            res[nm] = gz.service(svc, "EntityPlugin_V", "Boolean", text, 15000)
+            time.sleep(1.0)
+            if res[nm]:
+                break
     return res
 
 
@@ -564,12 +567,37 @@ async def fly(S, child, gz: Gz, movers: Movers, turb: Turbulence, world: str, pa
     wall0 = time.monotonic()
     child["record_start_sim_s"] = S.t0
     yaw0 = rc.ned_yaw_deg(0.0)
-    await d.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, yaw0))
-    t_rec0 = S.now()
-    while S.now() < t_rec0 + 1.0:
-        await asyncio.sleep(0.05)
-    await d.action.arm()
-    t_arm = S.now()
+    t_arm = None
+    for attempt in range(3):
+        try:
+            await d.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, yaw0))
+            t_rec0 = S.now()
+            while S.now() < t_rec0 + 1.0:
+                await asyncio.sleep(0.05)
+            await d.action.arm()
+            t_arm = S.now()
+            break
+        except Exception as e:  # noqa: BLE001
+            # run 39008289542: "Stream removed (Connection reset by peer)" on the arm call = the MAVSDK server process was gone. Say why, then start a new one.
+            diag = {"attempt": attempt, "error": repr(e)[:300], "mavsdk_server_processes": base.sh("pgrep -af mavsdk_server", 10).strip()[:300],
+                    "free_m": base.sh("free -m", 10).strip(), "dmesg_tail": base.sh("sudo -n dmesg 2>&1 | tail -n 25", 20).strip()[-1800:], "sim_now": S.now()}
+            child.setdefault("arm_failures", []).append(diag)
+            log("arm failed: " + json.dumps(diag))
+            if attempt == 2:
+                raise
+            for t_ in tasks:
+                t_.cancel()
+            try:
+                d._stop_mavsdk_server()
+            except Exception:  # noqa: BLE001
+                pass
+            await asyncio.sleep(2.0)
+            d = System()
+            await d.connect(system_address="udpin://0.0.0.0:14540")
+            await asyncio.wait_for(connected(), 120)
+            await asyncio.wait_for(healthy(), 120)
+            log("new MAVSDK server: connected and healthy again")
+            tasks = [asyncio.ensure_future(watch_armed()), asyncio.ensure_future(watch_landed())]
     child["arm_sim_s"] = t_arm
     try:
         await d.offboard.start()
