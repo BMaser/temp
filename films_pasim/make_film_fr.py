@@ -97,18 +97,17 @@ def crossings(geo, recs):
     return ev
 
 
-def lap_state(events, wanted):
-    """For every event index, the lap number and the number of gates passed in order in that lap (after the event)."""
-    lap, k, out = 1, 0, []
-    for t, gid, lat, dz, inside in events:
-        if inside and k < len(wanted) and gid == wanted[k]:
-            k += 1
-            if k == len(wanted):
-                out.append((t, lap, k))
-                lap += 1
-                k = 0
-                continue
-        out.append((t, lap, k))
+def route_lap_tables(events, flight, lap_end_arcs):
+    """Gate passages per ROUTE lap (the route is one lap = the 7 gates, flown 2 to 3 times in a row). A crossing counts as PASSED when it is inside the opening,
+    as MISSED when it is within one opening width of the centre but outside it (the drone clipped the frame). Returns a list of
+    (time, route lap, gate id, passed) in time order. The route lap of an event comes from the path progress `s_along` of the flight at that time."""
+    ts = np.array([r["t_abs"] for r in flight])
+    ss = np.array([r.get("s_along", 0.0) for r in flight])
+    out = []
+    for t_, gid, lat, dz, inside in events:
+        arc = float(np.interp(t_, ts, ss))
+        lap = 1 + sum(1 for le in lap_end_arcs[:-1] if arc > le)
+        out.append((t_, lap, gid, bool(inside)))
     return out
 
 
@@ -184,23 +183,28 @@ def main():
     wanted = [g["id"] for g in geo["gates"]]
     flight = [r for r in recs if r["phase"] == "race"]
     ev = crossings(geo, flight)
-    states = lap_state(ev, wanted)
-    # per-frame lap and gate count
+    lap_ends = cap.get("lap_end_arc_m") or [1e9]
+    tab = route_lap_tables(ev, flight, lap_ends)
+    # per-frame route lap, gates passed in this lap, gates missed in this lap
     lapk = []
-    si = 0
-    cur = (1, 0)
+    ts_f = np.array([r["t_abs"] for r in flight])
+    ss_f = np.array([r.get("s_along", 0.0) for r in flight])
+    last_lap = 1
     for r in recs:
-        while si < len(states) and states[si][0] <= r["t_abs"]:
-            cur = (states[si][1], states[si][2])
-            si += 1
-        lapk.append(cur)
+        if r["phase"] == "race":
+            arc = float(np.interp(r["t_abs"], ts_f, ss_f))
+            last_lap = 1 + sum(1 for le in lap_ends[:-1] if arc > le)
+        lap_now = last_lap
+        passed = [g for (t_, lp, g, ok) in tab if lp == lap_now and ok and t_ <= r["t_abs"]]
+        missed = [g for (t_, lp, g, ok) in tab if lp == lap_now and not ok and t_ <= r["t_abs"]]
+        lapk.append((lap_now, len(passed), missed))
     # native night darkening measured
     def phase_means(name, which):
         v = [r["fpv_mean"] for r in recs if r.get("fr_phase") == name and "fpv_mean" in r]
         return (v[-4:] if which == "end" else v[2:6]) if v else []
     before, after = phase_means("motion_blur", "end"), phase_means("night_clouds", "start")
     ratio = round(float(np.mean(after) / max(np.mean(before), 1e-3)), 3) if before and after else None
-    native_night = ratio is not None and ratio < 0.6
+    native_night = True  # the night is made by the simulator (time of day) and its own light actors; our grading is no longer applied (run 38988236522: night picture was black)
     # yaw rate and speed per frame
     yawrate, speed = [0.0], [0.0]
     for a_, b_ in zip(recs[:-1], recs[1:]):
@@ -212,7 +216,10 @@ def main():
     tags = {"city": ("NATIVE city scene; objects moved by OUR script", (60, 160, 60)), "wind_turbulence": ("ADDED BY OUR CODE (force)", (230, 140, 30)),
             "rain": ("NATIVE (weak)", (60, 160, 60)), "camera_noise": ("ADDED BY OUR CODE (picture)", (230, 140, 30)),
             "motion_blur": ("ADDED BY OUR CODE (picture)", (230, 140, 30)),
-            "night_clouds": (("NATIVE night; clouds partly" if native_night else "NIGHT: ADDED BY OUR CODE (grading); clouds partly"), (230, 140, 30) if not native_night else (60, 160, 60))}
+            "night_clouds": ("NATIVE night (sun off) + the simulator's own lamps, spawned by our script; clouds: fog only", (60, 160, 60))}
+    sim_span = max(recs[-1]["t_abs"] - recs[0]["t_abs"], 1e-3)
+    pics_per_sim_s = (len(recs) - 1) / sim_span
+    fps = int(min(24, max(4, round(pics_per_sim_s))))   # playback at about real time: one recorded picture per frame
     frames, labels = [], []
     blur_info = {}
     for j, r in enumerate(recs):
@@ -243,16 +250,17 @@ def main():
         bd = ImageDraw.Draw(ban)
         idx = [i for i, p in enumerate(PHASE_DEF) if p[0] == ph]
         title = PHASE_DEF[idx[0]][1] if idx else ph
-        lapn, gk = lapk[j]
+        lapn, gk, miss = lapk[j]
         landing = r["phase"] == "landing"
-        bd.text((10, 6), f"FR  |  {'LANDING' if landing else title}  |  t {r['t_air']:.1f} s  |  lap {lapn}  gates {gk}/7", fill=(255, 255, 255), font=uf.font(17))
+        gtxt = f"gates passed {gk}/7" + (f" (missed {','.join(miss)})" if miss else "")
+        bd.text((10, 6), f"FR  |  {'LANDING' if landing else title}  |  t {r['t_air']:.1f} s  |  route lap {lapn}  {gtxt}", fill=(255, 255, 255), font=uf.font(17))
         tg, colr = tags.get(ph, ("", (200, 200, 200)))
         bd.text((10, 27), tg, fill=colr, font=uf.font(14))
-        foot = m2.strip(grid.shape[1], "moving: person (walks), car, truck - poses set by our script | pair %d | simulated time %.2f s" % (r["i"], r["t_abs"]))
+        foot = m2.strip(grid.shape[1], "moving: person, car, truck (poses set by our script) | recorded %.1f pictures per simulated second, film plays at %d fps (speed x%.2f) | picture %d | sim time %.2f s"
+                        % (pics_per_sim_s, fps, fps / pics_per_sim_s, r["i"], r["t_abs"]))
         frames.append(np.concatenate([np.asarray(ban), grid, foot], axis=0))
-        labels.append(f"{ph} t={r['t_air']:.0f}s lap {lapn} gates {gk}")
+        labels.append(f"{ph} t={r['t_air']:.0f}s lap {lapn} gates {gk}" + (f" missed {','.join(miss)}" if miss else ""))
     n = len(frames)
-    fps = int(min(8, max(3, round(n / 80.0))))
     mp4 = out / f"{prefix}_race_all_features.mp4"
     m2.write_film(mp4, frames, fps, out / "ffmpeg.log")
     seg_idx = []
@@ -267,16 +275,24 @@ def main():
     ts = np.array([r["t_abs"] for r in recs])
     dts = np.diff(ts)
     # race numbers
-    passed_by_lap = {}
-    for t, lap, k in states:
-        passed_by_lap[lap] = max(passed_by_lap.get(lap, 0), k)
+    laps_tab = {}
+    for t_, lp, g, ok in tab:
+        laps_tab.setdefault(lp, {"passed": [], "missed": [], "first_t": None, "last_t": None})
+        laps_tab[lp]["passed" if ok else "missed"].append(g)
+        laps_tab[lp]["first_t"] = laps_tab[lp]["first_t"] if laps_tab[lp]["first_t"] is not None else round(t_, 1)
+        laps_tab[lp]["last_t"] = round(t_, 1)
+    for lp, v in laps_tab.items():
+        v["passed_in_route_order"] = v["passed"] == [g for g in wanted if g in v["passed"]]
+        v["all_7_passed"] = len(set(v["passed"])) == 7
     gate_offsets = {}
     for t, gid, lat, dz, inside in ev:
         phs = next((r.get("fr_phase") for r in flight if r["t_abs"] >= t), "?")
         gate_offsets.setdefault(phs, []).append(round(math.hypot(lat, dz), 2))
     cl = closest(geo, flight)
-    laps_done = sum(1 for s_ in states if s_[2] == 7)
-    race = {"scale": cap["race"]["scale"], "laps_completed_all_7_gates": laps_done, "gates_in_order_by_lap": passed_by_lap, "crossings": [(round(t, 1), g, round(l, 2), round(z, 2), i) for t, g, l, z, i in ev][:60],
+    laps_done = sum(1 for v in laps_tab.values() if v["all_7_passed"] and v["passed_in_route_order"])
+    race = {"scale": cap["race"]["scale"], "laps_completed_all_7_gates": laps_done, "route_laps": laps_tab, "route_lap_end_arc_m": lap_ends,
+            "crossings_note": "one entry per time the flight crosses a gate plane within one opening width of the centre; 14 entries = 2 route laps of 7 gates. The banner counts per ROUTE lap: passed = inside the opening, missed = clipped the frame.",
+            "crossings": [(round(t, 1), g, round(l, 2), round(z, 2), i) for t, g, l, z, i in ev][:60],
             "closest_m_to_each_object": cl, "contact_threshold_m": 0.3, "contacts_inferred": [k for k, v in cl.items() if v < 0.3],
             "gate_centre_offset_m_by_phase": {k: {"n": len(v), "mean": round(float(np.mean(v)), 2), "max": round(max(v), 2)} for k, v in gate_offsets.items()},
             "time_in_air_s": round(max(r["t_air"] for r in flight), 1), "path_flown_m": round(sum(math.dist((a_["n"], a_["e"], a_["d"]), (b_["n"], b_["e"], b_["d"])) for a_, b_ in zip(flight[:-1], flight[1:])), 1),
@@ -305,22 +321,27 @@ def main():
                     p.update(extra)
     setv("city", "native", f"packaged scene {cap.get('config', [{}])[1].get('scene_file', '')} (city). The person, car and truck are packaged models whose poses our script sets every pair (they slide; the person does not animate). Sun glare and reflecting surface: see notes.")
     wind_ok = [c for c in ev_by.get("wind_turbulence", {}).get("calls", []) if "wind_velocity" in c["api"]]
-    setv("wind_turbulence", "added_by_our_code", "world.set_wind_velocity is accepted but moves nothing in v1.0.1 (measured in film F07: 0.0 m drift); our code applies a drag-like force toward 3 m/s east wind plus Crazyflow-style Gaussian force each pair through set_external_force.",
+    setv("wind_turbulence", "added_by_our_code", "world.set_wind_velocity is accepted but moves nothing in v1.0.1 (measured in film F07: 0.0 m drift); our code applies a drag-like force toward 2 m/s east wind plus Crazyflow-style Gaussian force each pair through set_external_force.",
          {"native_call_ok": [c["ok"] for c in wind_ok], "gate_centre_offset": race["gate_centre_offset_m_by_phase"].get("wind_turbulence"), "addability": {"tried": True, "donor": "crazyflow (MIT) examples/plugins/disturbance.py", "result": "worked", "matches_check": "check F06: plug_in, small: yes"}})
     setv("rain", "native", "WeatherParameter.RAIN 1.0 and ROAD_WETNESS 1.0 (native, weak: drops and wet look, see film F06).")
     setv("camera_noise", "added_by_our_code", "The camera noise-settings block is read when the scene loads and cannot be switched during a flight (UnrealCamera.cpp TODO). Our recipe (Gaussian grain sigma 16 + line noise) is added to the nose picture. The native block was shown in film F09 with its own settings.")
     setv("motion_blur", "added_by_our_code", "motion-blur-amount (set to 0.8 for the whole flight) changes nothing in captures (film F10). Our horizontal blur and rolling-shutter shear are computed from the measured turn rate and speed.", {"last_blur": blur_info})
-    setv("night_clouds", "native" if native_night else "added_by_our_code",
-         f"set_time_of_day(23:30) and set_sunlight_intensity(0.05) were called; nose brightness ratio after/before {ratio}. " + ("The scene got darker by itself." if native_night else "The scene did NOT darken enough, so our grading darkens the nose picture.") +
-         " Clouds: no cloud-layer call exists; fog 0.3 and cloud-shadow strength 1.0 were set (partly).", {"night_brightness_ratio_after_over_before": ratio})
+    cal = cap.get("night_calibration") or {}
+    setv("night_clouds", "partly",
+         f"Night: set_time_of_day({'22:00'}) + set_sunlight_intensity(0.05) alone made the nose picture black (mean 0.0 in run 38988236522; calibration without lamps: {cal.get('night_no_lamps_mean')}). "
+         f"So the scene's own PointLightActor lamps (11 at the gates, poles and pads, plus one HeadLamp that follows the drone) are spawned by our script and set to intensity {cal.get('chosen_intensity')} "
+         f"(chosen at hover before the flight: first level of a ladder with nose mean >= {cal.get('target_mean')}; ladder {cal.get('ladder')}). Nose brightness ratio night/before {ratio}. "
+         "Clouds: no cloud-layer call exists; fog 0.3 and cloud-shadow strength 1.0 were set (partly).", {"night_brightness_ratio_after_over_before": ratio, "lamp_calibration": cal})
     res["phases"] = phases
     res["moving_objects"] = cap.get("movers")
     res["trees"] = {"spawned": len([t for t in cap.get("trees", []) if t.get("ok")]), "assets": cap.get("tree_assets_found")}
-    res["numbers"] = {"film_file": mp4.name, "film_pictures": n, "playback_fps": fps, "film_seconds": round(n / fps, 1), "frame_size": list(frames[0].shape[1::-1]),
+    res["numbers"] = {"film_file": mp4.name, "film_pictures": n, "playback_fps": fps, "film_seconds": round(n / fps, 1), "recorded_pictures_per_simulated_second": round(pics_per_sim_s, 2),
+                      "playback_speed_vs_simulated_time": round(fps / pics_per_sim_s, 2), "rtf_wanted": (cap.get("config") or [{}, {}])[1].get("rtf_wanted"), "frame_size": list(frames[0].shape[1::-1]),
                       "simulated_seconds_filmed": round(float(ts[-1] - ts[0]), 1), "sim_dt_between_pairs_s": {"median": round(float(np.median(dts)), 3), "max": round(float(dts.max()), 3)},
                       "wall_seconds_total": cap.get("wall_total_s"), "wall_seconds_per_pair": round(float(np.median(np.diff([r["wall_s"] for r in recs]))), 2) if n > 2 else None,
                       "warmup": cap.get("warmup"), "picture_failures": cap.get("failures"), "stop_reason": cap.get("stop_reason"), "sun_like_objects": cap.get("sun_like_objects"),
-                      "ground_elevation_m": cap.get("ground_elevation_m"), "course_objects_spawned": len(cap.get("course_objects", []))}
+                      "ground_elevation_m": cap.get("ground_elevation_m"), "course_objects_spawned": len(cap.get("course_objects", [])), "course_objects_expected": cap.get("course_objects_expected"), "cube_asset": cap.get("cube_asset"),
+                      "night_calibration": cap.get("night_calibration"), "lamps": [(l_.get("name"), l_.get("ok")) for l_ in cap.get("lamps", [])]}
     res["config"] = cap.get("config")
     res["settings_used"] = [{"api": r["api"], "args": r["args"][:3], "ok": r["ok"], "result": r["result"][:100], "where": r["where"]} for r in cap.get("api_calls", [])][:400]
     res["verdict"] = "partly"
@@ -340,7 +361,7 @@ def main():
     except Exception as e:  # noqa: BLE001
         res["film_probe"] = {"error": repr(e)}
     (out / "film_result.json").write_text(json.dumps(res, indent=2, default=str))
-    print(json.dumps({"phases": [(p["phase"], p["verdict"]) for p in phases], "race": {k: race[k] for k in ("laps_completed_all_7_gates", "gates_in_order_by_lap", "contacts_inferred", "time_in_air_s")}, "landing": res["landing"], "numbers": res["numbers"]}, default=str)[:3000])
+    print(json.dumps({"phases": [(p["phase"], p["verdict"]) for p in phases], "race": {k: race[k] for k in ("laps_completed_all_7_gates", "route_laps", "contacts_inferred", "time_in_air_s")}, "landing": res["landing"], "numbers": res["numbers"]}, default=str)[:3000])
     return 0
 
 

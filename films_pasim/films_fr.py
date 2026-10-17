@@ -30,8 +30,12 @@ from pasim_films import log  # noqa: E402
 
 TOPIC = {0: "scene_camera", 2: "depth_camera", 3: "segmentation_camera", 4: "depth_vis_camera"}
 PHASES = [("city", 0, 10), ("wind_turbulence", 10, 20), ("rain", 20, 30), ("camera_noise", 30, 40), ("motion_blur", 40, 50), ("night_clouds", 50, 1e9)]
-WIND_NED = (0.0, 3.0, 0.0)  # m/s toward the east
+WIND_NED = (0.0, 2.0, 0.0)  # m/s toward the east (run 38988236522 used 3.0 and the drone missed gate G3 by 1.26 m: real gate bars are in the scene now)
 C_DRAG = 0.5                # N per (m/s)
+NIGHT_TIME = "2021-09-20 22:00:00"
+LAMP_RADIUS = 3000.0
+LAMP_LADDER = [2e3, 6e3, 2e4, 6e4, 2e5, 6e5, 2e6]   # light intensities tried before the flight (unit not documented; F05 used 5000 with radius 2000)
+LAMP_TARGET_MEAN = 22.0                        # the lowest intensity whose nose picture has at least this mean brightness (0..255) is used
 
 
 def decode_msg(msg):
@@ -92,6 +96,23 @@ class MultiSub:
         return out
 
 
+def next_scene(sub, n=1, wait=240.0):
+    """Wait for n new scene (type 0) pictures; return the last as an array (used by the lamp calibration)."""
+    img = None
+    for _ in range(n):
+        t = time.time()
+        while time.time() - t < wait:
+            item = sub.latest.get(0)
+            if item and item[0] != sub.seen.get(0):
+                sub.seen[0] = item[0]
+                img = item[1]
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("no new scene picture")
+    return img
+
+
 class Mover:
     """A packaged model that walks or drives back and forth along a straight line beside the course (our script sets its pose every pair)."""
 
@@ -126,6 +147,115 @@ def spawn_model(s, name, asset, center_ne, ground_d, height_m, yaw=0.0):
     return info
 
 
+def night_on(s, c, WP):
+    """Night: time of day, sunlight, fog and cloud-shadow calls (the same in the calibration and in the film). `c` records each call."""
+    w = s.world
+    c(f"world.set_time_of_day({NIGHT_TIME})", w.set_time_of_day, status=True, datetime=NIGHT_TIME, is_dst=False, clock_speed=1.0, update_interval=1.0, move_sun=False)
+    c("world.set_sunlight_intensity(0.05)", w.set_sunlight_intensity, 0.05)
+    c("world.enable_weather_visual_effects", w.enable_weather_visual_effects)
+    c("world.set_weather_visual_effects_param(FOG, 0.3)", w.set_weather_visual_effects_param, param=WP.FOG, value=0.3)
+    c("world.set_cloud_shadow_strength(1.0)", w.set_cloud_shadow_strength, 1.0)
+
+
+def night_off(s, c):
+    w = s.world
+    c("world.reset_weather_effects", w.reset_weather_effects)
+    c("world.enable_weather_visual_effects", w.enable_weather_visual_effects)
+    c("world.set_cloud_shadow_strength(0.0)", w.set_cloud_shadow_strength, 0.0)
+    c("world.set_sunlight_intensity(2.75)", w.set_sunlight_intensity, 2.75)
+    c("world.set_time_of_day(17:00)", w.set_time_of_day, status=True, datetime="2021-09-20 17:00:00", is_dst=False, clock_speed=1.0, update_interval=1.0, move_sun=False)
+
+
+def spawn_lamps(s, geo, ground_d, pad_end, wp):
+    """Point lights (the simulator's own PointLightActor asset) at every gate, at the poles, at both pads, and one light that follows the drone (HeadLamp).
+    All start with intensity 0 (off); the night phase switches them on at the calibrated intensity."""
+    w = s.world
+    spec = []
+    for g in geo["gates"]:
+        cn, ce, cd = g["center"]
+        yaw = g["yaw"]
+        f, left = (math.cos(yaw), math.sin(yaw)), (-math.sin(yaw), math.cos(yaw))
+        spec.append((f"Lamp_{g['id']}", (cn + 2.4 * left[0] - 1.5 * f[0], ce + 2.4 * left[1] - 1.5 * f[1], cd - 0.8), [1.0, 0.9, 0.75]))
+    for o in geo["obstacles"]:
+        vertical = o["kind"].startswith("vertical")
+        spec.append((f"Lamp_{o['id']}", (o["xy"][0] + 1.0, o["xy"][1] + 1.0, ground_d - (3.0 if vertical else 2.0)), [1.0, 0.6, 0.3]))
+    spec.append(("Lamp_PadStart", (wp[0][0] + 1.5, wp[0][1], ground_d - 3.0), [0.7, 0.85, 1.0]))
+    spec.append(("Lamp_PadEnd", (pad_end[0] + 1.5, pad_end[1], ground_d - 3.0), [0.7, 0.85, 1.0]))
+    spec.append(("HeadLamp", (wp[0][0] + 1.2, wp[0][1], wp[0][2] - 0.3), [1.0, 1.0, 1.0]))
+    out = []
+    for nm, (x, y, z), color in spec:
+        r = s.call(f"world.spawn_object({nm}, PointLightActor)", w.spawn_object, nm, "PointLightActor", make_pose(x, y, z), [1.0, 1.0, 1.0], False)
+        if not r["ok"]:
+            out.append({"name": nm, "ok": False, "error": r["result"]})
+            continue
+        real = s.call.last_value if isinstance(s.call.last_value, str) else nm
+        s.call(f"world.set_light_object_radius({nm}, {LAMP_RADIUS})", w.set_light_object_radius, real, LAMP_RADIUS)
+        s.call(f"world.set_light_object_color({nm}, {color})", w.set_light_object_color, real, color)
+        s.call(f"world.set_light_object_intensity({nm}, 0)", w.set_light_object_intensity, real, 0.0)
+        out.append({"name": real, "wanted_name": nm, "ok": True, "ned": [round(x, 2), round(y, 2), round(z, 2)], "color": color})
+    return out
+
+
+def move_headlamp(s, n, e, d, yaw, lamps_name="HeadLamp"):
+    try:
+        s.world.set_object_pose(s.cap.get("headlamp_name", lamps_name), make_pose(n + 1.2 * math.cos(yaw), e + 1.2 * math.sin(yaw), d - 0.3), True)
+    except Exception as ex_:  # noqa: BLE001
+        s.cap.setdefault("headlamp_errors", []).append(repr(ex_)[:120])
+
+
+async def calibrate_night(s, sub, lamps, yaw0, d0, ground_d):
+    """Before the flight, with the drone hovering: day picture, night without lamps, then the lamps at rising intensity until the nose picture has a mean of at
+    least LAMP_TARGET_MEAN. Then everything is switched back to day. Returns the chosen intensity (the highest of the ladder if none reached the target)."""
+    from PIL import Image
+    from projectairsim.drone import YawControlMode
+    from projectairsim.types import WeatherParameter
+    w = s.world
+    cal = {"ladder": [], "target_mean": LAMP_TARGET_MEAN}
+    s.cap["night_calibration"] = cal
+    live = [l for l in lamps if l.get("ok")]
+    for l in live:
+        if l["wanted_name"] == "HeadLamp":
+            s.cap["headlamp_name"] = l["name"]
+    if not live:
+        cal["error"] = "no lamp could be spawned"
+        return LAMP_LADDER[-1]
+
+    def c(name, fn, *a, **k):
+        return s.call(name, fn, *a, **k)
+
+    async def hover():
+        await s.drone.move_by_velocity_async(0.0, 0.0, 0.0, 2.0, YawControlMode.MaxDegreeOfFreedom, False, yaw0)
+
+    def shot(tag, img):
+        Image.fromarray(img).save(s.frames_dir / f"cal_{tag}.jpg", quality=92)
+        return round(float(img.mean()), 2), round(float(img.std()), 2)
+    await hover()
+    cal["day_mean"], cal["day_std"] = shot("day", next_scene(sub, 2))
+    night_on(s, c, WeatherParameter)
+    await hover()
+    cal["night_no_lamps_mean"], cal["night_no_lamps_std"] = shot("night_nolamps", next_scene(sub, 3))
+    chosen = LAMP_LADDER[-1]
+    for lvl in LAMP_LADDER:
+        for l in live:
+            s.world.set_light_object_intensity(l["name"], lvl)
+        n, e, d, yw = s.pose()
+        move_headlamp(s, n, e, d, yw)
+        await hover()
+        m, sd = shot(f"lamps_{int(lvl)}", next_scene(sub, 3))
+        cal["ladder"].append({"intensity": lvl, "mean": m, "std": sd})
+        if m >= LAMP_TARGET_MEAN:
+            chosen = lvl
+            break
+    for l in live:
+        s.world.set_light_object_intensity(l["name"], 0.0)
+    night_off(s, c)
+    await hover()
+    cal["day_after_mean"], cal["day_after_std"] = shot("day_after", next_scene(sub, 4))
+    cal["chosen_intensity"] = chosen
+    s.save()
+    return chosen
+
+
 async def film_fr(s, a):
     from projectairsim.drone import YawControlMode
     from projectairsim.types import WeatherParameter
@@ -133,6 +263,7 @@ async def film_fr(s, a):
     ex = films2.explore(s)
     suns = [o for o in (ex.get("objects") or []) if isinstance(o, str) and re.search(r"sunsky|^sun|directionallight|skylight", o, re.I)]
     s.cap["sun_like_objects"] = suns
+    s.cap["cube_asset"] = films2.pick_cube(ex.get("assets"))
     sub = MultiSub(s, "FrontCamera", (0, 4, 3))
     t0 = time.time()
     first = {}
@@ -167,6 +298,7 @@ async def film_fr(s, a):
     for o in geo["obstacles"]:
         o["xy"] = tuple(o["xy"])
     s.cap["course_objects"] = _spawn_course_at_ground(s, geo, ground_d, tex_g, tex_p, tex_b)
+    s.cap["course_objects_expected"] = 4 * len(geo["gates"]) + len(geo["obstacles"])
     pad_end = (n0 - 0.3 * scale, e0 - 2.0 * scale)
     for nm, (pn, pe) in (("PadStart", (n0, e0)), ("PadEnd", pad_end)):
         s.call(f"world.spawn_object({nm}, BasicLandingPad)", s.world.spawn_object, nm, "BasicLandingPad", make_pose(pn, pe, ground_d - 0.02), [scale, scale, scale], False)
@@ -204,6 +336,11 @@ async def film_fr(s, a):
         trees.append({"name": f"CityTree{i}", "asset": tree_assets[i % len(tree_assets)], "ned": list(pos), **r})
     s.cap["trees"] = trees
 
+    # lamps for the night phase (spawned now with intensity 0, calibrated at hover, switched on at the night phase)
+    lamps = spawn_lamps(s, geo, ground_d, pad_end, wp)
+    s.cap["lamps"] = lamps
+    night_level = await calibrate_night(s, sub, lamps, yaw0, d0, ground_d)
+    st_night = {"level": night_level}
     # the route: two laps, start of lap 1 from the hover point, then the gates again
     one_lap = wp[1:]
     path = [(n0, e0, d0)] + one_lap + one_lap + one_lap
@@ -211,9 +348,9 @@ async def film_fr(s, a):
     lap_ends = [pf.cum[(j + 1) * len(one_lap)] for j in range(3)]  # arc length at the end pad after lap 1, 2, 3
     s.cap["lap_end_arc_m"] = [round(x, 1) for x in lap_ends]
     rnd2 = random.Random(7)
-    sigma = 0.2 * (1.0 / 0.027) / math.sqrt(0.25 / 0.002)  # crazyflow disturbance_fn idea, mass-scaled, hold time ~0.25 s (see film_disturb in films2.py)
+    sigma = 0.6 * 0.2 * (1.0 / 0.027) / math.sqrt(0.25 / 0.002)  # (0.6 of the run-1b value: gate bars are real now) crazyflow disturbance_fn idea, mass-scaled, hold time ~0.25 s (see film_disturb in films2.py)
     s.cap["disturbance"] = {"donor": "crazyflow examples/plugins/disturbance.py (MIT)", "std_force_N_each_axis": round(sigma, 3), "wind_ned_m_s": WIND_NED, "drag_N_per_m_s": C_DRAG}
-    st = {"yaw": yaw0, "phase": -1, "t_air0": None, "last": None, "landing": False, "events": []}
+    st = {"yaw": yaw0, "phase": -1, "t_air0": None, "last": None, "landing": False, "events": [], "night": False}
     cams = {}
 
     def phase_of(t_air):
@@ -249,11 +386,11 @@ async def film_fr(s, a):
             c("world.reset_weather_effects", w.reset_weather_effects)
         elif i == 5:
             c("world.get_time_of_day (before)", w.get_time_of_day)
-            c("world.set_time_of_day(23:30)", w.set_time_of_day, status=True, datetime="2021-09-20 23:30:00", is_dst=False, clock_speed=1.0, update_interval=1.0, move_sun=False)
-            c("world.set_sunlight_intensity(0.05)", w.set_sunlight_intensity, 0.05)
-            c("world.enable_weather_visual_effects", w.enable_weather_visual_effects)
-            c("world.set_weather_visual_effects_param(FOG, 0.3)", w.set_weather_visual_effects_param, param=WeatherParameter.FOG, value=0.3)
-            c("world.set_cloud_shadow_strength(1.0)", w.set_cloud_shadow_strength, 1.0)
+            night_on(s, c, WeatherParameter)
+            for lp in lamps:
+                if lp.get("ok"):
+                    c(f"world.set_light_object_intensity({lp['name']}, {st_night['level']})", w.set_light_object_intensity, lp["name"], st_night["level"])
+            st["night"] = True
             c("world.get_time_of_day (after)", w.get_time_of_day)
         st["events"].append(ev)
         s.cap["phase_events"] = st["events"]
@@ -294,6 +431,8 @@ async def film_fr(s, a):
             s.drone.set_external_force(f)
             rec["ext_force"] = [round(x, 2) for x in f]
         st["last"] = (n, e, t_abs)
+        if st["night"]:
+            move_headlamp(s, n, e, d, st["yaw"])
         rec["s_along"], rec["path_done"] = round(pf.s, 2), done
         rec["t_air_over"] = t_air >= a.air_seconds
         await s.drone.move_by_velocity_async(v[0], v[1], v[2], 2.0, YawControlMode.MaxDegreeOfFreedom, False, st["yaw"])
@@ -355,6 +494,8 @@ async def film_fr(s, a):
         k2 = 0
         while k2 < 60:
             n, e, d, _ = s.pose()
+            if st["night"]:
+                move_headlamp(s, n, e, d, st["yaw"])
             v, done = pf2.command((n, e, d))
             await s.drone.move_by_velocity_async(v[0], v[1], v[2], 2.0, YawControlMode.MaxDegreeOfFreedom, False, st["yaw"])
             rec = {"i": s.idx, "phase": "to_pad", "k": k2, "settle": False, "fr_phase": PHASES[-1][0], "t_air": round(s.world.get_sim_time() / 1e9 - st["t_air0"], 3)}
@@ -409,6 +550,8 @@ async def _land_with_movers(s, sub, movers, st, pad_end, hold_s=2.0, max_pairs=1
             except Exception:  # noqa: BLE001
                 pass
         n, e, d, _ = s.pose()
+        if st.get("night"):
+            move_headlamp(s, n, e, d, st["yaw"])
         rec = {"i": s.idx, "phase": "landing", "k": k, "settle": False, "fr_phase": PHASES[-1][0], "t_air": round(t_air, 3)}
         if done_t is None:
             vn = max(-1.0, min(1.0, -0.8 * (n - pad_end[0])))
@@ -514,7 +657,7 @@ def main() -> int:
     ap.add_argument("--variant", default="default")
     ap.add_argument("--out", required=True)
     ap.add_argument("--sim-config", required=True)
-    ap.add_argument("--rtf", type=float, default=0.04)
+    ap.add_argument("--rtf", type=float, default=0.012)
     ap.add_argument("--frames", type=int, default=400)
     ap.add_argument("--width", type=int, default=320)
     ap.add_argument("--height", type=int, default=180)
@@ -523,7 +666,7 @@ def main() -> int:
     ap.add_argument("--air-seconds", type=float, default=62.0, help="simulated seconds on the route before the landing starts")
     ap.add_argument("--connect-wait", type=float, default=180.0)
     ap.add_argument("--picture-wait", type=float, default=120.0)
-    ap.add_argument("--max-wall", type=float, default=3300.0)
+    ap.add_argument("--max-wall", type=float, default=15000.0)
     a = ap.parse_args()
     return asyncio.run(amain(a))
 

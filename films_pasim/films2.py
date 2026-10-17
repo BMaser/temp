@@ -28,6 +28,18 @@ SCENE_SHIPPED, ROBOT_SHIPPED = "scene_basic_drone.jsonc", "robot_quadrotor_fastp
 SCENE_ENV = "scene_env_actor.jsonc"
 DAY = "2021-09-20"
 RACE = Path(__file__).resolve().parent / "hard_race_v1.json"
+CUBE_ASSET = "1M_Cube"  # the packaged unit cube; CityEnviron/Neighborhood call it "Cube" (run 38988236522: "no objects with name 1M_Cube found in the Registry"), see pick_cube()
+
+
+def pick_cube(assets):
+    """The packaged cube asset of this scene: 1M_Cube (Blocks) or Cube / TemplateCube (city scenes). Sets CUBE_ASSET and returns it."""
+    global CUBE_ASSET
+    names = [str(x) for x in (assets or [])]
+    for cand in ("1M_Cube", "Cube", "TemplateCube", "ControlRig_Box_solid"):
+        if cand in names:
+            CUBE_ASSET = cand
+            break
+    return CUBE_ASSET
 NOISE_ON = {"enabled": True, "image-type": 0, "rand-contrib": 0.2, "rand-speed": 100000.0, "rand-size": 500.0, "rand-density": 2,
             "horz-wave-contrib": 0.03, "horz-wave-strength": 0.08, "horz-wave-vert-size": 1.0, "horz-wave-screen-size": 1.0,
             "horz-noise-lines-contrib": 1.0, "horz-noise-lines-density-y": 0.01, "horz-noise-lines-density-xy": 0.5,
@@ -672,15 +684,15 @@ def spawn_course(s, geo, tex_gate, tex_pole, tex_box):
         half = outer / 2
         # NED: z down. top bar above the centre: z = cz - (opening/2 + bar/2)
         gid = g["id"]
-        spawn(f"Gate{gid}_top", "1M_Cube", (cx, cy, cz - (opening / 2 + bar / 2)), (bar, outer, bar), yaw, tex_gate)
-        spawn(f"Gate{gid}_bot", "1M_Cube", (cx, cy, cz + (opening / 2 + bar / 2)), (bar, outer, bar), yaw, tex_gate)
+        spawn(f"Gate{gid}_top", CUBE_ASSET, (cx, cy, cz - (opening / 2 + bar / 2)), (bar, outer, bar), yaw, tex_gate)
+        spawn(f"Gate{gid}_bot", CUBE_ASSET, (cx, cy, cz + (opening / 2 + bar / 2)), (bar, outer, bar), yaw, tex_gate)
         for sgn, nm in ((1, "L"), (-1, "R")):
-            spawn(f"Gate{gid}_{nm}", "1M_Cube", (cx + sgn * left[0] * (opening / 2 + bar / 2), cy + sgn * left[1] * (opening / 2 + bar / 2), cz), (bar, bar, opening), yaw, tex_gate)
+            spawn(f"Gate{gid}_{nm}", CUBE_ASSET, (cx + sgn * left[0] * (opening / 2 + bar / 2), cy + sgn * left[1] * (opening / 2 + bar / 2), cz), (bar, bar, opening), yaw, tex_gate)
     for o in geo["obstacles"]:
         if o["kind"].startswith("vertical"):
             spawn(f"Pole_{o['id']}", "Cylinder", (o["xy"][0], o["xy"][1], -o["height"] / 2), (2 * o["radius"], 2 * o["radius"], o["height"]), 0.0, tex_pole)
         else:
-            spawn(f"Box_{o['id']}", "1M_Cube", (o["xy"][0], o["xy"][1], -o["height"] / 2), (o["size"], o["size"], o["height"]), 0.0, tex_box)
+            spawn(f"Box_{o['id']}", CUBE_ASSET, (o["xy"][0], o["xy"][1], -o["height"] / 2), (o["size"], o["size"], o["height"]), 0.0, tex_box)
     s.call("world.set_segmentation_id_by_name(Gate.*, 10)", w.set_segmentation_id_by_name, "Gate.*", 10, True, True)
     s.call("world.set_segmentation_id_by_name(Pole_.*, 20)", w.set_segmentation_id_by_name, "Pole_.*", 20, True, True)
     s.call("world.set_segmentation_id_by_name(Box_.*, 30)", w.set_segmentation_id_by_name, "Box_.*", 30, True, True)
