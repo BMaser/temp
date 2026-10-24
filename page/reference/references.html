@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>References of the course</title>
+<!-- The list is drawn from references.js (the one source of truth). Marks and notes go to ..\notes.json under keys "refs:<block>" and "refs:<block>#t<n>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+.refs{list-style:none;margin:0;padding:0}
+.refs li{padding:8px 0 8px 3.2em;text-indent:-3.2em;border-bottom:1px solid var(--line)}
+.refs li .n{display:inline-block;width:3.2em;text-indent:0;font-weight:700;color:var(--accent)}
+.refs li .meta2{display:block;text-indent:0;margin-left:3.2em;font-size:12.5px;color:var(--ink2)}
+.refs li:target{background:var(--m-yellow)}
+#q{font:inherit;font-size:15px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;width:100%;max-width:420px}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <b>References</b> (reference)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>References of the course</h1>
+<p class="lead">Reference page · one numbered list for every course page · the number [n] never changes and is never reused</p></div>
+
+<div data-b="how"><div class="box howto"><b>How to read this page.</b> This list works like the bibliography of a LaTeX book. Every source that a course page names or uses has one entry with a fixed number. On a course page, <b>[12]</b> is a link to entry 12 here. Several sources at once are written <b>[3, 7]</b>. A place inside a source is written after a comma, as in <b>[29, ekf.cpp:264-276]</b> (a file and its lines) or <b>[2, §7.2.2.1]</b> (a section); this is the LaTeX form <i>\cite[p]{key}</i>. Each entry gives the authors, the full title, the publisher or venue, the year, the ISBN or DOI when the source shows one, the address, the license, and the line <b>In your library</b> when you own the source. A question mark <b>?</b> means that the source does not show that detail, so nothing was guessed. The line <b>Checked</b> says what was really opened: "fetched 2026-10-20" means it was fetched on that day; "not checked" means that nobody opened it yet. The last line of an entry lists the course pages that cite it. The search box keeps the entries whose text contains your words.</div></div>
+
+<div data-b="fig"><figure>
+<svg id="figKinds" viewBox="0 0 900 414"width="100%" style="max-width:900px" role="img" aria-label="A bar for each course page showing how many references of each kind it cites"></svg>
+<figcaption id="figCap"></figcaption></figure></div>
+
+<div data-b="search"><label for="q"><b>Search the list.</b></label><br><input id="q" type="search" placeholder="author, title, number, ISBN, kind…" aria-label="search the references"> <span id="qcount" class="lead"></span></div>
+
+<div id="lists"></div>
+</main>
+<script src="references.js"></script>
+<script>
+"use strict";
+const KINDS = ["book","paper","course","web page","source code","documentation","data/standard"];
+const KCOL = {"book":"#2F6FD0","paper":"#7A3FC0","course":"#2E9E4A","web page":"#D68910","source code":"#C0392B","documentation":"#0E7C86","data/standard":"#5B5752"};
+const PAGES = [["plan","Course plan","../plan.html"],["2.1a","2.1a four forces","../samples/2.1a_The_four_forces_one_at_a_time.html"],
+  ["2.1b","2.1b forces together","../samples/2.1b_Forces_together_tilt_wind_simulators.html"],["2.2a","2.2a on a line","../samples/2.2a_Position_velocity_acceleration_on_a_line.html"],
+  ["2.2b","2.2b in 3-D, simulators","../samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html"],["2.2c","2.2c motion planning","../samples/2.2c_How_PX4_and_Project_AirSim_plan_motion.html"],["2.2d","2.2d thinking problems","../samples/2.2d_Real_scenarios_thinking_problems.html"],["2.3","2.3 Newton's second law","../samples/2.3_Dynamics_Newtons_second_law.html"],["map","Autopilot map","autopilot_map.html"],["formulas","Simulator formulas","sim_physics_formulas.html"]];
+const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const REFS = window.COURSE_REFS || [];
+function entryHtml(r){
+  const bits = [];
+  bits.push(esc(r.authors) + ".");
+  bits.push("<i>" + esc(r.title) + "</i>.");
+  if (r.container) bits.push(esc(r.container) + ".");
+  const pub = [r.publisher, r.year].filter(Boolean).map(esc).join(", "); if (pub) bits.push(pub + ".");
+  if (r.edition) bits.push(esc(r.edition) + ".");
+  if (r.isbn) bits.push("ISBN " + esc(r.isbn) + ".");
+  if (r.doi) bits.push("DOI " + esc(r.doi) + ".");
+  if (r.url) bits.push('<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.url) + "</a>.");
+  if (r.license) bits.push("License: " + esc(r.license) + ".");
+  if (r.library) bits.push("<b>In your library:</b> " + esc(r.library) + ".");
+  const pages = (r.used_on || []).map(id => { const p = PAGES.find(x => x[0] === id); return p ? '<a href="' + p[2] + '">' + esc(p[1]) + "</a>" : esc(id); }).join(" · ");
+  return '<span class="n">[' + r.n + "]</span> " + bits.join(" ") +
+    '<span class="meta2">Kind: ' + esc(r.kind) + ". Checked: " + esc(r.checked || "not checked") + (r.accessed ? " (accessed " + esc(r.accessed) + ")" : "") + ".</span>" +
+    '<span class="meta2">Cited on: ' + (pages || "no page yet") + ".</span>";
+}
+const lists = document.getElementById("lists");
+let cont = 0;
+for (const kind of KINDS) {
+  const rs = REFS.filter(r => r.kind === kind).sort((a, b) => a.n - b.n);
+  if (!rs.length) continue;
+  const d = document.createElement("div"); d.setAttribute("data-b", "list-" + kind.replace(/[^a-z]+/g, "-"));
+  d.innerHTML = "<h2>" + esc(kind[0].toUpperCase() + kind.slice(1)) + " (" + rs.length + ")</h2>";
+  const ul = document.createElement("ul"); ul.className = "refs";
+  for (const r of rs) { const li = document.createElement("li"); li.id = "ref-" + r.n; li.setAttribute("data-n", r.n); li.setAttribute("data-kind", r.kind);
+    li.innerHTML = entryHtml(r); ul.appendChild(li); cont++; }
+  d.appendChild(ul); lists.appendChild(d);
+}
+// figure: for each course page, one bar split by kind
+(function(){
+  const s = document.getElementById("figKinds"), ns = "http://www.w3.org/2000/svg";
+  const mk = (t, a, txt) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; s.appendChild(e); return e; };
+  const cnt = PAGES.map(p => KINDS.map(k => REFS.filter(r => r.kind === k && (r.used_on || []).includes(p[0])).length));
+  const mx = Math.max(1, ...cnt.map(c => c.reduce((a, b) => a + b, 0)));
+  const X0 = 190, W = 640, rowH = 34;
+  s.setAttribute("viewBox", "0 0 900 " + (34 + PAGES.length * rowH + 40));   // grows with the page list, so the legend never falls outside
+  mk("text", {x: 10, y: 20, "font-size": 12, "font-weight": 700, fill: "#5B5752"}, "COURSE PAGE");
+  mk("text", {x: X0, y: 20, "font-size": 12, "font-weight": 700, fill: "#5B5752"}, "NUMBER OF REFERENCES CITED, BY KIND");
+  PAGES.forEach((p, i) => {
+    const y = 34 + i * rowH; let x = X0;
+    mk("text", {x: 10, y: y + 19, "font-size": 13}, p[1]);
+    cnt[i].forEach((c, j) => { if (!c) return; const w = c / mx * W;
+      mk("rect", {x, y, width: w, height: 24, fill: KCOL[KINDS[j]], "fill-opacity": .85});
+      mk("text", {x: x + w / 2, y: y + 17, "font-size": 12, "font-weight": 700, fill: "#fff", "text-anchor": "middle"}, String(c)); x += w; });
+    mk("text", {x: x + 8, y: y + 17, "font-size": 12, fill: "#1C1C1C"}, "total " + cnt[i].reduce((a, b) => a + b, 0));
+  });
+  KINDS.forEach((k, j) => { const x = 10 + j * 125, y = 34 + PAGES.length * rowH + 14;
+    mk("rect", {x, y, width: 12, height: 12, fill: KCOL[k]}); mk("text", {x: x + 17, y: y + 11, "font-size": 11.5}, k); });
+  document.getElementById("figCap").textContent = "Figure 1. How many references of each kind every course page cites. One bar for each page, split by kind; the number inside a part is its count, and the total is at the end of the bar. The list below has " + REFS.length + " references; a reference that two pages cite counts once for each page.";
+})();
+// search
+const q = document.getElementById("q");
+q.addEventListener("input", () => {
+  const w = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean); let shown = 0;
+  document.querySelectorAll(".refs li").forEach(li => { const t = (li.textContent + " [" + li.dataset.n + "]").toLowerCase(); const ok = w.every(x => t.includes(x)); li.style.display = ok ? "" : "none"; if (ok) shown++; });
+  document.getElementById("qcount").textContent = w.length ? shown + " of " + REFS.length + " entries" : "";
+});
+</script>
+<script>
+"use strict";
+const PAGE = "refs";                                 // note keys: "refs:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes (owner's order 2026-10-20: "each table must have an editor tool").
+// A table's key is "<page>:<block>#t<n>", n counting the tables inside that block.
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+</script>
+</body></html>

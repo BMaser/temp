@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where the exercises come from: sources and fit</title>
+<!-- Reference page of the v2 course (install as V2_Plan\reference\problem_sources.html).
+     Every fact was read on 2026-10-20 from the page or file named in its row; where a source could not be read, the row says so.
+     Marks and notes go to ..\notes.json under keys "sources:<block>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px;display:flex;align-items:center;gap:10px}
+h2 .step{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 9px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:17px;white-space:nowrap}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prob{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:6px;padding:10px 14px}
+details{margin-top:8px}summary{cursor:pointer;font-weight:600;color:var(--cL)}
+.trap{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:6px 10px;margin-top:6px}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+h2.sub{font-size:21px;margin:34px 0 10px;padding-top:10px;border-top:2px solid var(--ink)}
+h2.sub .no{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 10px}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+table.wide{font-size:12.5px}
+table.wide td,table.wide th{padding:5px 6px}
+table.wide code{font-size:11.5px;overflow-wrap:anywhere}
+table.wide{table-layout:fixed;overflow-wrap:break-word}
+table.wide col:nth-child(2){width:12%}
+table.wide .f{white-space:normal;font-size:15px}
+tr:target td{background:#FFF5E3}
+.src{font-size:12px;color:var(--ink2)}
+main{max-width:1560px}
+table.wide td.c1{font-weight:600}
+table.wide td.no{color:var(--ink2)}
+.lv{font-weight:700;font-size:12px;padding:1px 7px;border-radius:99px;white-space:nowrap}
+.lv.med{background:#FFF1CC;color:#7A5400}.lv.hard{background:#FBD0C8;color:#8E1D0E}.lv.na{background:#EEE;color:#555}
+.ok{color:#1F6E33;font-weight:700}.no2{color:#8E1D0E;font-weight:700}
+table.wide small{color:var(--ink2)}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I</a> › <b>Where the exercises come from</b> (reference)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>Where the exercises come from: sources mapped to our sections</h1>
+<p class="lead">Reference page · step 1 of rewriting our exercises as ladders (easy, medium, hard) · read on 2026-10-20 · every row names the page or file it was read from</p></div>
+
+<div data-b="goal"><div class="box"><b>Goal.</b> Our exercises are too easy: most only ask the student to put numbers into a formula. This page lists where problems that need more thinking already exist, which of our sections each source fits, and which problems we can model ours on. We never copy a problem. We write our own, using a source for the idea and credit it where the license asks.<br>
+<b>Levels used here.</b> <span class="lv med">medium</span> = needs two or more ideas, or a choice of method. <span class="lv hard">hard</span> = the student must build a model, answer an inverse question, or check whether something is possible. A pure plug-in problem is not listed.<br>
+<b>What I could not read.</b> Corke's book is only an .epub (244 MB) with no text file, so its exercises are not surveyed. The OCW 8.01SC problem sets are PDFs that my reader refuses to open (password protection), so only their titles are known. The UPenn course page returned an error (HTTP 404). Quan Quan's slides contain no exercises. Details are in the tables.<br>
+<b>Two corrections to the brief.</b> (1) OpenStax University Physics is licensed CC BY-NC-SA 4.0, not CC BY 4.0, and its current license page also forbids feeding the book to a large language model without written permission (see row 2). (2) The "Modelling and simulation of mechanical systems" course exists on Coursera as part of the Naples specialization.</div></div>
+
+<h2 class="sub" id="a-h"><span class="no">A</span> The sources, one row each</h2>
+<div data-b="srcs"><p><b>How to read this table.</b> One row per source. <b>Library</b> says whether the owner already has it (the id is the library id; "link" means only a link is stored). <b>License and use</b> says what we may do: <i>adapt with credit</i> (rewrite a problem and name the source), <i>cite and write our own</i> (we only point to the problem), or <i>study only</i> (personal copy, no reuse). <b>Solutions</b> and <b>Figures</b> say whether the source gives them (yes, some, no). Numbers are counted in the page or file itself.</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:23%"><col style="width:16%"><col style="width:11%"><col style="width:19%"><col style="width:14%"><col style="width:14%"></colgroup>
+<tr><th>#</th><th>Source</th><th>Link</th><th>Library</th><th>License and use</th><th>Solutions</th><th>Figures in problems</th></tr>
+<tr id="s1"><td class="no">1</td><td class="c1">Leishman, <i>Introduction to Aerospace Flight Vehicles</i> (Embry-Riddle Aeronautical University, 2023; 2027 edition online). 140 worked examples counted in 7 of the worked-example chapters (77, 78, 82, 83, 85, 86, 87; the others not opened), plus 2 to 5 "Check Your Understanding" boxes in each topic chapter. I opened 19 chapter pages; none was password-protected.</td><td><a href="https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/">eaglepubs.erau.edu</a></td><td>AD099 (link)</td><td>CC BY-NC-ND 4.0 (library note). Cite and write our own; no adapted copies.</td><td><span class="ok">yes</span>: worked examples are solved; each check box has "Show solution".</td><td>some (chapters 83, 85, 87 and 54 have figures)</td></tr>
+<tr id="s2"><td class="no">2</td><td class="c1">OpenStax, <i>University Physics Volume 1</i> (Moebs, Ling, Sanny; Rice University). Chapters 2 to 6: 46 + 17 + 4, 58 + 30 + 4, 62 + 20 + 3, 53 + 21 + 17, 65 + 39 + 7 problems (Problems, Additional, Challenge).</td><td><a href="https://openstax.org/books/university-physics-volume-1/pages/4-problems">openstax.org (ch. 4 Problems)</a></td><td>no</td><td>CC BY-NC-SA 4.0 (page footer). Adapt with credit, non-commercial, same license. The same page says the book may not be used to train or feed a large language model without OpenStax's written permission: keep this page to pointers and our own paraphrases, and ask the owner before any bulk use.</td><td>some: the book's answer key lists 61, 65, 57, 65, 79 answers for chapters 2 to 6. Full solutions are not public.</td><td>some (many say "as shown below")</td></tr>
+<tr id="s3"><td class="no">3</td><td class="c1">MIT OCW 8.01SC Classical Mechanics, Fall 2016 (Chakrabarty and team). 12 weekly problem sets.</td><td><a href="https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/">ocw.mit.edu 8.01SC</a></td><td>no</td><td>CC BY-NC-SA 4.0 (page). Adapt with credit, non-commercial.</td><td>not checked (the PDFs would not open)</td><td>not checked</td></tr>
+<tr id="s4"><td class="no">4</td><td class="c1">MIT OCW 8.01X Physics I with an Experimental Focus, Fall 2002. 12 problem sets and a solutions file for each.</td><td><a href="https://ocw.mit.edu/courses/8-01x-physics-i-classical-mechanics-with-an-experimental-focus-fall-2002/pages/assignments/">ocw.mit.edu 8.01X assignments</a></td><td>no</td><td>CC BY-NC-SA 4.0 (page). But the sets only name problems of Young and Freedman (for example set 2: 2-68, 2-72, 3-6, 4-10, 4-35), a book we do not own: the problem text is not on OCW.</td><td><span class="ok">yes</span> (sol1 to sol12 listed)</td><td>not checked</td></tr>
+<tr id="s5"><td class="no">5</td><td class="c1">Corke, <i>Robotics, Vision and Control: Fundamental Algorithms in Python</i> (Springer, 2023).</td><td>none (library file only)</td><td>RO001 (.epub only)</td><td>Study only (personal copy).</td><td>not surveyed</td><td>not surveyed</td></tr>
+<tr id="s6"><td class="no">6</td><td class="c1">Quan Quan, <i>Introduction to Multicopter Design and Control</i>, Beihang University course slides (15 lessons). The book's exercises are in the paid book, which we do not own.</td><td><a href="https://rfly.buaa.edu.cn/course.html">rfly.buaa.edu.cn</a></td><td>AD096</td><td>Study only; do not redistribute (library note).</td><td>no (slides contain no exercises)</td><td>n/a. Five exercise data sets are saved (Exercises 6.5, 7.2, 9.2, 10.5, 14.3).</td></tr>
+<tr id="s7"><td class="no">7</td><td class="c1">Beard and McLain, <i>Small Unmanned Aircraft</i>: the <code>mavsim_public</code> companion (BYU MAGICC). One programming project per chapter (about 3 hours each, README).</td><td><a href="https://github.com/byu-magicc/mavsim_public">github.com/byu-magicc/mavsim_public</a></td><td>AD097 (code)</td><td>Code is GPL-3.0 (library note). Cite and write our own.</td><td>Instructors only; YouTube videos for chapters 2 to 6, 10, 11, 12 (README)</td><td>n/a (code; results are plots)</td></tr>
+<tr id="s8"><td class="no">8</td><td class="c1">Monteiro, Stari, Cabeza, Marti, "Simple physics behind the flight of a drone", <i>Physics Education</i> 57 (2022) 025029. A 5-page experiment.</td><td><a href="https://doi.org/10.1088/1361-6552/ac484a">doi.org/10.1088/1361-6552/ac484a</a></td><td>AD105</td><td>Study only (no open license shown).</td><td>no</td><td>some (plots of measured data)</td></tr>
+<tr id="s9"><td class="no">9</td><td class="c1">Barfoot, <i>State Estimation for Robotics</i>, 2nd ed. (Cambridge, 2024). Exercises at the end of chapters 2, 3, 4, 5, 7 and 8; solutions in Appendix D.</td><td>none (library file only)</td><td>RO006</td><td>Study only.</td><td><span class="ok">yes</span> (Appendix D: "solutions to almost all exercises")</td><td>not counted</td></tr>
+<tr id="s10"><td class="no">10</td><td class="c1">Coursera programs the owner can enroll in (ISAE-SUPAERO flight mechanics, UPenn aerial robotics, Packt ROS 2, and the others in part E). Public pages only.</td><td>see part E</td><td>no</td><td>Problems arrive only when the owner downloads them himself; we write our own.</td><td>graded by Coursera</td><td>some</td></tr>
+</table></div>
+
+<h2 class="sub" id="b-h"><span class="no">B</span> Fit: which source covers which of our sections</h2>
+<div data-b="fit"><p><b>How to read this table.</b> Each row is one row of the <a href="../plan.html#p1">course plan</a> (first column; the small code is the plan id). Each cell names the exact place in that source and how many problems it holds there, or "—" when the source has nothing for that row. <b>L</b> = Leishman (WE = worked example, CYU = Check Your Understanding). <b>OS</b> = OpenStax. <b>OCW</b> = MIT 8.01SC. <b>QQ</b> = Quan Quan slides. <b>mav</b> = mavsim chapter projects. <b>Ba</b> = Barfoot. <b>Cou</b> = Coursera courses (part E). Counts for one OpenStax section are not given because the problem list is numbered across the chapter; the chapter totals are in part A.</p>
+<table class="t wide"><colgroup><col style="width:14%"><col style="width:14%"><col style="width:13%"><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:24%"></colgroup>
+<tr><th>Plan row</th><th>L</th><th>OS</th><th>OCW</th><th>QQ</th><th>mav</th><th>Ba</th><th>Cou</th></tr>
+<tr data-plan="m.1"><td>Vectors: arrows with a size and a direction <small>m.1</small></td><td>Ch 78 WE #1 to #3 (algebra, differentiation, integration)</td><td>Ch 2 sec 2.1 to 2.4 (67 problems in the chapter)</td><td>Review: vectors</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="m.3"><td>Rates: the derivative as speed of change <small>m.3</small></td><td>Ch 78 WE #2 (differentiation)</td><td>Ch 3 sec 3.1 to 3.3 (92 problems in the chapter)</td><td>Week 1 PS 1</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="m.4"><td>Adding small steps: integration <small>m.4</small></td><td>Ch 78 WE #3 (integration)</td><td>Ch 3 sec 3.6</td><td>Week 1 PS 1</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="m.6"><td>Units and conversions <small>m.6</small></td><td>Ch 5 CYU #1 to #5; Ch 78 WE #9 to #29 (21 examples on dimensions and units)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="fly.1"><td>The four forces <small>fly.1 = 2.1</small></td><td>Ch 6 CYU #2 (trim, free-body diagram); Ch 85 WE #15, #17; Ch 87 WE #4, #10</td><td>Ch 5 sec 5.3 to 5.7</td><td>Week 2 PS 2</td><td>Lesson 4</td><td>Ch 4 project</td><td>—</td><td>ISAE course 1 (15 assignments); UAF course 2, module "Basic Aerodynamics &amp; Mass"</td></tr>
+<tr data-plan="fly.2"><td>Kinematics: position, velocity, acceleration <small>fly.2 = 2.2</small></td><td>Ch 78 WE #2, #3</td><td>Ch 3 sec 3.1 to 3.6 (92 problems); Ch 4 sec 4.1 to 4.5 (85 problems)</td><td>Week 1 PS 1 (lessons 1 to 3)</td><td>—</td><td>Ch 3 project</td><td>—</td><td>Spacecraft course 1 (3 assignments)</td></tr>
+<tr data-plan="fly.3"><td>Dynamics: Newton's second law <small>fly.3 = 2.3</small></td><td>Ch 78 WE #5; Ch 6 CYU #1</td><td>Ch 5 (91 problems); Ch 6 sec 6.1 (all of ch 6: 111)</td><td>Week 2 PS 2</td><td>Lesson 6</td><td>Ch 3 project</td><td>—</td><td>ISAE course 1; UPenn (page not readable)</td></tr>
+<tr data-plan="fly.4"><td>Attitude: roll, pitch, yaw <small>fly.4 = 2.4</small></td><td>—</td><td>—</td><td>—</td><td>Lesson 5</td><td>Ch 2 project</td><td>Ch 7</td><td>ISAE course 1, module "Vocabulary and Tools"; Spacecraft course 1</td></tr>
+<tr data-plan="fly.5"><td>Tilt to move <small>fly.5 = 2.5</small></td><td>Ch 6 CYU #2</td><td>Ch 5 sec 5.6 to 5.7; Ch 6 sec 6.3 (banked curves)</td><td>Week 3 PS 3</td><td>Lesson 11</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="fly.6"><td>Flight phases as force balances <small>fly.6 = 2.6</small></td><td>Ch 54 CYU #1 to #5 (climb, glide); Ch 63 CYU #5 (climb power)</td><td>Ch 6 Problems #33 (rocket lift-off); Ch 5 sec 5.3</td><td>Week 6 PS 6 (rocket sled)</td><td>—</td><td>—</td><td>—</td><td>ISAE course 4 (12 assignments); ISAE course 3 module "Controlling the trajectory"</td></tr>
+<tr data-plan="fly.7"><td>Wings vs rotors <small>fly.7 = 2.7</small></td><td>Ch 85 (18 WE on airfoils and wings); Ch 45 WE #3, #4 (drone propellers)</td><td>—</td><td>—</td><td>Lesson 4</td><td>—</td><td>—</td><td>ISAE course 3 (14 assignments); UAF course 2 (22 assignments)</td></tr>
+<tr data-plan="fly.8"><td>Angle of attack and stall <small>fly.8 = 2.8</small></td><td>Ch 85 WE #6, #7, #9 (measured lift curves), #18 (stall speed)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>ISAE course 3, module "Limitations: Stall &amp; Flight envelope"</td></tr>
+<tr data-plan="fly.fw1"><td>Fixed-wing: wing, tail and balance <small>fly.fw1 = 2.9</small></td><td>Ch 85 WE #10 to #13 (wing area, aspect ratio, mean chord); Ch 87 WE #4, #6, #10 (L/D)</td><td>—</td><td>—</td><td>—</td><td>Ch 4 project</td><td>—</td><td>UAF course 2, "Basic Aerodynamics &amp; Mass"</td></tr>
+<tr data-plan="fly.fw2"><td>Fixed-wing: turns, bank and sideslip <small>fly.fw2 = 2.10</small></td><td>Ch 55 (5-question quiz; no solved problems seen)</td><td>Ch 6 Additional #121; Ch 6 Challenge #132</td><td>—</td><td>—</td><td>Ch 4 project</td><td>—</td><td>ISAE course 3, module "Controlling the trajectory" (turn, maneuvering)</td></tr>
+<tr data-plan="fly.fw3"><td>Fixed-wing: glide and spin <small>fly.fw3 = 2.11</small></td><td>Ch 54 CYU #4, #5; Ch 87 WE #9</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>ISAE course 4, "Flight regimes"</td></tr>
+<tr data-plan="fly.hud"><td>Flight instruments and the HUD <small>fly.hud = 2.12</small></td><td>Ch 41 CYU #1, #2 (airspeed); Ch 42 CYU #1 to #5 (altitude)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>ISAE course 2 (8 assignments)</td></tr>
+<tr data-plan="fly.9"><td>Wind: airspeed vs groundspeed <small>fly.9 = 2.13</small></td><td>—</td><td>Ch 4 Problems #73, #75, #76, #77, #78 (wind and river), Additional #98 (relative speed)</td><td>—</td><td>—</td><td>Ch 4 project (wind)</td><td>—</td><td>—</td></tr>
+<tr data-plan="fly.10"><td>Falling: drag and terminal velocity <small>fly.10 = 2.14</small></td><td>Ch 83 WE #2, #4, #5 (parachutes); Ch 87 WE #11 (circular wing)</td><td>Ch 6 sec 6.4: Problems #79 to #89 (11); Challenge #133, #134</td><td>Week 4 PS 4 (drag forces)</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="fly.11"><td>Numbers that describe flight <small>fly.11 = 2.15</small></td><td>Ch 45 WE #3 (7.5 kg drone: thrust margin)</td><td>—</td><td>—</td><td>Lesson 4</td><td>—</td><td>—</td><td>ISAE course 4; UAF course 2, "Propulsion &amp; Power"</td></tr>
+<tr data-plan="fly.ad"><td>Air density: height and heat <small>fly.ad = 2.16</small></td><td>Ch 15 CYU #1 to #5; Ch 42 CYU #2 to #4 (density altitude); Ch 78 WE #26, #27</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>ISAE course 2, module "Atmosphere"</td></tr>
+<tr data-plan="fly.12"><td>Chapter problem set: 20 problems <small>fly.12 = 2.17</small></td><td>Ch 87 (11 WE), Ch 85 (18 WE), Ch 83 (16 WE)</td><td>Ch 3 to 6 Challenge: 4 + 3 + 17 + 7</td><td>—</td><td>—</td><td>—</td><td>—</td><td>ISAE courses 1 to 4 (49 assignments in all)</td></tr>
+<tr data-plan="q.1"><td>One rotor: thrust and torque <small>q.1</small></td><td>Ch 45 CYU #1, #2; WE #3, #4</td><td>—</td><td>—</td><td>Lesson 4 (propulsion model)</td><td>—</td><td>—</td><td>UAF course 2, "Propulsion &amp; Power"</td></tr>
+<tr data-plan="2.1"><td>Four motors → thrust and three torques <small>Ch 3</small></td><td>—</td><td>—</td><td>—</td><td>Lesson 6</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="2.2"><td>Frames: world vs body, NED vs ENU</td><td>—</td><td>Ch 2 sec 2.2 (coordinate systems); Ch 4 sec 4.5 (relative motion between frames)</td><td>—</td><td>Lesson 5</td><td>Ch 2 project (frames)</td><td>Ch 7</td><td>Spacecraft course 1, "Rigid Body Kinematics I"; Spacecraft capstone, "Reference Frame Orientation"</td></tr>
+<tr data-plan="2.3"><td>Rotations: angles, matrices, quaternions</td><td>—</td><td>—</td><td>—</td><td>Lesson 5</td><td>Ch 2 project</td><td>Ch 7: 7.6 Exercises (p. 276)</td><td>Spacecraft course 1, "Rigid Body Kinematics I and II", "Static Attitude Determination"</td></tr>
+<tr data-plan="q.5"><td>Equations of motion (Newton–Euler) <small>q.5</small></td><td>—</td><td>—</td><td>—</td><td>Lesson 6</td><td>Ch 3 project</td><td>—</td><td>Spacecraft course 2, "Equations of Motion with Momentum Exchange Devices"; Cou: CU Boulder Modeling of Dynamic Systems</td></tr>
+<tr data-plan="q.6"><td>Hover, climb and turn by hand</td><td>Ch 45 WE #3; Ch 63 CYU #3 (hover power)</td><td>Ch 6 sec 6.3 (turns)</td><td>—</td><td>Lesson 11</td><td>—</td><td>—</td><td>ISAE course 4</td></tr>
+<tr data-plan="2.4"><td>The control cascade</td><td>—</td><td>—</td><td>—</td><td>Lesson 11</td><td>Ch 6 project</td><td>—</td><td>CU Boulder Modeling of Dynamic Systems (11 assignments)</td></tr>
+<tr data-plan="2.5"><td>PID by hand</td><td>—</td><td>—</td><td>—</td><td>Lesson 11</td><td>Ch 6 project</td><td>—</td><td>CU Boulder Modeling of Dynamic Systems, module "Transient Step Response Specifications"</td></tr>
+<tr data-plan="q.i"><td>Moment of inertia by hand</td><td>Ch 6 CYU #5 (angular momentum)</td><td>—</td><td>Week 10 PS 10 (rotational motion)</td><td>Lesson 6 (bifilar pendulum measurement)</td><td>—</td><td>—</td><td>Spacecraft course 2, "Continuous Systems and Rigid Bodies"</td></tr>
+<tr data-plan="q.m"><td>Where T = k·ω² comes from: momentum theory <small>q.m</small></td><td>Ch 45 (propellers); Ch 63 CYU #1 to #5 (rotor disk, induced power)</td><td>—</td><td>—</td><td>Lesson 4</td><td>—</td><td>—</td><td>—</td></tr>
+<tr data-plan="q.p"><td>Power and battery</td><td>Ch 66 CYU #1 to #3 (electric airplane flight time, eVTOL hover and range)</td><td>—</td><td>—</td><td>Lesson 4 (battery, ESC)</td><td>—</td><td>—</td><td>UAF course 2, "Propulsion &amp; Power"</td></tr>
+<tr data-plan="q.9"><td>Chapter problem set: 20 problems <small>q.9</small></td><td>Ch 45, 54, 63, 66 CYU and WE</td><td>Ch 6 Additional (39) and Challenge (7)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Spacecraft courses 1 and 2</td></tr>
+<tr data-plan="own.1"><td>From equations to code</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Ch 3 project (6-DOF equations in Python)</td><td>—</td><td>—</td></tr>
+<tr data-plan="own.4"><td>Mixer and PID in code</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Ch 6 project (autopilot)</td><td>—</td><td>—</td></tr>
+<tr data-plan="3.1"><td>PX4's parts</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Packt ROS 2 Foundations (3 assignments); Packt Advanced ROS 2 (6 assignments)</td></tr>
+<tr data-plan="3.3"><td>Offboard mode</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Ch 10 project (waypoints)</td><td>—</td><td>Packt Advanced ROS 2, module "Aerial Robotics and ROS 2"</td></tr>
+<tr data-plan="12.1"><td>The Kalman filter</td><td>—</td><td>—</td><td>—</td><td>Lesson 8</td><td>Ch 8 project</td><td>Ch 3: 3.7 Exercises (p. 98)</td><td>Robot Localization with Particle Filters (1 hour project)</td></tr>
+</table></div>
+
+<h2 class="sub" id="c-h"><span class="no">C</span> Example problems to model ours on (paraphrased)</h2>
+<div data-b="ex-l"><h3>C1. Leishman (cite and write our own)</h3>
+<p><b>How to read this table.</b> One row per example. <b>Where</b> is the chapter and the example or box number in the book. <b>Problem</b> is my one-line paraphrase, not the book's text. <b>Fits</b> is the plan row.</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:22%"><col style="width:48%"><col style="width:8%"><col style="width:19%"></colgroup>
+<tr><th>#</th><th>Where</th><th>Problem</th><th>Level</th><th>Fits</th></tr>
+<tr><td>1</td><td><a href="https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/chapter/worked-examples-aircraft-rockets/">Ch 87</a>, Worked Example #4</td><td>A small propeller plane flies at a stated weight, speed and height. Find its lift and drag coefficients, L/D, thrust, power and fuel flow, then say whether the fuel left is enough to fly the remaining 125 nautical miles home.</td><td><span class="lv hard">hard</span></td><td>fly.fw1, fly.11</td></tr>
+<tr><td>2</td><td>Ch 87, Worked Example #9</td><td>A jet with a given drag polar loses all engine power at 20,000 ft. Find the best glide range (the student must choose the best-L/D speed first).</td><td><span class="lv med">medium</span></td><td>fly.fw3</td></tr>
+<tr><td>3</td><td><a href="https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/chapter/climbing-ceiling-gliding/">Ch 54</a>, Check Your Understanding #5</td><td>A sailplane with L/D 30 is 3,500 ft above sea level and must cover about 20 nautical miles to a field at 100 ft. Will one glide do it, and if not, from what altitude must it start?</td><td><span class="lv hard">hard</span></td><td>fly.fw3</td></tr>
+<tr><td>4</td><td><a href="https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/chapter/worked-examples-bluff-body-flows/">Ch 83</a>, Worked Example #2</td><td>A crate hangs under a parachute. In steady descent the two drags add to equal the weight: find the descent speed, then the time from 2,000 m.</td><td><span class="lv med">medium</span></td><td>fly.10</td></tr>
+<tr><td>5</td><td><a href="https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/chapter/propellers/">Ch 45</a>, Worked Example #3</td><td>A 7.5 kg quadrotor must hover. Choose the thrust margin and estimate the propeller and motor size (the student must justify a rule of thumb and check it).</td><td><span class="lv hard">hard</span></td><td>fly.11, q.1, q.6</td></tr>
+</table></div>
+
+<div data-b="ex-o"><h3>C2. OpenStax University Physics Volume 1 (adapt with credit; see the license warning in row 2)</h3>
+<p><b>How to read this table.</b> Numbers are OpenStax problem numbers inside the page named (Problems, Additional Problems or Challenge Problems of that chapter).</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:22%"><col style="width:48%"><col style="width:8%"><col style="width:19%"></colgroup>
+<tr><th>#</th><th>Where</th><th>Problem</th><th>Level</th><th>Fits</th></tr>
+<tr><td>1</td><td><a href="https://openstax.org/books/university-physics-volume-1/pages/4-problems">Ch 4 Problems</a> #76</td><td>A small plane flies 200 km/h in still air and the wind blows from the west at 50 km/h. Find the heading that gives a flight due north, and the time to cover 300 km.</td><td><span class="lv med">medium</span></td><td>fly.9</td></tr>
+<tr><td>2</td><td><a href="https://openstax.org/books/university-physics-volume-1/pages/6-problems">Ch 6 Problems</a> #80</td><td>A 60 kg and a 90 kg skydiver jump from the same height. The student must choose reasonable frontal areas, then find both terminal speeds and fall times.</td><td><span class="lv hard">hard</span></td><td>fly.10</td></tr>
+<tr><td>3</td><td><a href="https://openstax.org/books/university-physics-volume-1/pages/6-challenge-problems">Ch 6 Challenge</a> #132</td><td>An airplane at 200 m/s makes a full turn in 4.0 minutes. Find the bank angle and the percent increase in the passengers' apparent weight.</td><td><span class="lv med">medium</span></td><td>fly.fw2</td></tr>
+<tr><td>4</td><td>Ch 6 Challenge #133</td><td>A skydiver free-falls 10 s, then opens a parachute. Write the equations for velocity and position, and find the speed at opening and the distance fallen (the student builds the model).</td><td><span class="lv hard">hard</span></td><td>fly.2, fly.10</td></tr>
+<tr><td>5</td><td><a href="https://openstax.org/books/university-physics-volume-1/pages/3-additional-problems">Ch 3 Additional</a> #98</td><td>An airplane accelerates at 5 m/s² for 30 s and covers 10 km. Find its starting and final speeds (an inverse question: the data do not give either speed).</td><td><span class="lv med">medium</span></td><td>fly.2</td></tr>
+</table></div>
+
+<div data-b="ex-w"><h3>C3. MIT OCW (adapt with credit; text not read)</h3>
+<p><b>How to read this table.</b> I could read the page titles but not the problem sets themselves (the PDFs would not open in my reader), so no problem is paraphrased and no level is given. The titles tell us where to look when the owner opens the PDFs.</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:30%"><col style="width:42%"><col style="width:8%"><col style="width:17%"></colgroup>
+<tr><th>#</th><th>Where</th><th>What is there</th><th>Level</th><th>Fits</th></tr>
+<tr><td>1</td><td><a href="https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/pages/week-1-kinematics/problem-set-1/">8.01SC week 1, Problem Set 1</a></td><td>Page "PS.1.1 Three Questions Before Starting" (a method for starting a problem), then the problem set file.</td><td><span class="lv na">not rated</span></td><td>fly.2</td></tr>
+<tr><td>2</td><td><a href="https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/pages/week-2-newtons-laws/problem-set-2/">8.01SC week 2, Problem Set 2</a></td><td>Worked example "sliding block", then the problem set file.</td><td><span class="lv na">not rated</span></td><td>fly.3</td></tr>
+<tr><td>3</td><td><a href="https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/pages/week-4-drag-forces-constraints-and-continuous-systems/problem-set-4/">8.01SC week 4, Problem Set 4</a></td><td>Week "Drag forces, constraints and continuous systems".</td><td><span class="lv na">not rated</span></td><td>fly.10</td></tr>
+<tr><td>4</td><td><a href="https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/pages/week-6-continuous-mass-transfer/problem-set-6/">8.01SC week 6, Problem Set 6</a></td><td>Page "PS.6.1 Rocket Sled Problem" (mass changes while a force acts).</td><td><span class="lv na">not rated</span></td><td>fly.6</td></tr>
+<tr><td>5</td><td><a href="https://ocw.mit.edu/courses/8-01x-physics-i-classical-mechanics-with-an-experimental-focus-fall-2002/pages/assignments/">8.01X assignments</a></td><td>12 problem sets that only name Young and Freedman problems; a solutions file for each set. Not usable as problem text.</td><td><span class="lv na">not rated</span></td><td>fly.2, fly.3</td></tr>
+</table></div>
+
+<div data-b="ex-o2"><h3>C4. Quan Quan, mavsim, Monteiro, Barfoot</h3>
+<p><b>How to read this table.</b> These sources hold projects or data, not short problems, so the rows say what the student would do. Quan Quan's exercise texts are in the paid book (not in the library); only the saved data sets prove that the exercises exist.</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:22%"><col style="width:48%"><col style="width:8%"><col style="width:19%"></colgroup>
+<tr><th>#</th><th>Where</th><th>Task</th><th>Level</th><th>Fits</th></tr>
+<tr><td>1</td><td>Quan Quan, data file for Exercise 6.5 (Lesson 6 topic)</td><td>The exercise comes with a spreadsheet of measurements; Lesson 6 explains how a bifilar pendulum gives the moment of inertia of a multicopter. Use the spreadsheet for a "measure it, then compute I" problem. The exercise's own wording is not available to me.</td><td><span class="lv hard">hard</span></td><td>q.i</td></tr>
+<tr><td>2</td><td>Quan Quan, data file for Exercise 14.3</td><td>Three sets of flight-log CSV files (134 MB unpacked) from real flights; usable for a "read the log and find the fault" problem.</td><td><span class="lv hard">hard</span></td><td>16.5 (system identification)</td></tr>
+<tr><td>3</td><td>mavsim README, chapter projects 2 to 6</td><td>Build the simulator chapter by chapter in Python (frames, kinematics and dynamics, forces and moments, trim, autopilot). About 3 hours per chapter; solution videos exist for chapters 2 to 6.</td><td><span class="lv hard">hard</span></td><td>own.1, own.4, fly.fw1 to fly.fw3</td></tr>
+<tr><td>4</td><td>Monteiro et al., section 4 (the experiment)</td><td>Fix a phone on a toy quadcopter, integrate the vertical acceleration to get the climb speed, and compare it with the maker's 6 m/s; integrate the vertical angular velocity to get the turn angle in a horizontal plane.</td><td><span class="lv med">medium</span></td><td>fly.2, m.4</td></tr>
+<tr><td>5</td><td>Barfoot, exercises at the end of chapters 2, 3, 4, 5, 7, 8 (pages 39, 98, 166, 198, 276, 369)</td><td>Exercises with solutions in Appendix D. Counts per chapter not made. Chapter 7 (matrix Lie groups) fits our rotation rows later; chapters 3 and 4 fit the Kalman filter.</td><td><span class="lv na">not rated</span></td><td>2.3, 12.1</td></tr>
+</table></div>
+
+<h2 class="sub" id="d-h"><span class="no">D</span> Which source for which section</h2>
+<div data-b="best"><p><b>How to read this table.</b> The best one or two sources for each group of plan rows, with the reason. "Write our own" means the source gives the idea and the license does not let us copy.</p>
+<table class="t wide"><colgroup><col style="width:24%"><col style="width:26%"><col style="width:50%"></colgroup>
+<tr><th>Plan rows</th><th>Best sources</th><th>Why</th></tr>
+<tr><td>Math toolkit (m.1 to m.6)</td><td>Leishman ch 78; OpenStax ch 2, 3</td><td>Leishman has solved examples on units and dimensions (21 of them); OpenStax has the largest supply of vector and kinematics problems with an answer key.</td></tr>
+<tr><td>2.1 to 2.3 forces, kinematics, dynamics</td><td>OpenStax ch 3 to 6; ISAE course 1</td><td>OpenStax gives hundreds of problems with some answers; ISAE builds each idea on an airplane and grades it.</td></tr>
+<tr><td>2.7 to 2.12 wings, stall, fixed wing</td><td>Leishman ch 54, 85, 87; ISAE courses 3 and 4</td><td>Leishman has solved, airplane-specific problems with feasibility questions (glide, fuel); ISAE adds graded practice on lift, stall and turns.</td></tr>
+<tr><td>2.13 to 2.16 wind, falling, density</td><td>OpenStax ch 4 and 6; Leishman ch 15, 42, 83; ISAE course 2</td><td>OpenStax has wind and terminal-speed problems; Leishman has parachute and density-altitude problems with solutions; ISAE course 2 is built on the standard atmosphere.</td></tr>
+<tr><td>Ch 3 quadrotor mathematics</td><td>Quan Quan lessons 4 to 6; Spacecraft Dynamics courses 1 and 2; Leishman ch 45, 63, 66</td><td>Quan Quan covers propulsion, frames and dynamics for multicopters but has no problems, so we write our own; the spacecraft courses supply frames, rotations and inertia exercises; Leishman has drone propeller and hover examples.</td></tr>
+<tr><td>2.4, 2.5, mpc.1 control</td><td>CU Boulder Modeling of Dynamic Systems; mavsim ch 6</td><td>Step response, poles and stability exercises (11 assignments); a chapter project for an autopilot.</td></tr>
+<tr><td>Part II PX4 and ROS 2 projects</td><td>Packt Advanced ROS 2; mavsim ch 10</td><td>The only source with an aerial-robot module on ROS 2; code projects, not short problems.</td></tr>
+</table></div>
+
+<h2 class="sub" id="e-h"><span class="no">E</span> Coursera programs the owner can enroll in</h2>
+<div data-b="cou"><p><b>How to read this table.</b> One row per course. All facts come from the public course page (module titles and the number of "assignments" it shows, which includes quizzes and practice items). I never logged in and never opened an assignment page. <b>Verdict</b>: <i>enroll for exercises</i> = fits Part I rows now; <i>enroll for later parts</i> = fits Parts II to V; <i>not needed</i> = no fit. The owner downloads any problems himself.</p>
+<table class="t wide"><colgroup><col style="width:24%"><col style="width:30%"><col style="width:8%"><col style="width:18%"><col style="width:20%"></colgroup>
+<tr><th>Course (partner)</th><th>Modules (public page)</th><th>Assign-ments</th><th>Fits our rows</th><th>Verdict</th></tr>
+<tr><td colspan="5"><b>ISAE-SUPAERO, Fundamentals of Flight Mechanics</b> (Eric Poquillon; 4 courses, beginner, <a href="https://www.coursera.org/specializations/flight-mechanics-fundamentals">specialization page</a>)</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/basis-flight-mechanics">1 The basis</a></td><td>Anatomy of the plane; Vocabulary and Tools; Basis of flight mechanics; Graded assessment</td><td>15</td><td>fly.1, fly.3, fly.4</td><td>enroll for exercises</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/anemobarometry-flight-mechanics">2 Anemobarometry</a></td><td>Atmosphere; Speeds used in flight mechanics; Practical: the Zp, Mach, Vc diagram; General assessment</td><td>8</td><td>fly.ad, fly.hud, fly.11</td><td>enroll for exercises</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/lift-flight-mechanics">3 Lift and trajectory</a></td><td>Lift and Angle of Attack; Limitations: Stall and Flight envelope; Controlling the trajectory; Summary and Final assessment</td><td>14</td><td>fly.7, fly.8, fly.fw2</td><td>enroll for exercises</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/flight-mecha-balance">4 Propulsive balance and energy</a></td><td>Equation of propulsion; Flight regimes; Cruise performance</td><td>12</td><td>fly.6, fly.fw3, fly.11</td><td>enroll for exercises</td></tr>
+<tr><td colspan="5"><b>University of Alaska Fairbanks, Unmanned Aerial Systems: Fundamentals</b> (Matthew Balazs is listed as instructor; 3 courses, beginner, <a href="https://www.coursera.org/specializations/unmanned-aerial-systems-fundamentals">specialization page</a>)</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/introduction-to-unmanned-aerial-systems">1 Introduction to UAS</a></td><td>Introduction to UAS; History; Types; Applications; Scenario assessments; Quiz</td><td>2</td><td>1.x context only</td><td>not needed</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/aircraft-design-and-performance">2 Aircraft Design and Performance</a></td><td>8 modules: Basic Aerodynamics and Mass; Build Your Own UAS (aerodynamics and mass); Propulsion and Power; Performance; Build Your Own UAS (platforms); Subsystems; and two more</td><td>22</td><td>fly.1, fly.7, fly.8, fly.11, q.1, q.p</td><td>enroll for exercises</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/sensors-and-payloads">3 Sensors and Payloads</a></td><td>not opened</td><td>?</td><td>Part III context</td><td>not needed</td></tr>
+<tr><td colspan="5"><b>Università di Napoli Federico II, Autonomous Vehicle Engineering</b> (Savino, Accardo, Renga; 3 courses, beginner, <a href="https://www.coursera.org/specializations/autonomous-vehicle-engineering">specialization page</a>)</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/modelling-simulation-mechanical-systems">Modelling and simulation of mechanical systems</a></td><td>Computer vision for the control of mechanical systems; Modelling, control and simulation of electro-hydraulic shake tables; Design and development of a smart tyre</td><td>18</td><td>none of ours directly (case studies: robot, hydraulic actuator, tyre)</td><td>not needed</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/autonomous-aerospace-systems">Autonomous Aerospace Systems</a></td><td>UAS system architecture; Guidance models, path management and path following; Integrated navigation (GPS/INS, dead reckoning); Obstacle detection and tracking; Design models, open-loop dynamics, autopilot design</td><td>5</td><td>1.6 autopilot map, 12.1, 13.1</td><td>enroll for later parts</td></tr>
+<tr><td colspan="5"><b>CU Boulder, Introduction to Robotics with Webots</b> (Nikolaus Correll; 3 courses, <a href="https://www.coursera.org/specializations/introduction-robotics-webots">specialization page</a>). We dropped Webots as the main simulator.</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/basic-robotic-behaviors-and-odometry">Basic Robotic Behaviors and Odometry</a></td><td>Getting Started; Sensors and Actuators; Reactive Behaviors and State Machines; Coordinate Systems, Degrees of Freedom and Forward Kinematics; Localization with Odometry and Loop Closure</td><td>13</td><td>2.2 (frames) at most</td><td>not needed</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/robotic-mapping-trajectory-generation">Robotic Mapping and Trajectory Generation</a></td><td>Range finders and homogeneous transforms; Mapping (basic, probabilistic); Inverse Kinematics; Implementing mapping and trajectory generation</td><td>14</td><td>13.1</td><td>not needed</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/robotic-path-planning-task-execution">Robotic Path Planning and Task Execution</a></td><td>Path Planning; Collision Checking and Randomized Algorithms; Behavior Trees; Basic Manipulation; Final project</td><td>10</td><td>13.1 (A*, RRT)</td><td>enroll for later parts</td></tr>
+<tr><td colspan="5"><b>Coursera Project, Robot Localization with Python and Particle Filters</b> (Daniel Romaniuk; advanced, about 1 hour, <a href="https://www.coursera.org/projects/robot-localization-python-particle-filter">project page</a>)</td></tr>
+<tr><td>Guided project</td><td>Steps: load a map; control the robot's movement; initialize a particle filter; sense the terrain elevation; resample the particle filter</td><td>none listed</td><td>12.1 (estimation, later parts)</td><td>enroll for later parts</td></tr>
+<tr><td colspan="5"><b>CU Boulder, Control Systems Analysis: Modeling of Dynamic Systems</b> (Lucy Pao; ECEA 5800; <a href="https://www.coursera.org/learn/modeling-feedback-systems">course page</a>)</td></tr>
+<tr><td>Single course</td><td>Introduction to Control Systems and Laplace Transforms; Modeling of Physical Systems; Block Diagram Analysis and Dynamic Response; Transient Step Response Specifications; Modeling From Transient Response Data and Stability</td><td>11</td><td>2.4, 2.5, q.5, mpc.1</td><td>enroll for exercises</td></tr>
+<tr><td colspan="5"><b>Collaborative Robotics in Industry</b> (L&amp;T EduTech; <a href="https://www.coursera.org/specializations/collaborative-robotics-in-industry">specialization page</a>): three courses on industrial automation, robotics engineering and fluid systems.</td></tr>
+<tr><td>Whole specialization</td><td>Fundamentals of Robotics and Industrial Automation; Robotics Engineering and Applications; Industrial Fluid Systems and Smart Factory Automation</td><td>not opened</td><td>none</td><td>not needed</td></tr>
+<tr><td colspan="5"><b>CU Boulder, Spacecraft Dynamics and Control</b> (Hanspeter Schaub; 4 courses, advanced level, <a href="https://www.coursera.org/specializations/spacecraft-dynamics-control">specialization page</a>)</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/spacecraft-dynamics-kinematics">1 Kinematics</a></td><td>Introduction to Kinematics; Rigid Body Kinematics I; Rigid Body Kinematics II; Static Attitude Determination</td><td>3</td><td>2.2 frames, 2.3 rotations, fly.4</td><td>enroll for exercises (only 3 items; advanced)</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/spacecraft-dynamics-kinetics">2 Kinetics</a></td><td>Continuous Systems and Rigid Bodies; Torque Free Motion; Gravity Gradients; Equations of Motion with Momentum Exchange Devices</td><td>9</td><td>q.i inertia, q.5 rotation dynamics</td><td>enroll for exercises</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/nonlinear-spacecraft-attitude-control">3 Control of Nonlinear Spacecraft Attitude Motion</a></td><td>Nonlinear Stability Definitions; Overview of Lyapunov Stability Theory; Attitude Control of States and Rates; Alternate Attitude Control Formulations</td><td>7</td><td>2.4 (attitude loop), later control rows</td><td>enroll for later parts</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/capstone-mars-mission">4 Capstone: Mars Mission</a></td><td>Introduction to the Mission; Orbits; Reference Frame Orientation; Attitude Evaluation and Simulator; Complete the Mission</td><td>11</td><td>2.2, 2.3 applied</td><td>enroll for later parts</td></tr>
+<tr><td colspan="5"><b>Packt, Mastering ROS 2 for Robotics Programming</b> (3 courses, intermediate; <a href="https://www.coursera.org/specializations/packt-mastering-ros-2-for-robotics-programming">specialization page</a>)</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/packt-ros-2-foundations-architecture-programming-and-core-concepts-4ztwg">ROS 2 Foundations</a></td><td>Introduction to ROS 2; Getting Started with ROS 2 Programming; Implementing ROS 2 Concepts</td><td>3</td><td>3.1</td><td>enroll for later parts</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/packt-robot-modeling-simulation-and-control-with-ros-2-4cl0j">Robot Modeling, Simulation, and Control with ROS 2</a></td><td>7 modules: 3D modeling; simulating robots; ros2_control; BehaviorTree.CPP; Nav2; MoveIt 2; perception</td><td>7</td><td>6.2 (simulators)</td><td>not needed</td></tr>
+<tr><td><a href="https://www.coursera.org/learn/packt-advanced-ros-2-aerial-robotics-ai-and-deployment-d2f4l">Advanced ROS 2: Aerial Robotics, AI and Deployment</a></td><td>Aerial Robotics and ROS 2; DIY Mobile Robot; Testing, CI and CD; Interfacing LLMs with ROS 2; ROS 2 and Deep RL; Visualization and Simulation Plugins</td><td>6</td><td>3.1, 3.3, 9.5</td><td>enroll for later parts</td></tr>
+<tr><td colspan="5"><b>UPenn, Robotics: Aerial Robotics</b> (Vijay Kumar). The page <code>coursera.org/learn/robotics-flight</code> returned HTTP 404 for me, so modules and assignments are unknown.</td></tr>
+<tr><td>Aerial Robotics</td><td>Not readable. Third-party listings describe MATLAB assignments on 2-D and 3-D quadrotor control.</td><td>?</td><td>q.5, 2.4, 2.5, mpc.1</td><td>enroll for exercises if the course is still offered (the owner can check in his account)</td></tr>
+</table></div>
+
+<div data-b="end"><p class="lead">Nothing was added beyond the sources the brief named, except the Coursera programs the owner added. Corke's chapter exercises remain to be surveyed once the epub's text is extracted (it needs a program, which this pass could not run).</p></div>
+</main>
+<script>
+"use strict";
+const PAGE = "sources";                              // note keys: "sources:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes. A table's key is "<page>:<block>#t<n>".
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+</script>

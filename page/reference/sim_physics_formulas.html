@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulator physics formulas</title>
+<!-- Reference page of the v2 course. Source of truth: github coursera_mirror\mirrors\Autonomous_Racing_Drone_Path\v2\reference\;
+     copied to the library V2_Plan\reference\. Data: sim_formulas_*.js beside this page (one file per code base),
+     written from the source code at pinned commits. Each row links to the exact lines on GitHub. -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --gz:#2E9E4A;--as:#2F6FD0;--ps:#D68910;--pa:#8E44AD}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:99px;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+input[type=search]{font:inherit;font-size:13px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;min-width:200px}
+main{max-width:1500px;padding:20px 22px 80px}
+h1{font-size:26px;margin:0 0 4px} h2{font-size:20px;margin:30px 0 8px;padding-top:10px;border-top:2px solid var(--ink)}
+h3{font-size:16px;margin:22px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h3 .ch{font-size:12px;font-weight:400}
+.lead{color:var(--ink2);margin:0 0 10px}
+table.t{border-collapse:collapse;width:100%;font-size:14px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.col{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:6px;padding:8px;min-width:0}
+.col>.hd{font-size:12px;font-weight:700;color:var(--c);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+.card{border-bottom:1px solid var(--line);padding:6px 0 8px}
+.card:last-child{border-bottom:0}
+.card .q{font-weight:700;font-size:13px}
+.card .f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:16px;margin:3px 0;overflow-wrap:anywhere}
+.card .a{font-size:12px;color:var(--ink2)}
+.card .src{font-size:11px}
+.card .src a{color:var(--ink2)}
+.card details{font-size:12px;margin-top:3px}
+.card summary{cursor:pointer;color:var(--as)}
+.card pre{white-space:pre-wrap;font-size:11px;background:#F4F2EE;padding:6px;border-radius:4px;margin:4px 0;overflow-wrap:anywhere}
+.card.nf{opacity:.55}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;border:1px solid var(--line);color:var(--ink2);margin-left:4px}
+.empty{font-size:12px;color:var(--ink2);font-style:italic}
+.warn{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:8px 12px;margin:10px 0}
+@media (max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.grid{grid-template-columns:1fr} main{padding:14px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I</a> › <b>Physics formulas inside Gazebo, Project AirSim and PX4</b> (reference)</span>
+  <span style="flex:1"></span>
+  <div class="tabs" id="tabs"></div>
+  <input type="search" id="q" placeholder="search: thrust, drag, wind…" aria-label="search formulas">
+</header>
+<main id="main">
+<h1>Physics formulas inside Gazebo, Project AirSim and PX4</h1>
+<p class="lead">Every physics formula found in the source code of the three tools, side by side: the PX4-Autopilot source code [<a class="cite" href="references.html#ref-29">29</a>], the Project AirSim source code [<a class="cite" href="references.html#ref-30">30</a>], and for Gazebo the gz-sim [<a class="cite" href="references.html#ref-31">31</a>], gz-physics [<a class="cite" href="references.html#ref-32">32</a>], PX4-gazebo-models [<a class="cite" href="references.html#ref-33">33</a>] and DART [<a class="cite" href="references.html#ref-34">34</a>] source code. Each card gives the formula, what it assumes, its default numbers, the exact code and a link to the lines on GitHub at the version that was read. The chapter tag on each group says where the course teaches it.</p>
+<div id="summary"></div>
+<div id="body"></div>
+<div data-b="refs" id="refs"><h2>References</h2>
+<ul class="reflist" style="list-style:none;margin:0;padding:0">
+<li>[<a class="cite" href="references.html#ref-29">29</a>] PX4-Autopilot, source code at commit d28a642</li>
+<li>[<a class="cite" href="references.html#ref-30">30</a>] Project AirSim, source code at commit c80cff5</li>
+<li>[<a class="cite" href="references.html#ref-31">31</a>] gz-sim, source code at commit 9e3b78f</li>
+<li>[<a class="cite" href="references.html#ref-32">32</a>] gz-physics, source code at commit d54f373</li>
+<li>[<a class="cite" href="references.html#ref-33">33</a>] PX4-gazebo-models, commit e5997f4</li>
+<li>[<a class="cite" href="references.html#ref-34">34</a>] DART, source code at commit 2558a3d</li></ul>
+<p class="lead">The full entries are on the <a href="references.html">references page</a>.</p></div>
+</main>
+<script src="sim_formulas_gazebo.js"></script>
+<script src="sim_formulas_airsim.js"></script>
+<script src="sim_formulas_px4sim.js"></script>
+<script src="sim_formulas_px4ap.js"></script>
+<script>
+"use strict";
+const COLS = [
+  {k:"gz", name:"Gazebo", refs:[31,32,33,34], c:"var(--gz)", data: window.SIM_FORMULAS_GAZEBO},
+  {k:"as", name:"Project AirSim", refs:[30], c:"var(--as)", data: window.SIM_FORMULAS_AIRSIM},
+  {k:"ps", name:"PX4 built-in simulator (SIH) and sim modules", refs:[29], c:"var(--ps)", data: window.SIM_FORMULAS_PX4SIM},
+  {k:"pa", name:"PX4 autopilot (estimators, mixing)", refs:[29], c:"var(--pa)", data: window.SIM_FORMULAS_PX4AP}];
+const cites = ns => "[" + ns.map(n => `<a class="cite" href="references.html#ref-${n}">${n}</a>`).join(", ") + "]";
+const S = "../samples/2.1a_The_four_forces_one_at_a_time.html#s", SB = "../samples/2.1b_Forces_together_tilt_wind_simulators.html#s", SK = "../samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s", P = "../plan.html#";
+const GROUPS = {
+  1:["Atmosphere and gravity", "2.1.5", S+"2.1.5"],
+  2:["Rotor thrust and torque", "2.1.8 · Ch 3", S+"2.1.8"],
+  3:["Motor dynamics", "Ch 3 Quadrotor mathematics", P+"p1"],
+  4:["Rotor aerodynamics", "2.1.13 · Ch 3", SB+"2.1.13"],
+  5:["Body aerodynamics (drag)", "2.1.6 · 2.1.11", S+"2.1.6"],
+  6:["Wings: fixed-wing and VTOL", "2.1.7 · fixed-wing", S+"2.1.7"],
+  7:["Wind, gusts and airspeed", "2.1.12", SB+"2.1.12"],
+  8:["Rigid body: translation", "2.1.9 · 2.2", SB+"2.1.9"],
+  9:["Rigid body: rotation", "Ch 3 Quadrotor mathematics", P+"p1"],
+  10:["Time integration", "2.2.11 · Part II", SK+"2.2.11"],
+  11:["Ground contact and collision", "Part II · simulators", P+"p2"],
+  12:["Control allocation and motor mixing", "Ch 3 · Part II PX4", P+"p1"],
+  13:["Battery", "Ch 3 · power and battery", P+"p1"],
+  14:["Sensors and their noise", "Part II · PX4 and sensors", P+"p2"],
+  15:["Estimators that use physics", "Part II · PX4", P+"p2"],
+  16:["Command to thrust", "2.1.13 · Ch 3", SB+"2.1.13"]};
+const SECTIONS = [
+  {k:"multirotor", title:"Multirotor drones", lead:"Formulas used only for rotor-borne aircraft: quadrotors, hexacopters and other multirotors."},
+  {k:"fixed-wing", title:"Fixed-wing drones (and VTOL)", lead:"Formulas used only for winged aircraft, including VTOL and tailsitters."},
+  {k:"both", title:"Shared by every aircraft", lead:"Air, gravity, rigid-body motion, time stepping, contact, wind, sensors and battery: the same for both kinds."}];
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function ghLink(r){
+  const m = String(r.lines||"").match(/(\d+)(?:\s*[-–]\s*(\d+))?/), a = m ? "#L"+m[1]+(m[2]?"-L"+m[2]:"") : "";
+  return r.repo && r.commit && r.file ? `https://github.com/${r.repo}/blob/${r.commit}/${r.file}${a}` : "";
+}
+function veh(r){ const v = String(r.vehicle||"both").toLowerCase(); return v.startsWith("multi") ? "multirotor" : v.startsWith("fixed") ? "fixed-wing" : "both"; }
+const rows = [];
+for (const col of COLS) for (const r of (Array.isArray(col.data) ? col.data : [])) rows.push(Object.assign({_col:col.k, _veh:veh(r)}, r));
+let tab = "multirotor", query = "";
+try { tab = localStorage.getItem("ardp_ref_tab") || tab; } catch(e) {}
+function card(r){
+  const nf = /^not found/i.test(String(r.formula||"").trim()), link = ghLink(r);
+  const vars = r.variables && typeof r.variables === "object" ? Object.entries(r.variables).map(([k,v]) => `<b>${esc(k)}</b>: ${esc(v)}`).join("<br>") : "";
+  const defs = Array.isArray(r.defaults) && r.defaults.length ? r.defaults.map(d => `${esc(d.name)} = ${esc(d.value)} ${esc(d.unit||"")} <span class="a">(${esc(d.where||"")})</span>`).join("<br>") : "";
+  return `<div class="card${nf?" nf":""}"><div class="q">${esc(r.quantity||r.group_name)}${r.simulator && !/^(Gazebo|Project AirSim|PX4 SIH|PX4 autopilot)$/.test(r.simulator) ? `<span class="tag">${esc(r.simulator)}</span>`:""}</div>
+   <div class="f">${esc(r.formula)}</div>
+   ${r.assumptions ? `<div class="a"><b>Assumes:</b> ${esc(r.assumptions)}</div>` : ""}
+   ${r.notes ? `<div class="a"><b>Note:</b> ${esc(r.notes)}</div>` : ""}
+   ${vars ? `<details><summary>letters</summary>${vars}</details>` : ""}
+   ${defs ? `<details><summary>default numbers</summary>${defs}</details>` : ""}
+   ${r.code ? `<details><summary>code</summary><pre>${esc(r.code)}</pre></details>` : ""}
+   <div class="src">${link ? `<a href="${link}" target="_blank" rel="noopener">${esc(r.file)}:${esc(r.lines)}</a>` : esc(r.file||"")} ${r.commit ? "@ "+esc(String(r.commit).slice(0,7)) : ""}</div></div>`;
+}
+function match(r){ if (!query) return true; return JSON.stringify(r).toLowerCase().includes(query); }
+function render(){
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.k === tab));
+  const secs = tab === "all" ? SECTIONS : SECTIONS.filter(s => s.k === tab);
+  let html = "";
+  for (const s of secs) {
+    const inSec = rows.filter(r => r._veh === s.k && match(r));
+    html += `<h2>${esc(s.title)} <span class="lead" style="font-size:13px;font-weight:400">· ${inSec.length} rows</span></h2><p class="lead">${esc(s.lead)}</p>`;
+    const gs = [...new Set(inSec.map(r => Number(r.group)||0))].sort((a,b)=>a-b);
+    if (!gs.length) html += `<p class="empty">Nothing here${query?" for this search":""}.</p>`;
+    for (const g of gs) {
+      const G = GROUPS[g] || [inSec.find(r => Number(r.group)===g)?.group_name || "Other", "", ""];
+      html += `<h3>${g ? g+". " : ""}${esc(G[0])} ${G[1] ? `<a class="ch" href="${G[2]}">taught in ${esc(G[1])}</a>` : ""}</h3><div class="grid">`;
+      for (const col of COLS) {
+        const rs = inSec.filter(r => Number(r.group) === g && r._col === col.k);
+        html += `<div class="col" style="--c:${col.c}"><div class="hd">${esc(col.name)} ${cites(col.refs)}</div>${rs.length ? rs.map(card).join("") : `<div class="empty">no row</div>`}</div>`;
+      }
+      html += `</div>`;
+    }
+  }
+  document.getElementById("body").innerHTML = html;
+}
+function summary(){
+  const missing = COLS.filter(c => !Array.isArray(c.data)).map(c => c.name);
+  let t = `<table class="t"><tr><th>Section</th>${COLS.map(c => `<th style="color:${c.c}">${esc(c.name)}</th>`).join("")}<th>All</th></tr>`;
+  for (const s of SECTIONS) {
+    const rs = rows.filter(r => r._veh === s.k);
+    t += `<tr><td>${esc(s.title)}</td>${COLS.map(c => `<td>${rs.filter(r => r._col === c.k).length}</td>`).join("")}<td><b>${rs.length}</b></td></tr>`;
+  }
+  t += `</table>`;
+  if (missing.length) t += `<div class="warn">Data file not loaded yet for: ${missing.map(esc).join(", ")}.</div>`;
+  document.getElementById("summary").innerHTML = t;
+}
+const tabs = document.getElementById("tabs");
+for (const [k,label] of [["multirotor","Multirotor"],["fixed-wing","Fixed-wing"],["both","Shared"],["all","All"]]) {
+  const b = document.createElement("button"); b.textContent = label; b.dataset.k = k;
+  b.onclick = () => { tab = k; try { localStorage.setItem("ardp_ref_tab", k); } catch(e) {} render(); }; tabs.append(b);
+}
+document.getElementById("q").oninput = e => { query = e.target.value.trim().toLowerCase(); render(); };
+summary(); render();
+</script>
+</body>
+</html>

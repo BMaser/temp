@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.2c How PX4 and Project AirSim plan a motion</title>
+<!-- Section 2.2 of the v2 course (Part I, Ch 2), page 2.2c. Source of truth: github
+     coursera_mirror\mirrors\Autonomous_Racing_Drone_Path\runs\2026-10-19_v2_plan_page\draft_px4kb\ (draft); numbers and quotes are checked by check_2_2c.py.
+     Marks and notes go to ..\notes.json under keys "2.2c:<block>" and "2.2c:<block>#t<n>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px;display:flex;align-items:center;gap:10px}
+h2 .step{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 9px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:17px;white-space:nowrap}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prob{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:6px;padding:10px 14px}
+.prob .tag{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--accent)}
+.prob ol{margin:6px 0 0;padding-left:22px}.prob li{margin:3px 0}
+details{margin-top:8px}summary{cursor:pointer;font-weight:600;color:var(--cL)}
+.ans{font-weight:700;background:#EAF7ED;border-radius:4px;padding:1px 6px}
+.trap{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:6px 10px;margin-top:6px}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+h2.sub{font-size:21px;margin:34px 0 10px;padding-top:10px;border-top:2px solid var(--ink)}
+h2.sub .no{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 10px}
+h3.sub3{font-size:17px;margin:22px 0 8px 12px}
+.big{font-size:21px;text-align:center;margin:10px 0}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+pre.code{background:#F6F4F0;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;overflow-x:auto;white-space:pre;margin:6px 0}
+.src{font-size:12px;color:var(--ink2)}
+q.src{font-size:inherit;color:inherit}
+table.t td code{font-size:12px;word-break:break-all}
+.prob.think{border-left-color:#7A3FC0;background:#FBF9FE}.prob.think .tag{color:#7A3FC0}
+.prob.think p{margin:8px 0}.prob.think .steps{margin:6px 0 0;padding-left:22px}.prob.think .steps li{margin:9px 0}
+.blk[data-b*="try"] .prob .tag::after{content:" · WARM-UP";font-weight:400;color:var(--ink2)}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I — Flight theory</a> › Ch 2 How things fly › <b>2.2c How PX4 and Project AirSim plan a motion</b> (draft)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>2.2c How PX4 and Project AirSim plan a motion</h1>
+<p class="lead">Part I · Chapter 2 · section 2, page 3 of 4 · about 1.5 hours · paper and a calculator · pages before: <a href="2.2a_Position_velocity_acceleration_on_a_line.html">2.2a Position, velocity and acceleration on a straight line</a> and <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b Three dimensions, laps, falling, fixed wings and the simulators</a></p>
+<p class="lead">Page 2.2a: 2.2.1-2.2.6, Try it 1-23, Think 1-4. Page 2.2b: 2.2.7-2.2.12, Try it 24-40, Problems 1-6, Think 5-10. This page: 2.2.13-2.2.19, Try it 41-58, Think 11-14. Page 2.2d: 2.2.20-2.2.25, Think 15-25. Section, Try-it and Think numbers run on across the four pages. Figures are numbered on each page from 1. The sources of this page are the PX4 autopilot [<a class="cite" href="../reference/references.html#ref-29">29</a>, <a class="cite" href="../reference/references.html#ref-47">47</a>, <a class="cite" href="../reference/references.html#ref-48">48</a>] and Project AirSim [<a class="cite" href="../reference/references.html#ref-30">30</a>, <a class="cite" href="../reference/references.html#ref-51">51</a>]. A number in square brackets is an entry of the <a href="../reference/references.html">list of references</a>.</p></div>
+
+<div data-b="goal"><div class="box"><b>Goal.</b> After this page you can: write the jerk of a motion and say why a flight controller limits it; split a smooth speed change into the three parts of an S-curve and compute their times and distances from three numbers; read the limits that PX4 [<a class="cite" href="../reference/references.html#ref-29">29</a>, <a class="cite" href="../reference/references.html#ref-47">47</a>] publishes for its planner, with their default values; compare an S-curve with the constant acceleration of page 2.2a; keep the fixed-wing limits apart from the multicopter limits; and read how Project AirSim [<a class="cite" href="../reference/references.html#ref-30">30</a>, <a class="cite" href="../reference/references.html#ref-51">51</a>] asks for a motion: its axes, its kinematics state and the velocity in its commands.</div></div>
+<div data-b="howto"><div class="box howto"><b>How this page works.</b> It is built like <a href="2.2a_Position_velocity_acceleration_on_a_line.html">page 2.2a</a>: a short explanation → a picture or table → <b>Try it</b> exercises with a solution you open after you try. <b>Warm-up and Think:</b> the Try it exercises are warm-ups, and the purple <b>Think</b> problems need more thought (their format is explained on page 2.2a). <b>Motion only:</b> forces are section 2.3, so no exercise on this page uses g. <b>Axes:</b> pages 2.2a and 2.2b use x east, y north, z up. PX4 [<a class="cite" href="../reference/references.html#ref-29">29</a>] and Project AirSim [<a class="cite" href="../reference/references.html#ref-30">30</a>] use north, east, down. Section 2.2.19 shows how to change from one to the other. <b>Default values:</b> a number called a "default" is copied exactly as the named file prints it, at the commit named next to it (a commit is one saved version of the code; the file and the line numbers are valid for that version only). Every other number in an exercise is made up for practice. <b>Quotes:</b> each quotation is copied from the file named next to it, and <code>check_2_2c.py</code> compares it with that file. <b>The sources are not racing values:</b> a default is the value in a file, and this page does not claim that it is right for any drone.</div></div>
+
+<h2 class="sub" id="s2.2.13"><span class="no">2.2.13</span> Jerk: how fast the acceleration changes</h2>
+<div data-b="jerk-explain"><p>On page 2.2a the acceleration was the rate of change of the velocity, <span class="f">a = dv/dt</span>. The same step can be taken once more. The <b>jerk</b> is the rate of change of the acceleration: <span class="f">j = da/dt</span>. Its unit is m/s³, read "meters per second per second per second". A positive jerk means that the acceleration is growing. A negative jerk means that it is shrinking. Over a time step Δt the average jerk is <span class="f">j<sub>avg</sub> = Δa / Δt</span>, in the same way as the average acceleration is Δv / Δt.</p>
+<p>The slope and area rules of 2.2.4 now have one more step. The slope of x(t) is v, the slope of v(t) is a, and the slope of a(t) is j. In the other direction, the area under j(t) is Δa, the area under a(t) is Δv, and the area under v(t) is Δx. The planner of PX4 [<a class="cite" href="../reference/references.html#ref-29">29</a>] sends all four numbers for each of the three directions. The file describes the message in these words: <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/msg_docs/TrajectorySetpoint.md|7">Trajectory setpoint in NED frame. Input to PID position controller. Needs to be kinematically consistent and feasible for smooth flight.</q> [<a class="cite" href="../reference/references.html#ref-50">50</a>, line 7]. The field for the jerk has the description <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/msg_docs/TrajectorySetpoint.md|19">in meters/second^3 (for logging only)</q> [<a class="cite" href="../reference/references.html#ref-50">50</a>, line 19].</p>
+<p><b>How to read this table.</b> The table has four rows, one for each of the four numbers of a trajectory. Read a row from left to right: the name of the quantity and its letter, its unit, the rule that gives it from the row above, and the name of the field in PX4's trajectory setpoint [<a class="cite" href="../reference/references.html#ref-50">50</a>]. It matters for flying because the planner of 2.2.14 limits the last two rows: the acceleration (to A) and the jerk (to J). Here is every symbol. <span class="f">x</span> is the position in meters (m). <span class="f">v</span> is the velocity in m/s. <span class="f">a</span> is the acceleration in m/s². <span class="f">j</span> is the jerk in m/s³. <span class="f">dx/dt</span>, <span class="f">dv/dt</span> and <span class="f">da/dt</span> are the rates of change (the slopes) of x, v and a. Figure 1 draws the four rows as four graphs of one motion, the S-curve of 2.2.14, one below the other.</p>
+<table class="t"><tr><th>Row</th><th>Quantity (letter)</th><th>Unit</th><th>Rule: the slope of the row above</th><th>Field in PX4's trajectory setpoint [<a class="cite" href="../reference/references.html#ref-50">50</a>]</th></tr>
+<tr><td>1</td><td><b>position</b> (x)</td><td class="f">m</td><td>this is the start of the chain</td><td><code>position</code>, "in meters"</td></tr>
+<tr><td>2</td><td><b>velocity</b> (v)</td><td class="f">m/s</td><td class="f">v = dx/dt</td><td><code>velocity</code>, "in meters/second"</td></tr>
+<tr><td>3</td><td><b>acceleration</b> (a)</td><td class="f">m/s²</td><td class="f">a = dv/dt</td><td><code>acceleration</code>, "in meters/second^2"</td></tr>
+<tr><td>4</td><td><b>jerk</b> (j)</td><td class="f">m/s³</td><td class="f">j = da/dt</td><td><code>jerk</code>, "in meters/second^3 (for logging only)"</td></tr></table>
+<figure><svg id="f1" viewBox="0 0 860 650" width="100%" style="max-width:860px" role="img" aria-label="Four graphs one below the other against time for the S-curve: position rising to 8.25 meters, velocity rising to 6 meters per second, acceleration as a trapezoid with a top of 3 meters per second squared, and jerk as three steps of plus 4, 0 and minus 4 meters per second cubed, with the three parts of the motion shaded"></svg>
+<figcaption>Figure 1. The four rows of the table as four graphs of one motion: speeding up from rest to 6.0 m/s with the limits A = 3.0 m/s² and J = 4.0 m/s³ (the S-curve of 2.2.14). From the top: x(t), v(t), a(t) and j(t). Each graph is the slope of the one above it: v is the slope of x, a is the slope of v, and j is the slope of a. The three shaded parts are the three parts of the motion, T1, T2 and T3.</figcaption></figure>
+<p><b>Constant jerk.</b> If the jerk is constant, the area rules give three equations, in the same way as the four equations of page 2.2a came from a constant acceleration. <span class="f">a = a<sub>0</sub> + j·t</span>, <span class="f">v = v<sub>0</sub> + a<sub>0</sub>·t + ½·j·t²</span> and <span class="f">x = x<sub>0</sub> + v<sub>0</sub>·t + ½·a<sub>0</sub>·t² + (1/6)·j·t³</span>. The letters <span class="f">a<sub>0</sub></span>, <span class="f">v<sub>0</sub></span> and <span class="f">x<sub>0</sub></span> are the acceleration, the velocity and the position at the start of the part, and t is the time since that start. The PX4 planner uses exactly these three lines to move along each part of its curve (<code>jt</code> is the jerk with its sign, <code>t2</code> is t², <code>t3</code> is t³) [<a class="cite" href="../reference/references.html#ref-29">29</a>, VelocitySmoothing.cpp:233-235]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.cpp|233-235">traj.a = a0 + jt * t;
+traj.v = v0 + a0 * t + 0.5f * jt * t2;
+traj.x = x0 + v0 * t + 0.5f * a0 * t2 + 1.f / 6.f * jt * t3;</pre></div>
+<div data-b="jerk-try41"><div class="prob"><div class="tag">TRY IT 41 · AVERAGE JERK</div>
+The acceleration of a drone grows from 0 to 2.0 m/s² in 0.5 s. Find the average jerk.
+<details><summary>Show solution</summary><span class="f">j<sub>avg</sub> = Δa / Δt = (2.0 − 0) / 0.5 = <span class="ans">4.0 m/s³</span></span>.</details></div></div>
+<div data-b="jerk-try42"><div class="prob"><div class="tag">TRY IT 42 · A NEGATIVE JERK</div>
+The acceleration of a drone changes from +3.0 m/s² to −3.0 m/s² in 1.5 s. Find the average jerk and say what the minus sign means.
+<details><summary>Show solution</summary><span class="f">j<sub>avg</sub> = Δa / Δt = (−3.0 − 3.0) / 1.5 = <span class="ans">−4.0 m/s³</span></span>. The minus sign means that the acceleration is getting smaller (here it even changes sign, from speeding up to slowing down).</details></div></div>
+<div data-b="jerk-try43"><div class="prob"><div class="tag">TRY IT 43 · CONSTANT JERK FROM REST</div>
+A drone starts with <span class="f">a<sub>0</sub> = 0</span>, <span class="f">v<sub>0</sub> = 0</span> and <span class="f">x<sub>0</sub> = 0</span>. The jerk is <span class="f">j = 4.0 m/s³</span> for <span class="f">t = 0.75 s</span>. Find a, v and x at the end.
+<details><summary>Show solution</summary><ol><li><span class="f">a = a<sub>0</sub> + j·t = 0 + 4.0 × 0.75 = <span class="ans">3.0 m/s²</span></span>.</li><li><span class="f">v = v<sub>0</sub> + a<sub>0</sub>·t + ½·j·t² = 0 + 0 + ½ × 4.0 × 0.75² = 2.0 × 0.5625 = <span class="ans">1.125 m/s</span></span>.</li><li><span class="f">x = x<sub>0</sub> + v<sub>0</sub>·t + ½·a<sub>0</sub>·t² + (1/6)·j·t³ = (1/6) × 4.0 × 0.75³ = (1/6) × 4.0 × 0.421875 = <span class="ans">0.28125 m</span></span>.</li></ol></details></div></div>
+
+<div data-b="jerk-why"><p><b>Why a controller limits the jerk.</b> Suppose that a planner asks for a jump of the acceleration, from 0 to 3.0 m/s² in no time. A jump has an infinite jerk. PX4 gives its aim in these words: <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_trajectory_tuning.md|25">Vehicle flight characteristics are better if the corresponding desired setpoint changes as a "ramp".</q> [<a class="cite" href="../reference/references.html#ref-48">48</a>, line 25]. It adds that a badly tuned setpoint <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_trajectory_tuning.md|31">may result in either very jerky or very unresponsive reactions to setpoint changes</q> [<a class="cite" href="../reference/references.html#ref-48">48</a>, line 31].</p>
+<p>The reason below is the explanation of this course. It is not a sentence of the PX4 pages. A multicopter makes a horizontal acceleration by tilting. PX4 turns the acceleration that the velocity controller asks for into a thrust setpoint and an attitude setpoint: <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/flight_stack/controller_diagrams.md|53">The acceleration setpoints generated by the velocity controller will be converted to thrust and attitude setpoints.</q> [<a class="cite" href="../reference/references.html#ref-38">38</a>, line 53]. The drone has to rotate to the new tilt, and every motor has to change its speed. PX4's simulator and Project AirSim both contain a first-order lag between the command of a motor and the motor itself. Here is the lag in PX4's simulator [<a class="cite" href="../reference/references.html#ref-29">29</a>, sih.cpp:383]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/modules/simulation/simulator_sih/sih.cpp|383">_u[i] = _u[i] + dt / _T_TAU * (u_sp - _u[i]); // first order transfer function with time constant tau</pre>
+<p>Here is the lag in Project AirSim [<a class="cite" href="../reference/references.html#ref-30">30</a>, first_order_filter.hpp:72]:</p>
+<pre class="code" data-src="iamaisim/ProjectAirSim|c80cff5|core_sim/include/core_sim/first_order_filter.hpp|72">output_ = static_cast&lt;T&gt;((output_ * alpha) + (input_ * (1.0 - alpha)));</pre>
+<p>In both lines the new output moves only a part of the way toward the new input. So a jump in the command reaches the motor only after a delay, and a ramp is followed more closely than a jump. Figure 2 compares a jump with a ramp that both bring the drone to 3.0 m/s.</p>
+<figure><svg id="f2" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Left: the acceleration against time for a jump to 3 meters per second squared lasting 1 second, and for a ramp that reaches the same speed in 1.75 seconds. Right: the jerk of both, with arrows for the jump and three steps for the ramp"></svg>
+<figcaption>Figure 2. Two ways to reach 3.0 m/s from rest. Left: the acceleration a(t). The jump (red) holds a = 3.0 m/s² for 1.0 s. The ramp (green) uses the limits A = 3.0 m/s² and J = 4.0 m/s³ and needs 1.75 s. Both enclose the same area, 3.0 m/s. Right: the jerk j(t). The jump has an infinite jerk at its start and at its end (the arrows). The ramp has the jerk +4.0, then 0, then −4.0 m/s³.</figcaption></figure></div>
+
+<h2 class="sub" id="s2.2.14"><span class="no">2.2.14</span> The S-curve: three parts, three numbers</h2>
+<div data-b="s-explain"><p>The jerk-limited trajectory of PX4 <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_jerk_limited_type_trajectory.md|4">generates symmetric smooth S-curves where the jerk and acceleration limits are always guaranteed</q> [<a class="cite" href="../reference/references.html#ref-47">47</a>, line 4]. The same page says that this trajectory type <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_jerk_limited_type_trajectory.md|6">is always enabled in autonomous modes like</q> Mission mode [<a class="cite" href="../reference/references.html#ref-47">47</a>, line 6]. The curve has this name because the graph of the velocity looks like the letter S.</p>
+<p>Three limits describe the curve. <span class="f">A</span> is the largest acceleration, in m/s². <span class="f">J</span> is the largest jerk, in m/s³. <span class="f">V</span> is the speed to reach, in m/s. The source code of PX4 splits the motion into three parts and gives their durations in seconds: T1 is the <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.hpp|208">Increasing acceleration</q>, T2 is the <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.hpp|209">Constant acceleration</q> and T3 is the <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.hpp|210">Decreasing acceleration</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, VelocitySmoothing.hpp:208-210].</p>
+<p>Take a drone at rest with a = 0 that must reach the speed V. Part 1 uses the jerk +J, so a grows from 0 to A. Part 2 uses the jerk 0, so a stays at A. Part 3 uses the jerk −J, so a falls from A back to 0. The area under a(t) is the speed gained. Part 1 is a triangle with the area ½·A·T1, and part 3 is the same triangle turned around. Part 2 is a rectangle with the area A·T2. The three areas must add up to V.</p>
+<p>Part 1 takes <span class="f">T<sub>1</sub> = A / J</span>, because a grows by J every second until it reaches A. The triangle has the area <span class="f">½ × A × (A / J) = A² / (2·J)</span>. The two triangles together give <span class="f">A² / J</span>. So <span class="f">V = A² / J + A·T<sub>2</sub></span>, and the three durations are:</p>
+<p class="big"><span class="f">T<sub>1</sub> = T<sub>3</sub> = A / J</span> &nbsp;&nbsp; <span class="f">T<sub>2</sub> = V / A − A / J</span> &nbsp;&nbsp; <span class="f">T = T<sub>1</sub> + T<sub>2</sub> + T<sub>3</sub> = V / A + A / J</span></p>
+<p>These formulas hold when the acceleration A is really reached. That is the case if <span class="f">V ≥ A² / J</span>. If V is smaller, the acceleration turns around before it reaches A. Then there is no part 2, and <span class="f">T<sub>1</sub> = T<sub>3</sub> = √(V / J)</span>, <span class="f">T<sub>2</sub> = 0</span>, <span class="f">T = 2·√(V / J)</span> and the largest acceleration is <span class="f">√(J·V)</span>. PX4 contains both cases in a few lines. Here is the line that cuts the first part so that the acceleration does not pass A (<code>a0</code> is the acceleration at the start, which is 0 in our case) [<a class="cite" href="../reference/references.html#ref-29">29</a>, VelocitySmoothing.cpp:61-65]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.cpp|61-65">float accel_T1 = a0 + j_max * T1;
+float T1_new = T1;
+
+if (accel_T1 &gt; a_max) {
+	T1_new = (a_max - a0) / j_max;</pre>
+<p>With <code>a0</code> = 0 the line <code>T1_new = (a_max - a0) / j_max</code> is our <span class="f">T<sub>1</sub> = A / J</span>. Here is the line that gives the length of part 2 (<code>v3</code> is the speed to gain, <code>den</code> is <code>a0 + j_max * T1</code>, which is A in our case) [<a class="cite" href="../reference/references.html#ref-29">29</a>, VelocitySmoothing.cpp:142-145]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.cpp|142-145">float den = a0 + j_max * T1;
+
+if (math::abs_t(den) &gt; FLT_EPSILON) {
+	T2 = (-0.5f * T1 * T1 * j_max - T1 * T3 * j_max - T1 * a0 + 0.5f * T3 * T3 * j_max - T3 * a0 + v3) / den;</pre>
+<p>Put <code>a0</code> = 0 and <code>T3</code> = <code>T1</code> = A / J into this line. The three terms with T1 and T3 add up to −A² / J, so the line says <span class="f">T<sub>2</sub> = (V − A² / J) / A = V / A − A / J</span>. This agrees with the formula above.</p>
+<p><b>Worked example, with the default limits of PX4 (A = 3.0 m/s², J = 4.0 m/s³, rows 3 and 4 of 2.2.15) and V = 6.0 m/s.</b> The speed V = 6.0 m/s is a value that the user may choose; it is not the default (the default cruise speed is 5.0 m/s). We use 6.0 because every number of this example then comes out exact.</p>
+<ol style="margin:4px 0 8px 22px;padding:0">
+<li>Is A reached? <span class="f">A² / J = 3.0² / 4.0 = 9.0 / 4.0 = 2.25 m/s</span>. The speed V = 6.0 m/s is larger, so part 2 exists.</li>
+<li>Part 1 and part 3: <span class="f">T<sub>1</sub> = A / J = 3.0 / 4.0 = 0.75 s</span> and <span class="f">T<sub>3</sub> = 0.75 s</span>.</li>
+<li>Part 2: <span class="f">T<sub>2</sub> = V / A − A / J = 6.0 / 3.0 − 0.75 = 2.0 − 0.75 = 1.25 s</span>.</li>
+<li>Total time: <span class="f">T = 0.75 + 1.25 + 0.75 = 2.75 s</span>.</li>
+<li>Speed after part 1: <span class="f">v<sub>1</sub> = ½·J·T<sub>1</sub>² = ½ × 4.0 × 0.75² = 2.0 × 0.5625 = 1.125 m/s</span>. Speed after part 2: <span class="f">v<sub>2</sub> = V − v<sub>1</sub> = 6.0 − 1.125 = 4.875 m/s</span>. The check by part 2 gives the same: <span class="f">v<sub>1</sub> + A·T<sub>2</sub> = 1.125 + 3.0 × 1.25 = 1.125 + 3.75 = 4.875 m/s</span>.</li>
+<li>Distance of part 1 (equation x of 2.2.13 with a<sub>0</sub> = 0): <span class="f">x<sub>1</sub> = (1/6) × 4.0 × 0.75³ = 0.28125 m</span>.</li>
+<li>Distance of part 2 (a constant, equation 2 of page 2.2a): <span class="f">x<sub>2</sub> = v<sub>1</sub>·T<sub>2</sub> + ½·A·T<sub>2</sub>² = 1.125 × 1.25 + ½ × 3.0 × 1.25² = 1.40625 + 2.34375 = 3.75 m</span>.</li>
+<li>Distance of part 3 (start a<sub>0</sub> = A, jerk −J): <span class="f">x<sub>3</sub> = v<sub>2</sub>·T<sub>3</sub> + ½·A·T<sub>3</sub>² − (1/6)·J·T<sub>3</sub>³ = 4.875 × 0.75 + ½ × 3.0 × 0.75² − 0.28125 = 3.65625 + 0.84375 − 0.28125 = 4.21875 m</span>.</li>
+<li>Total distance: <span class="f">x = 0.28125 + 3.75 + 4.21875 = 8.25 m</span>. The velocity of an S-curve is symmetric about its middle, so the average speed is V / 2. The check <span class="f">V·T / 2 = 6.0 × 2.75 / 2 = 8.25 m</span> gives the same.</li></ol>
+<p>Figure 3 shows the areas of the example.</p>
+<figure><svg id="f3" viewBox="0 0 860 470" width="100%" style="max-width:860px" role="img" aria-label="Top: the acceleration of the S-curve with the areas of its three parts, 1.125, 3.75 and 1.125 meters per second. Bottom: the velocity with the values 1.125, 4.875 and 6 meters per second at the ends of the parts"></svg>
+<figcaption>Figure 3. The example of 2.2.14. Top: a(t) for V = 6.0 m/s, A = 3.0 m/s² and J = 4.0 m/s³. The area under a(t) is the speed gained: A² / (2·J) = 1.125 m/s in part 1, A·T2 = 3.75 m/s in part 2 and 1.125 m/s in part 3. Bottom: v(t) with the speed at the end of each part: 1.125, 4.875 and 6.0 m/s.</figcaption></figure></div>
+<div data-b="s-try44"><div class="prob"><div class="tag">TRY IT 44 · THE THREE DURATIONS</div>
+Use the limits A = 2.0 m/s² and J = 4.0 m/s³ (A = 2 is the smallest value that PX4 allows for MPC_ACC_HOR, see 2.2.15 [<a class="cite" href="../reference/references.html#ref-29">29</a>]) and the speed V = 3.0 m/s, from rest. Find T1, T2, T3, the total time T and the distance x.
+<details><summary>Show solution</summary><ol><li>Is A reached? <span class="f">A² / J = 2.0² / 4.0 = 4.0 / 4.0 = 1.0 m/s</span>. V = 3.0 m/s is larger, so yes.</li><li><span class="f">T<sub>1</sub> = A / J = 2.0 / 4.0 = <span class="ans">0.5 s</span></span> and <span class="f">T<sub>3</sub> = <span class="ans">0.5 s</span></span>.</li><li><span class="f">T<sub>2</sub> = V / A − A / J = 3.0 / 2.0 − 0.5 = 1.5 − 0.5 = <span class="ans">1.0 s</span></span>.</li><li><span class="f">T = 0.5 + 1.0 + 0.5 = <span class="ans">2.0 s</span></span>.</li><li><span class="f">x = V·T / 2 = 3.0 × 2.0 / 2 = <span class="ans">3.0 m</span></span>.</li></ol></details></div></div>
+<div data-b="s-try45"><div class="prob"><div class="tag">TRY IT 45 · THE ACCELERATION IS NOT REACHED</div>
+Use A = 3.0 m/s², J = 4.0 m/s³ and the small speed V = 2.0 m/s, from rest. Is A reached? Find T1, T2, T3, T, the largest acceleration and the distance x.
+<details><summary>Show solution</summary><ol><li><span class="f">A² / J = 3.0² / 4.0 = 9.0 / 4.0 = 2.25 m/s</span>. V = 2.0 m/s is smaller, so A is <b>not</b> reached and there is no part 2.</li><li><span class="f">T<sub>1</sub> = T<sub>3</sub> = √(V / J) = √(2.0 / 4.0) = √0.5 = <span class="ans">0.707 s</span></span> and <span class="f">T<sub>2</sub> = <span class="ans">0</span></span>.</li><li><span class="f">T = 2 × 0.707 = <span class="ans">1.414 s</span></span>.</li><li>The largest acceleration is <span class="f">J·T<sub>1</sub> = 4.0 × 0.707 = <span class="ans">2.828 m/s²</span></span>, below A = 3.0.</li><li><span class="f">x = V·T / 2 = 2.0 × 1.414 / 2 = <span class="ans">1.414 m</span></span>.</li></ol></details></div></div>
+<div data-b="s-try46"><div class="prob"><div class="tag">TRY IT 46 · SPEEDS AT THE END OF EACH PART</div>
+Use A = 3.0 m/s², J = 4.0 m/s³ and V = 3.0 m/s, from rest. Find T1, T2, T3 and the speeds v1 (end of part 1) and v2 (end of part 2).
+<details><summary>Show solution</summary><ol><li>Is A reached? <span class="f">A² / J = 2.25 m/s</span>, and V = 3.0 m/s is larger, so yes.</li><li><span class="f">T<sub>1</sub> = T<sub>3</sub> = A / J = 3.0 / 4.0 = <span class="ans">0.75 s</span></span>.</li><li><span class="f">T<sub>2</sub> = V / A − A / J = 3.0 / 3.0 − 0.75 = 1.0 − 0.75 = <span class="ans">0.25 s</span></span>.</li><li><span class="f">v<sub>1</sub> = ½·J·T<sub>1</sub>² = ½ × 4.0 × 0.75² = <span class="ans">1.125 m/s</span></span>.</li><li><span class="f">v<sub>2</sub> = V − v<sub>1</sub> = 3.0 − 1.125 = <span class="ans">1.875 m/s</span></span>.</li></ol></details></div></div>
+
+<div data-b="think-11"><div class="prob think"><div class="tag">THINK 11 · FROM THE TIME BACK TO THE SPEED</div>
+<p><b>Situation.</b> Two flights start at rest and change their speed with an S-curve under the default limits of PX4, A = 3.0 m/s² and J = 4.0 m/s³ (rows 3 and 4 of 2.2.15) [<a class="cite" href="../reference/references.html#ref-29">29</a>, <a class="cite" href="../reference/references.html#ref-47">47</a>]. The final speeds are lost, but the logs kept the duration of each speed change: 2.75 s for flight 1 and 1.0 s for flight 2. Figure 4 draws the duration T of an S-curve against the speed change V.</p>
+<figure><svg id="t11" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="The duration of an S-curve against the speed change: a curve that rises like a square root up to 2.25 meters per second and 1.5 seconds, then a straight line; two marked points, 1.0 meter per second at 1.0 second and 6.0 meters per second at 2.75 seconds"></svg>
+<figcaption>Figure 4. The duration T of an S-curve from rest against the final speed V, for A = 3.0 m/s² and J = 4.0 m/s³. Up to V = A² / J = 2.25 m/s (T = 1.5 s) the acceleration A is not reached and T = 2·√(V / J). Above it, T = V / A + A / J is a straight line. The two logs are the marked points: 1.0 s belongs to 1.0 m/s, and 2.75 s belongs to 6.0 m/s.</figcaption></figure>
+<p><b>Questions.</b> (a) What speed did each flight reach? (b) How do you know, before you solve, which of the two formulas of 2.2.14 applies to each log?</p>
+<p><b>Think first.</b></p>
+<ol><li>2.2.14 has two formulas for T. They apply to different cases. How can you tell the case from T alone?</li>
+<li>At the border between the two cases, both formulas give the same T. Can you find that T?</li>
+<li>After you solve, which statement must you check to be sure that you used the right formula?</li></ol>
+<details><summary>Hint</summary>The border case is V = A² / J. Find its duration T. A log with a longer T is in the case where A is reached.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> first find the border. At V = A² / J the acceleration A is just reached. <span class="f">A² / J = 3.0² / 4.0 = 2.25 m/s</span>. Its duration is <span class="f">T = V / A + A / J = 2.25 / 3.0 + 0.75 = <span class="ans">1.5 s</span></span>, and the other formula gives the same: <span class="f">2·A / J = 2 × 3.0 / 4.0 = 1.5 s</span>.</li>
+<li><i>Why this step:</i> flight 1 lasted 2.75 s, which is more than 1.5 s, so A is reached. Solve T = V / A + A / J for V. <span class="f">V = (T − A / J) × A = (2.75 − 0.75) × 3.0 = <span class="ans">6.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> flight 2 lasted 1.0 s, which is less than 1.5 s, so A is not reached. Solve T = 2·√(V / J) for V: square both sides and solve. <span class="f">V = J × (T / 2)² = 4.0 × 0.5² = 4.0 × 0.25 = <span class="ans">1.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> the choice of the case was made with T, so check it with the result. In flight 2 the largest acceleration is <span class="f">J × T / 2 = 4.0 × 1.0 / 2 = 2.0 m/s²</span>, which is below A = 3.0, as the case needs.</li></ol>
+<p><b>Check your answer.</b> Compute T again from each V. Flight 1: <span class="f">6.0 / 3.0 + 0.75 = 2.75 s</span>. Flight 2: <span class="f">2 × √(1.0 / 4.0) = 2 × 0.5 = 1.0 s</span>. Both agree with the logs. The curve in Figure 4 rises with V, so each T belongs to only one V.</p>
+<p><b>What if …</b> a log said T = 1.5 s?</p>
+<details><summary>Show the answer</summary>Then the flight is exactly at the border, and both formulas give the same speed: <span class="f">(1.5 − 0.75) × 3.0 = <span class="ans">2.25 m/s</span></span> and <span class="f">4.0 × 0.75² = <span class="ans">2.25 m/s</span></span>.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.15"><span class="no">2.2.15</span> The limits that PX4 publishes</h2>
+<div data-b="limits"><p>PX4 keeps its limits in <b>parameters</b>. A parameter is a named number that the user may change. Every parameter has a default (the value used when nobody changes it), a unit, and a smallest and a largest value that it may have. The files that define the parameters print all of these. For the planner of automatic flight (missions, return to home, "go to") PX4 takes A, J and V from these parameters. The PX4 page lists the constraints of the XY-plane as <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_jerk_limited_type_trajectory.md|46">MPC_JERK_AUTO</q> for the jerk and <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_jerk_limited_type_trajectory.md|47">MPC_ACC_HOR</q> for the acceleration [<a class="cite" href="../reference/references.html#ref-47">47</a>, lines 44-47]. The code sets them in these lines [<a class="cite" href="../reference/references.html#ref-29">29</a>, FlightTaskAuto.cpp:829-831]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/modules/flight_mode_manager/tasks/Auto/FlightTaskAuto.cpp|829-831">_position_smoothing.setMaxAccelerationXY(_param_mpc_acc_hor.get()); // TODO : Should be computed using heading
+_position_smoothing.setMaxVelocityXY(_param_mpc_xy_vel_max.get());
+_position_smoothing.setMaxJerk(_param_mpc_jerk_auto.get()); // TODO : Should be computed using heading</pre>
+<p>The speed V comes from the cruise speed. The code makes sure that the cruise speed is not above the largest speed (<code>_param_mpc_xy_vel_max</code> is the parameter MPC_XY_VEL_MAX) [<a class="cite" href="../reference/references.html#ref-29">29</a>, FlightTaskAuto.cpp:437-438]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/modules/flight_mode_manager/tasks/Auto/FlightTaskAuto.cpp|437-438">// Ensure planned cruise speed is below the maximum such that the smooth trajectory doesn't get capped
+_mc_cruise_speed = math::min(_mc_cruise_speed, _param_mpc_xy_vel_max.get());</pre>
+<p>The file entry of MPC_XY_VEL_MAX says <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_position_control_limits_params.yaml|9">Absolute maximum for all velocity controlled modes.</q> and <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_position_control_limits_params.yaml|10">Any higher value is truncated.</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, lines 9-10]. The file entry of MPC_JERK_AUTO says <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_autonomous_params.yaml|98">Limit the maximum jerk of the vehicle (how fast the acceleration can change).</q> and <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_autonomous_params.yaml|99">A lower value leads to smoother vehicle motions but also limited agility.</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, lines 98-99].</p>
+<p><b>How to read this table.</b> The table has fourteen rows, one for each parameter. Rows 1 to 10 belong to the planner of automatic flight, and rows 11 to 14 belong to the manual modes. Read a row from left to right: its number, the parameter name, what the file says that it limits, and then the five values that the file prints: the default, the unit, the smallest value (min) and the largest value (max). The last column names the file and the lines of the entry. The values are printed exactly as the file prints them: <span class="f">m/s^2</span> and <span class="f">m/s^3</span> are the unit texts of the file, and "none in the file" means that the file gives no unit or no value. It matters for flying because each of these numbers can change how fast and how smoothly a drone flies. Here is every symbol. <span class="f">A</span> is the acceleration limit, <span class="f">J</span> is the jerk limit and <span class="f">V</span> is the speed (rows 3, 4 and 1 or 2). All files are in <code>src/modules/mc_pos_control/</code> of PX4-Autopilot at commit d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]. Figure 5 draws every row as a bar from its min to its max, with a mark at its default.</p>
+<table class="t"><tr><th>Row</th><th>Parameter</th><th>What the file says that it limits</th><th>Default</th><th>Unit</th><th>Min</th><th>Max</th><th>File and lines [<a class="cite" href="../reference/references.html#ref-29">29</a>]</th></tr>
+<tr><td>1</td><td><code>MPC_XY_CRUISE</code></td><td>Default horizontal velocity in autonomous modes (V)</td><td class="f">5.0</td><td><code>m/s</code></td><td class="f">3</td><td class="f">20</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L49-L59"><code>multicopter_autonomous_params.yaml:49-59</code></a></td></tr>
+<tr><td>2</td><td><code>MPC_XY_VEL_MAX</code></td><td>Maximum horizontal velocity (absolute maximum; V is cut to it)</td><td class="f">12.0</td><td><code>m/s</code></td><td class="f">0</td><td class="f">20</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_position_control_limits_params.yaml#L5-L17"><code>multicopter_position_control_limits_params.yaml:5-17</code></a></td></tr>
+<tr><td>3</td><td><code>MPC_ACC_HOR</code></td><td>Acceleration for autonomous and for manual modes (A)</td><td class="f">3.0</td><td><code>m/s^2</code></td><td class="f">2</td><td class="f">15</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L82-L93"><code>multicopter_autonomous_params.yaml:82-93</code></a></td></tr>
+<tr><td>4</td><td><code>MPC_JERK_AUTO</code></td><td>Jerk limit in autonomous modes (J)</td><td class="f">4.0</td><td><code>m/s^3</code></td><td class="f">1</td><td class="f">80</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L94-L106"><code>multicopter_autonomous_params.yaml:94-106</code></a></td></tr>
+<tr><td>5</td><td><code>MPC_Z_V_AUTO_UP</code></td><td>Ascent velocity in autonomous modes</td><td class="f">3.0</td><td><code>m/s</code></td><td class="f">0.5</td><td class="f">8</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L60-L70"><code>multicopter_autonomous_params.yaml:60-70</code></a></td></tr>
+<tr><td>6</td><td><code>MPC_Z_V_AUTO_DN</code></td><td>Descent velocity in autonomous modes</td><td class="f">1.5</td><td><code>m/s</code></td><td class="f">0.5</td><td class="f">4</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L71-L81"><code>multicopter_autonomous_params.yaml:71-81</code></a></td></tr>
+<tr><td>7</td><td><code>MPC_ACC_UP_MAX</code></td><td>Maximum upwards acceleration in climb rate controlled modes</td><td class="f">4.0</td><td><code>m/s^2</code></td><td class="f">2</td><td class="f">15</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_altitude_mode_params.yaml#L5-L14"><code>multicopter_altitude_mode_params.yaml:5-14</code></a></td></tr>
+<tr><td>8</td><td><code>MPC_ACC_DOWN_MAX</code></td><td>Maximum downwards acceleration in climb rate controlled modes</td><td class="f">3.0</td><td><code>m/s^2</code></td><td class="f">2</td><td class="f">15</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_altitude_mode_params.yaml#L15-L24"><code>multicopter_altitude_mode_params.yaml:15-24</code></a></td></tr>
+<tr><td>9</td><td><code>MPC_XY_TRAJ_P</code></td><td>Proportional gain for horizontal trajectory position error</td><td class="f">0.5</td><td>none in the file</td><td class="f">0.1</td><td class="f">1</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L107-L115"><code>multicopter_autonomous_params.yaml:107-115</code></a></td></tr>
+<tr><td>10</td><td><code>MPC_XY_ERR_MAX</code></td><td>Maximum horizontal error allowed by the trajectory generator</td><td class="f">2.0</td><td>none in the file</td><td class="f">0</td><td class="f">10</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_autonomous_params.yaml#L116-L133"><code>multicopter_autonomous_params.yaml:116-133</code></a></td></tr>
+<tr><td>11</td><td><code>MPC_Z_VEL_MAX_UP</code></td><td>Maximum ascent velocity (manual modes)</td><td class="f">3.0</td><td><code>m/s</code></td><td class="f">0.5</td><td class="f">8</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_position_control_limits_params.yaml#L18-L32"><code>multicopter_position_control_limits_params.yaml:18-32</code></a></td></tr>
+<tr><td>12</td><td><code>MPC_Z_VEL_MAX_DN</code></td><td>Maximum descent velocity (manual modes)</td><td class="f">1.5</td><td><code>m/s</code></td><td class="f">0.5</td><td class="f">4</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_position_control_limits_params.yaml#L33-L47"><code>multicopter_position_control_limits_params.yaml:33-47</code></a></td></tr>
+<tr><td>13</td><td><code>MPC_JERK_MAX</code></td><td>Maximum horizontal and vertical jerk in Position/Altitude mode</td><td class="f">8.0</td><td><code>m/s^3</code></td><td class="f">0.5</td><td class="f">500</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_position_mode_params.yaml#L75-L91"><code>multicopter_position_mode_params.yaml:75-91</code></a></td></tr>
+<tr><td>14</td><td><code>MPC_ACC_HOR_MAX</code></td><td>Maximum horizontal acceleration</td><td class="f">5.0</td><td><code>m/s^2</code></td><td class="f">2</td><td class="f">15</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/multicopter_position_mode_params.yaml#L62-L74"><code>multicopter_position_mode_params.yaml:62-74</code></a></td></tr></table>
+<figure><svg id="f4" viewBox="0 0 860 500" width="100%" style="max-width:860px" role="img" aria-label="Fourteen horizontal bars, one for each parameter of the table, from its smallest to its largest allowed value, each with a mark at the default value and the default printed at the right"></svg>
+<figcaption>Figure 5. The fourteen rows of the table. Each bar runs from the min (left) to the max (right) of its row, and the red mark shows the default. The scale of each bar is its own, so the bars show where the default lies in the allowed range, not the sizes of the numbers. The left numbers are the min, the right numbers are the max, and the text at the far right is the default with its unit. Rows 1 to 10 belong to the planner of automatic flight.</figcaption></figure>
+<p><b>Two places where the files do not agree word for word.</b> First, the PX4 page says that in the manual position and altitude modes <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/config_mc/mc_jerk_limited_type_trajectory.md|27">jerk limiting is applied only to the vertical axis</q> [<a class="cite" href="../reference/references.html#ref-47">47</a>, line 27]. The file entry of row 13 says <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_position_mode_params.yaml|77">Maximum horizontal and vertical jerk in Position/Altitude mode</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, line 77]. This page uses automatic flight, where the page and the code agree: all axes use MPC_JERK_AUTO (row 4). Second, the file entry of row 14 says <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_position_mode_params.yaml|67">With MPC_POS_MODE=4 it is unused (see MPC_ACC_HOR).</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, line 67], and the default of MPC_POS_MODE is 4 (<code>default: 4</code> in the same file, line 20). So with default settings row 14 is not used.</p></div>
+<div data-b="limits-try47"><div class="prob"><div class="tag">TRY IT 47 · THE CRUISE SPEED IS CUT</div>
+A mission asks for the cruise speed 15.0 m/s. All parameters have their defaults. Which cruise speed does the planner of PX4 use? Which line of code does it?
+<details><summary>Show solution</summary>The code takes the smaller of the asked cruise speed and MPC_XY_VEL_MAX (row 2) [<a class="cite" href="../reference/references.html#ref-29">29</a>, FlightTaskAuto.cpp:438]: <span class="f">min(15.0, 12.0) = <span class="ans">12.0 m/s</span></span>.</details></div></div>
+<div data-b="limits-try48"><div class="prob"><div class="tag">TRY IT 48 · CLIMB AND DESCENT TIMES</div>
+A drone must climb 30 m and then descend 30 m in automatic flight with the default parameters. Ignore the ramps at the start and the end. How long does each part take at the speeds of rows 5 and 6?
+<details><summary>Show solution</summary><ol><li>Climb, row 5 (3.0 m/s): <span class="f">t = 30 / 3.0 = <span class="ans">10.0 s</span></span>.</li><li>Descent, row 6 (1.5 m/s): <span class="f">t = 30 / 1.5 = <span class="ans">20.0 s</span></span>.</li></ol></details></div></div>
+
+<h2 class="sub" id="s2.2.16"><span class="no">2.2.16</span> What the jerk limit costs: a straight run, step by step</h2>
+<div data-b="run-default"><p>The jerk limit makes the speed change smoother, and it makes it longer. Here is the first comparison. A drone flies a straight run of <span class="f">L = 100 m</span> from rest to rest. It speeds up to <span class="f">V = 6.0 m/s</span>, cruises, and slows down to rest again. The speeding up and the slowing down use the same limits. The first row of the table uses the constant acceleration A = 3.0 m/s² of page 2.2a. The second row uses the S-curve of 2.2.14 with the PX4 defaults A = 3.0 m/s² and J = 4.0 m/s³ [<a class="cite" href="../reference/references.html#ref-29">29</a>].</p>
+<p><b>How to read this table.</b> The table has two rows, one for each way to speed up. Read a row from left to right. The first cell gives the way. The next cells give the time and the distance of one speed-up, the distance that is left for the cruise, the time of the cruise, and the total time of the run, each as a formula with letters and then with numbers. It matters for flying because the planner pays this extra time at every speed change. Here is every symbol. <span class="f">t<sub>r</sub></span> is the time of one speed-up (s). <span class="f">x<sub>r</sub></span> is the distance of one speed-up (m). <span class="f">V</span> is the cruise speed (6.0 m/s). <span class="f">A</span> is the acceleration limit (3.0 m/s²). <span class="f">J</span> is the jerk limit (4.0 m/s³). <span class="f">L</span> is the length of the run (100 m). The cruise distance is <span class="f">L − 2·x<sub>r</sub></span>, because the run has a speed-up at its start and a slow-down at its end. The cruise time is that distance divided by V. The total time is two times t<sub>r</sub> plus the cruise time. Figure 6 draws both rows as graphs of the speed and of the position.</p>
+<table class="t"><tr><th>Way to speed up</th><th>t<sub>r</sub> (s)</th><th>x<sub>r</sub> (m)</th><th>Cruise distance (m)</th><th>Cruise time (s)</th><th>Total time (s)</th></tr>
+<tr><td><b>Constant a</b> (page 2.2a)</td><td class="f">V / A = 6.0 / 3.0 = 2.0</td><td class="f">V² / (2·A) = 6.0² / (2 × 3.0) = 36.0 / 6.0 = 6.0</td><td class="f">100 − 2 × 6.0 = 88.0</td><td class="f">88.0 / 6.0 = 14.667</td><td class="f">2 × 2.0 + 14.667 = 18.667</td></tr>
+<tr><td><b>S-curve</b> (PX4)</td><td class="f">V / A + A / J = 6.0 / 3.0 + 3.0 / 4.0 = 2.75</td><td class="f">V·t<sub>r</sub> / 2 = 6.0 × 2.75 / 2 = 8.25</td><td class="f">100 − 2 × 8.25 = 83.5</td><td class="f">83.5 / 6.0 = 13.917</td><td class="f">2 × 2.75 + 13.917 = 19.417</td></tr></table>
+<figure><svg id="f5" viewBox="0 0 860 400" width="100%" style="max-width:860px" role="img" aria-label="Left: the velocity against time for the constant acceleration, which reaches 6 meters per second at 2 seconds, and for the S-curve, which reaches it at 2.75 seconds. Right: the position against time, with the speed-up distances 6 and 8.25 meters marked"></svg>
+<figcaption>Figure 6. The two rows of the table, for the first speed-up. Left: v(t). The constant acceleration (blue) reaches 6.0 m/s at 2.0 s. The S-curve (green) reaches it at 2.75 s; the orange area between the two curves is the speed that the S-curve has not yet gained. Right: x(t). The constant acceleration has covered 6.0 m at the end of its speed-up, the S-curve 8.25 m. At 4.0 s the S-curve is behind the constant acceleration.</figcaption></figure>
+<p>The two total times differ by <span class="f">19.417 − 18.667 = 0.75 s</span>. This is <span class="f">2 × 0.375 s</span>: each of the two speed-ups costs <span class="f">A / J = 3.0 / 4.0 = 0.75 s</span> of time and covers <span class="f">A·V / (2·J) = 3.0 × 6.0 / (2 × 4.0) = 2.25 m</span> more distance, and that extra distance would have taken <span class="f">2.25 / 6.0 = 0.375 s</span> of cruise.</p></div>
+<div data-b="run-try49"><div class="prob"><div class="tag">TRY IT 49 · THE COST OF THE JERK LIMIT</div>
+For one speed-up, the S-curve takes A / J longer than the constant acceleration. With A = 3.0 m/s², which jerk limit J makes this extra time 0.30 s? Is that J inside the range of row 4 (1 to 80)?
+<details><summary>Show solution</summary>From <span class="f">t<sub>extra</sub> = A / J</span> we get <span class="f">J = A / t<sub>extra</sub> = 3.0 / 0.30 = <span class="ans">10.0 m/s³</span></span>. The range of row 4 is 1 to 80, so 10.0 is allowed.</details></div></div>
+<div data-b="run-try50"><div class="prob"><div class="tag">TRY IT 50 · A SLOWER CRUISE</div>
+Repeat the run of 100 m with the cruise speed V = 3.0 m/s and the limits A = 3.0 m/s², J = 4.0 m/s³ (S-curve). Find t<sub>r</sub>, x<sub>r</sub>, the cruise distance, the cruise time and the total time.
+<details><summary>Show solution</summary><ol><li>Is A reached? <span class="f">A² / J = 2.25 m/s</span>, and V = 3.0 m/s is larger, so yes.</li><li><span class="f">t<sub>r</sub> = V / A + A / J = 3.0 / 3.0 + 0.75 = <span class="ans">1.75 s</span></span>.</li><li><span class="f">x<sub>r</sub> = V·t<sub>r</sub> / 2 = 3.0 × 1.75 / 2 = <span class="ans">2.625 m</span></span>.</li><li>Cruise distance: <span class="f">100 − 2 × 2.625 = <span class="ans">94.75 m</span></span>.</li><li>Cruise time: <span class="f">94.75 / 3.0 = <span class="ans">31.583 s</span></span>.</li><li>Total time: <span class="f">2 × 1.75 + 31.583 = <span class="ans">35.083 s</span></span>.</li></ol></details></div></div>
+
+<div data-b="run-gate"><p><b>The speeds of the gate run of 2.2.6.</b> The gate run of page 2.2a speeds up from 6 to 24 m/s with a = +6.0 m/s², cruises, and brakes from 24 to 8 m/s with a = −8.0 m/s² (3.0 s and 45.0 m, 23.0 m, 2.0 s and 32.0 m, 100 m in all). What would a jerk limit do to that run? The S-curve of 2.2.14 also works when the start speed v<sub>0</sub> is not zero: use ΔV in the place of V. Here ΔV is the size of the change of speed, <span class="f">ΔV = |V − v<sub>0</sub>|</span>. PX4 computes it in the code as the velocity setpoint minus the current velocity [<a class="cite" href="../reference/references.html#ref-29">29</a>, VelocitySmoothing.cpp:207-208]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/VelocitySmoothing.cpp|207-208">float jerk_max_T1 = _direction * _max_jerk;
+float delta_v = _vel_sp - _state.v;</pre>
+<p>The durations are the formulas of 2.2.14 with ΔV, and the distance is <span class="f">x = ½·(v<sub>0</sub> + V)·T</span>, because the average speed of an S-curve is the middle of its start and end speeds. Two cautions. First, the accelerations 6.0 m/s² and 8.0 m/s² are the numbers of page 2.2a. They are not the PX4 default (MPC_ACC_HOR is 3.0 m/s², with the range 2 to 15). Second, the speed 24 m/s is above the largest value of MPC_XY_VEL_MAX (20, row 2) [<a class="cite" href="../reference/references.html#ref-29">29</a>]. So PX4 with its parameters could not fly this run; the table shows only what the formulas of 2.2.14 would give.</p>
+<p><b>How to read this table.</b> The table has four rows: the speed-up and the braking of the gate run, each with the constant acceleration of page 2.2a and with the S-curve (J = 4.0 m/s³). Read a row from left to right: the phase, the limits, the test whether the acceleration A is reached, the durations, the total time T, and the distance x. Here is every symbol. <span class="f">ΔV</span> is the size of the speed change (m/s). <span class="f">A</span> is the acceleration limit (m/s²). <span class="f">J</span> is the jerk limit (4.0 m/s³). <span class="f">A² / J</span> is the speed change at which A is just reached. <span class="f">T<sub>1</sub></span>, <span class="f">T<sub>2</sub></span> and <span class="f">T<sub>3</sub></span> are the three durations (s). <span class="f">T</span> is their sum (s). <span class="f">x</span> is the distance of the phase (m). It matters for flying because it shows how much track a jerk limit uses. Figure 7 draws the speed against time for all four rows.</p>
+<table class="t"><tr><th>Row</th><th>Phase and way</th><th>Test: A² / J against ΔV</th><th>T<sub>1</sub>, T<sub>2</sub>, T<sub>3</sub> (s)</th><th>T (s)</th><th>x (m)</th></tr>
+<tr><td>1</td><td><b>Speed-up 6.0 → 24.0 m/s</b>, constant a = +6.0 m/s²</td><td>not needed</td><td class="f">T = (24.0 − 6.0) / 6.0 = 3.0</td><td class="f">3.0</td><td class="f">½ × (6.0 + 24.0) × 3.0 = 45.0</td></tr>
+<tr><td>2</td><td><b>Speed-up 6.0 → 24.0 m/s</b>, S-curve, A = 6.0 m/s², J = 4.0 m/s³</td><td class="f">ΔV = 18.0; A² / J = 6.0² / 4.0 = 9.0; 9.0 &lt; 18.0, so A is reached</td><td class="f">T<sub>1</sub> = A / J = 1.5; T<sub>2</sub> = 18.0 / 6.0 − 1.5 = 1.5; T<sub>3</sub> = 1.5</td><td class="f">1.5 + 1.5 + 1.5 = 4.5</td><td class="f">½ × (6.0 + 24.0) × 4.5 = 67.5</td></tr>
+<tr><td>3</td><td><b>Braking 24.0 → 8.0 m/s</b>, constant a = −8.0 m/s²</td><td>not needed</td><td class="f">T = (8.0 − 24.0) / (−8.0) = 2.0</td><td class="f">2.0</td><td class="f">½ × (24.0 + 8.0) × 2.0 = 32.0</td></tr>
+<tr><td>4</td><td><b>Braking 24.0 → 8.0 m/s</b>, S-curve, A = 8.0 m/s², J = 4.0 m/s³</td><td class="f">ΔV = 16.0; A² / J = 8.0² / 4.0 = 16.0; 16.0 = 16.0, so A is just reached</td><td class="f">T<sub>1</sub> = A / J = 2.0; T<sub>2</sub> = 16.0 / 8.0 − 2.0 = 0.0; T<sub>3</sub> = 2.0</td><td class="f">2.0 + 0.0 + 2.0 = 4.0</td><td class="f">½ × (24.0 + 8.0) × 4.0 = 64.0</td></tr></table>
+<figure><svg id="f6" viewBox="0 0 860 400" width="100%" style="max-width:860px" role="img" aria-label="Two graphs of velocity against time. Left: the speed-up from 6 to 24 meters per second, 3 seconds with the constant acceleration and 4.5 seconds with the S-curve. Right: the braking from 24 to 8 meters per second, 2 seconds with the constant acceleration and 4 seconds with the S-curve"></svg>
+<figcaption>Figure 7. The four rows of the table. Left: the speed-up 6 → 24 m/s. Row 1 (blue) takes 3.0 s and covers 45.0 m. Row 2 (green) takes 4.5 s and covers 67.5 m. Right: the braking 24 → 8 m/s. Row 3 (blue) takes 2.0 s and covers 32.0 m. Row 4 (green) takes 4.0 s and covers 64.0 m. The two S-curve rows together cover 131.5 m.</figcaption></figure></div>
+<div data-b="run-try51"><div class="prob"><div class="tag">TRY IT 51 · DOES THE RUN FIT?</div>
+Use rows 2 and 4 of the table. How much track do the speed-up and the braking of the S-curve use together? Is there room for them in the run of 100 m?
+<details><summary>Show solution</summary><span class="f">67.5 + 64.0 = <span class="ans">131.5 m</span></span>. The run is only 100 m long, so the two S-curves do not fit: <span class="f">131.5 − 100 = 31.5 m</span> are missing even before any cruise. With these limits the peak speed would have to be lower than 24 m/s (the next section shows how a planner lowers it).</details></div></div>
+
+<div data-b="think-12"><div class="prob think"><div class="tag">THINK 12 · A SHORT RUN: THE DISTANCE SETS THE TOP SPEED</div>
+<p><b>Situation.</b> A delivery drone must move 12 m from rest to rest, from one pad to the next. The planner uses the default limits of PX4, A = 3.0 m/s² and J = 4.0 m/s³ [<a class="cite" href="../reference/references.html#ref-29">29</a>, <a class="cite" href="../reference/references.html#ref-47">47</a>], and the wanted cruise speed is V = 6.0 m/s. The plan of 2.2.16 has a speed-up and a slow-down, and each is an S-curve of the same size. Figure 8 draws the speed against the time of the plan that fits.</p>
+<figure><svg id="t12" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Speed against time for a run of 12 meters from rest to rest: an S-shaped rise to a peak of 4.98 meters per second at 2.41 seconds and a mirror-image fall to rest at 4.82 seconds, below the dashed wanted cruise speed of 6 meters per second"></svg>
+<figcaption>Figure 8. The plan for 12 m. The speed rises along an S-curve to a peak of 4.98 m/s at 2.41 s and falls along the mirror image to rest at 4.82 s. Each half covers 6.0 m (shaded). The wanted 6.0 m/s (dashed) cannot be reached, because one S-curve to 6.0 m/s alone covers 8.25 m.</figcaption></figure>
+<p><b>Questions.</b> (a) Can the drone reach 6.0 m/s on this run? (b) What peak speed does the plan reach? (c) How long does the run take?</p>
+<p><b>Think first.</b></p>
+<ol><li>How much distance does one S-curve to 6.0 m/s use (2.2.14)? How much do two use?</li>
+<li>If the run is too short, which number is now unknown, and which equation links it to the distance of one half?</li>
+<li>After you find the peak speed, which condition of 2.2.14 must you check?</li></ol>
+<details><summary>Hint</summary>Each half covers 6.0 m. The distance of one S-curve is x = V·T / 2, with T = V / A + A / J. Put the second formula into the first and solve for V.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> test the wanted speed first. One S-curve to 6.0 m/s covers <span class="f">x = V·T / 2 = 6.0 × 2.75 / 2 = 8.25 m</span>. Two of them cover <span class="f">2 × 8.25 = 16.5 m</span>. This is more than 12 m, so <span class="ans">the drone cannot reach 6.0 m/s</span>.</li>
+<li><i>Why this step:</i> now V is the unknown. Each half covers 6.0 m, and <span class="f">x = V·T / 2 = V × (V / A + A / J) / 2 = 6.0</span>. Multiply by 2·A to remove the fractions: <span class="f">V² + (A² / J) × V = 2 × A × 6.0</span>, that is <span class="f">V² + 2.25 × V − 36.0 = 0</span>.</li>
+<li><i>Why this step:</i> solve the quadratic equation and keep the positive root. <span class="f">V = ½ × (−2.25 + √(2.25² + 4 × 36.0)) = ½ × (−2.25 + √149.0625) = ½ × (−2.25 + 12.209) = <span class="ans">4.98 m/s</span></span>.</li>
+<li><i>Why this step:</i> the formula T = V / A + A / J needs that A is reached, so check V ≥ A² / J. <span class="f">4.98 &gt; 2.25</span>, so the condition holds.</li>
+<li><i>Why this step:</i> the time of one half comes from the same formula, and the run has two halves. <span class="f">T<sub>half</sub> = V / A + A / J = 4.98 / 3.0 + 0.75 = 1.66 + 0.75 = <span class="ans">2.41 s</span></span>, and <span class="f">2 × 2.41 = <span class="ans">4.82 s</span></span>.</li></ol>
+<p><b>Check your answer.</b> One half must cover 6.0 m: <span class="f">4.98 × 2.41 / 2 = 6.00 m</span>. The peak speed 4.98 m/s is below the wanted 6.0 m/s, as the first step told us.</p>
+<p><b>What if …</b> the run were exactly 16.5 m long?</p>
+<details><summary>Show the answer</summary>Then each half covers 8.25 m, and the quadratic equation gives V = 6.0 m/s with no cruise at all: <span class="f">2 × 8.25 = 16.5 m</span>. For any run longer than 16.5 m the drone reaches 6.0 m/s and cruises.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.17"><span class="no">2.2.17</span> How fast may the drone be, with a distance d to go?</h2>
+<div data-b="approach"><p>The planner of PX4 does not only follow the cruise speed. Its speed limit for a leg depends on the distance d that is left to the target. The code says so in its own words: <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/PositionSmoothing.cpp|194">A valid position setpoint generates a velocity target using conservative motion constraints.</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, PositionSmoothing.cpp:194]. The function that computes the limit is <code>computeMaxSpeedFromDistance</code>. Here are its four lines (<code>accel</code> is A, <code>jerk</code> is J, <code>braking_distance</code> is d, and <code>final_speed</code> is the speed wanted at the target, 0 for a stop) [<a class="cite" href="../reference/references.html#ref-29">29</a>, TrajMath.hpp:64-67]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/lib/mathlib/math/TrajMath.hpp|64-67">auto sqr = [](float f) {return f * f;};
+float b =  4.0f * sqr(accel) / jerk;
+float c = - 2.0f * accel * braking_distance - sqr(final_speed);
+float max_speed = 0.5f * (-b + sqrtf(sqr(b) - 4.0f * c));</pre>
+<p>Read the lines as a formula, with the final speed 0. Let <span class="f">b = 4·A² / J</span>. Then <span class="f">c = −2·A·d</span>, and the largest speed is the positive root of <span class="f">v² + b·v + c = 0</span>:</p>
+<p class="big"><span class="f">v<sub>max</sub> = ½ · ( −b + √(b² + 8·A·d) )</span> &nbsp;&nbsp; with &nbsp; <span class="f">b = 4·A² / J</span></p>
+<p>The comment above the function says how it thinks about braking: <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/lib/mathlib/math/TrajMath.hpp|50">We assume a constant acceleration profile with a delay of 2*accel/jerk</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, TrajMath.hpp:50]. In letters: braking with the constant deceleration A, plus a delay of 2·A / J seconds during which the drone still moves at the speed v. The distance is <span class="f">d = v² / (2·A) + (2·A / J)·v</span>. Multiply by 2·A, and you get <span class="f">v² + (4·A² / J)·v = 2·A·d</span>, which is the equation above.</p>
+<p><b>Example</b> with A = 3.0 m/s² and J = 4.0 m/s³. First <span class="f">b = 4 × 3.0² / 4.0 = 9.0</span>. With <span class="f">d = 10.0 m</span> to go: <span class="f">v<sub>max</sub> = ½ × ( −9.0 + √(9.0² + 8 × 3.0 × 10.0) ) = ½ × ( −9.0 + √321.0 ) = ½ × ( −9.0 + 17.916 ) = 4.458 m/s</span>. With <span class="f">d = 15.0 m</span> to go: <span class="f">v<sub>max</sub> = ½ × ( −9.0 + √(9.0² + 8 × 3.0 × 15.0) ) = ½ × ( −9.0 + √441.0 ) = ½ × ( −9.0 + 21.0 ) = 6.0 m/s</span>. So the cruise speed 6.0 m/s is allowed from 15.0 m before the target. The S-curve of 2.2.14 itself needs only 8.25 m to stop from 6.0 m/s (the same distance as the speed-up). The formula keeps 15.0 m, almost twice as much; this is what the code calls conservative. Figure 9 draws the curve.</p>
+<figure><svg id="f7" viewBox="0 0 860 400" width="100%" style="max-width:860px" role="img" aria-label="Left: the largest allowed speed against the distance to the target, a curve that rises and meets the cruise speed of 6 meters per second at 15 meters, with the point 4.458 meters per second at 10 meters and a mark at 8.25 meters. Right: the time stretch factor falling from 1 to 0 as the position error grows from 0 to 2 meters, with the point 0.75 at 0.5 meters"></svg>
+<figcaption>Figure 9. Left: the largest allowed speed v<sub>max</sub> against the distance d to the target, for A = 3.0 m/s² and J = 4.0 m/s³. The curve meets the cruise speed 6.0 m/s (dashed) at d = 15.0 m. At d = 10.0 m the limit is 4.458 m/s. The dotted line at 8.25 m is the distance that the S-curve itself needs to stop from 6.0 m/s. Right: the time stretch factor of the next paragraph against the position error e, for e<sub>max</sub> = 2.0.</figcaption></figure>
+<p><b>When the drone lags behind.</b> A real drone may be behind the planned trajectory. The planner then slows its own clock. The factor is <span class="f">1 − e / e<sub>max</sub></span>, where e is the distance between the drone and the planned position (m), and e<sub>max</sub> is the parameter MPC_XY_ERR_MAX (row 10; the factor is held between 0 and 1). The file says <q class="src" data-src="PX4/PX4-Autopilot|d28a642|src/modules/mc_pos_control/multicopter_autonomous_params.yaml|120-121">The integration speed of the trajectory setpoint is linearly reduced with the horizontal position tracking error.</q> [<a class="cite" href="../reference/references.html#ref-29">29</a>, lines 120-121]. The code line is [<a class="cite" href="../reference/references.html#ref-29">29</a>, PositionSmoothing.cpp:321]:</p>
+<pre class="code" data-src="PX4/PX4-Autopilot|d28a642|src/lib/motion_planning/PositionSmoothing.cpp|321">time_stretch_xy = 1.f - math::constrain(position_error_xy / _max_allowed_horizontal_error, 0.f, 1.f);</pre></div>
+<div data-b="approach-try52"><div class="prob"><div class="tag">TRY IT 52 · THE SPEED LIMIT NEAR THE TARGET</div>
+Use A = 3.0 m/s² and J = 4.0 m/s³. A drone must stop at a gate that is d = 6.0 m ahead. What is the largest speed that the formula of 2.2.17 allows now?
+<details><summary>Show solution</summary><ol><li><span class="f">b = 4·A² / J = 4 × 3.0² / 4.0 = 9.0</span>.</li><li><span class="f">v<sub>max</sub> = ½ × ( −b + √(b² + 8·A·d) ) = ½ × ( −9.0 + √(9.0² + 8 × 3.0 × 6.0) ) = ½ × ( −9.0 + √225.0 ) = ½ × ( −9.0 + 15.0 ) = <span class="ans">3.0 m/s</span></span>.</li></ol></details></div></div>
+<div data-b="approach-try53"><div class="prob"><div class="tag">TRY IT 53 · WHERE DOES THE CRUISE SPEED START?</div>
+Use A = 3.0 m/s² and J = 4.0 m/s³. From which distance d to the target is the cruise speed V = 3.0 m/s allowed? Use <span class="f">d = V² / (2·A) + (2·A / J)·V</span>.
+<details><summary>Show solution</summary><span class="f">d = V² / (2·A) + (2·A / J)·V = 3.0² / (2 × 3.0) + (2 × 3.0 / 4.0) × 3.0 = 1.5 + 4.5 = <span class="ans">6.0 m</span></span>. This agrees with Try it 52: at 6.0 m the limit is 3.0 m/s.</details></div></div>
+<div data-b="approach-try54"><div class="prob"><div class="tag">TRY IT 54 · THE PLANNER'S CLOCK</div>
+The drone is e = 0.5 m behind the planned position, and e<sub>max</sub> = 2.0 (the default of row 10). By which factor does the planner slow its clock? How much planned time passes during a control step of 0.2 s?
+<details><summary>Show solution</summary><ol><li><span class="f">factor = 1 − e / e<sub>max</sub> = 1 − 0.5 / 2.0 = 1 − 0.25 = <span class="ans">0.75</span></span>.</li><li>Planned time: <span class="f">0.75 × 0.2 = <span class="ans">0.15 s</span></span>.</li></ol></details></div></div>
+
+<div data-b="think-13"><div class="prob think"><div class="tag">THINK 13 · DOES A SMALLER ACCELERATION LIMIT START THE SLOW-DOWN EARLIER?</div>
+<p><b>Situation.</b> The planner of PX4 [<a class="cite" href="../reference/references.html#ref-29">29</a>, <a class="cite" href="../reference/references.html#ref-47">47</a>] allows the speed V at a distance d from the target when <span class="f">d = V² / (2·A) + (2·A / J)·V</span> (2.2.17, written for the final speed 0). The operator of a delivery drone with a parcel wants a gentle ride. He lowers MPC_ACC_HOR from the default 3.0 m/s² to 2.0 m/s², which is the smallest value that row 3 of 2.2.15 allows. The jerk limit stays J = 4.0 m/s³ and the cruise speed is V = 6.0 m/s. He expects that the drone must now start to slow down earlier. Figure 10 draws d against A.</p>
+<figure><svg id="t13" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Left: the distance d against the acceleration limit A, a curve with a minimum of 14.70 meters at A of 2.449; the points A of 2, 3 and 4 give 15.0, 15.0 and 16.5 meters. Right: stacked bars for A of 2, 3 and 4 that split d into the braking term and the delay term"></svg>
+<figcaption>Figure 10. Left: the distance d(A) for V = 6.0 m/s and J = 4.0 m/s³. A = 2.0 and A = 3.0 give the same 15.0 m; the minimum is 14.70 m at A = 2.449 m/s². Right: d is the sum of two terms, the braking term V² / (2·A) (blue) and the delay term (2·A / J)·V (orange). A smaller A makes the first term larger and the second smaller.</figcaption></figure>
+<p><b>Questions.</b> (a) What is d for A = 3.0 and for A = 2.0? (b) Explain the result. (c) What is d for A = 4.0? (d) For which A is d smallest, and how large is it?</p>
+<p><b>Think first.</b></p>
+<ol><li>The formula has two terms. What does each term do when A becomes smaller?</li>
+<li>Does the answer to (a) agree with the operator's expectation?</li>
+<li>Where is a sum of the form c₁ / A + c₂ · A smallest?</li></ol>
+<details><summary>Hint</summary>Compute both terms separately for each A. A sum of one term that falls and one term that rises is smallest where the two terms are equal.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> insert A = 3.0 and keep the two terms apart. <span class="f">d = 6.0² / (2 × 3.0) + (2 × 3.0 / 4.0) × 6.0 = 6.0 + 9.0 = <span class="ans">15.0 m</span></span>.</li>
+<li><i>Why this step:</i> do the same for A = 2.0. <span class="f">d = 6.0² / (2 × 2.0) + (2 × 2.0 / 4.0) × 6.0 = 9.0 + 6.0 = <span class="ans">15.0 m</span></span>. The distance is the same, not longer.</li>
+<li><i>Why this step:</i> the two terms move in opposite directions. The braking term grows from 6.0 to 9.0 m when A falls, because the weaker brake needs more room. The delay term falls from 9.0 to 6.0 m, because the formula's delay 2·A / J is shorter when A is smaller. Here the two changes cancel.</li>
+<li><i>Why this step:</i> try a larger A to see the other side. <span class="f">d = 6.0² / (2 × 4.0) + (2 × 4.0 / 4.0) × 6.0 = 4.5 + 12.0 = <span class="ans">16.5 m</span></span>.</li>
+<li><i>Why this step:</i> for (d), the sum is smallest where the two terms are equal: <span class="f">V² / (2·A) = 2·A·V / J</span>, so <span class="f">A² = V·J / 4</span>. <span class="f">A* = √(V × J / 4) = √(6.0 × 4.0 / 4) = √6.0 = <span class="ans">2.449 m/s²</span></span>. Then the two terms are equal and <span class="f">d = V² / A* = 36.0 / 2.449 = <span class="ans">14.70 m</span></span>.</li></ol>
+<p><b>Check your answer.</b> A = 2.0 and A = 3.0 lie on the two sides of A* = 2.449, and their product is <span class="f">2.0 × 3.0 = 6.0 = A*²</span>, which is why their distances are equal. The minimum 14.70 m is below both 15.0 m values, as it must be. The formula is a rule of the planner, not a law of physics, so the result says how the planner behaves.</p>
+<p><b>What if …</b> the jerk limit were doubled to J = 8.0 m/s³?</p>
+<details><summary>Show the answer</summary>The delay term becomes smaller. For A = 3.0: <span class="f">6.0 + (2 × 3.0 / 8.0) × 6.0 = 6.0 + 4.5 = <span class="ans">10.5 m</span></span>. For A = 2.0: <span class="f">9.0 + (2 × 2.0 / 8.0) × 6.0 = 9.0 + 3.0 = <span class="ans">12.0 m</span></span>. With the stiffer jerk limit the smaller A does start the slow-down earlier, by 1.5 m.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.18"><span class="no">2.2.18</span> Fixed wings stay apart</h2>
+<div data-b="fixed"><p>Everything above is for multicopters. The PX4 page of the jerk-limited trajectory is titled "Jerk-limited Type Trajectory for Multicopters" [<a class="cite" href="../reference/references.html#ref-47">47</a>]. A fixed-wing aircraft cannot hover (2.2.10), and PX4 controls it in a different way: <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/flight_stack/controller_diagrams.md|95">The PX4 implementation of the Total Energy Control System (TECS) enables simultaneous control of true airspeed and altitude of a fixed-wing aircraft.</q> [<a class="cite" href="../reference/references.html#ref-38">38</a>, line 95]. In the two fixed-wing parameter files that I read for this page (<code>fw_performance_model/performance_model_params.yaml</code> and <code>fw_mode_manager/fw_mode_manager_params.yaml</code>, both at commit d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]) the word "jerk" does not appear. So no jerk limit for fixed wings was found. The limits that the files do print are limits on the airspeed and on the climb and sink rates.</p>
+<p><b>How to read this table.</b> The table has six rows, one for each limit. Read a row from left to right: its number, the parameter name, what the file says that it limits, the default, the unit, the smallest allowed value (min), the largest allowed value (max), and the file with the lines of the entry. CAS means calibrated airspeed; the file entries use this word. "Not given" means that the file prints no largest value. It matters for flying because a fixed wing must stay inside its speed band to fly at all. Figure 11 draws every row as a bar. The file is <code>src/lib/fw_performance_model/performance_model_params.yaml</code> of PX4-Autopilot at commit d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>].</p>
+<table class="t"><tr><th>Row</th><th>Parameter</th><th>What the file says that it limits</th><th>Default</th><th>Unit</th><th>Min</th><th>Max</th><th>Lines [<a class="cite" href="../reference/references.html#ref-29">29</a>]</th></tr>
+<tr><td>1</td><td><code>FW_AIRSPD_STALL</code></td><td>Stall Airspeed (CAS)</td><td class="f">7.0</td><td><code>m/s</code></td><td class="f">0.5</td><td>not given</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/fw_performance_model/performance_model_params.yaml#L132-L144"><code>132-144</code></a></td></tr>
+<tr><td>2</td><td><code>FW_AIRSPD_MIN</code></td><td>Minimum Airspeed (CAS)</td><td class="f">10.0</td><td><code>m/s</code></td><td class="f">0.5</td><td>not given</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/fw_performance_model/performance_model_params.yaml#L145-L161"><code>145-161</code></a></td></tr>
+<tr><td>3</td><td><code>FW_AIRSPD_TRIM</code></td><td>Trim (Cruise) Airspeed</td><td class="f">15.0</td><td><code>m/s</code></td><td class="f">0.5</td><td>not given</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/fw_performance_model/performance_model_params.yaml#L119-L131"><code>119-131</code></a></td></tr>
+<tr><td>4</td><td><code>FW_AIRSPD_MAX</code></td><td>Maximum Airspeed (CAS)</td><td class="f">20.0</td><td><code>m/s</code></td><td class="f">0.5</td><td>not given</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/fw_performance_model/performance_model_params.yaml#L162-L171"><code>162-171</code></a></td></tr>
+<tr><td>5</td><td><code>FW_T_CLMB_MAX</code></td><td>Maximum climb rate</td><td class="f">5.0</td><td><code>m/s</code></td><td class="f">1.0</td><td>not given</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/fw_performance_model/performance_model_params.yaml#L92-L105"><code>92-105</code></a></td></tr>
+<tr><td>6</td><td><code>FW_T_SINK_MIN</code></td><td>Minimum descent rate</td><td class="f">2.0</td><td><code>m/s</code></td><td class="f">1.0</td><td>not given</td><td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/fw_performance_model/performance_model_params.yaml#L106-L118"><code>106-118</code></a></td></tr></table>
+<figure><svg id="f8" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Six horizontal bars for the six rows of the table: the stall speed 7, the minimum airspeed 10, the trim airspeed 15, the maximum airspeed 20, the maximum climb rate 5 and the minimum sink rate 2 meters per second, with the band between the minimum and the maximum airspeed shaded"></svg>
+<figcaption>Figure 11. The six rows of the table as bars on one scale in m/s. The first four rows are airspeeds; the band between the minimum airspeed (10.0) and the maximum airspeed (20.0) is the band in which the user may command a speed. The last two rows are vertical rates: the maximum climb rate (5.0 m/s) and the minimum descent rate (2.0 m/s). All values are defaults of the files, not measurements of an aircraft.</figcaption></figure></div>
+<div data-b="fixed-try55"><div class="prob"><div class="tag">TRY IT 55 · CLIMB AND SINK TIMES OF A FIXED WING</div>
+Use the defaults of rows 5 and 6. How long does a fixed-wing aircraft need to climb 100 m at the maximum climb rate? How long does it need to descend 100 m at the minimum descent rate? What is the width of the band of commanded airspeed (rows 2 and 4)?
+<details><summary>Show solution</summary><ol><li>Climb: <span class="f">t = 100 / 5.0 = <span class="ans">20.0 s</span></span>.</li><li>Descent: <span class="f">t = 100 / 2.0 = <span class="ans">50.0 s</span></span>. Watch out: the file defines this number as the sink rate "with the throttle set to THR_MIN" at the trim airspeed. It is the descent with the engine at idle, not the slowest descent possible: with more throttle the aircraft sinks more slowly, or holds its height.</li><li>Band: <span class="f">20.0 − 10.0 = <span class="ans">10.0 m/s</span></span>.</li></ol></details></div></div>
+
+<h2 class="sub" id="s2.2.19"><span class="no">2.2.19</span> Project AirSim: its axes, its state and its motion commands</h2>
+<div data-b="airsim-frame"><p><b>The axes.</b> Pages 2.2a and 2.2b use x east, y north, z up. PX4 and Project AirSim use <b>NED</b>: the first axis points north, the second points east, and the third points down. PX4 defines it as <q class="src" data-src="PX4/PX4-Autopilot|d28a642|docs/en/contribute/notation.md|24">Coordinate system where the X-axis is pointing towards the true North, the Y-axis is pointing East and the Z-axis is pointing Down, completing the right-hand rule.</q> [<a class="cite" href="../reference/references.html#ref-49">49</a>, line 24]. Project AirSim says: <q class="src" data-src="iamaisim/ProjectAirSim|c80cff5|docs/api.md|20">Unless specified otherwise, the API inputs and outputs are assumed to be in SI units (meters and radians) and in NED convention.</q> [<a class="cite" href="../reference/references.html#ref-51">51</a>, line 20]. The position that the estimator of PX4 gives is also NED: <span class="f">x</span> is the north position, <span class="f">y</span> is the east position and <span class="f">z</span> is the down position, "negative altitude" [<a class="cite" href="../reference/references.html#ref-53">53</a>, lines 21-23].</p>
+<p>The change from the course axes (x<sub>e</sub> east, y<sub>n</sub> north, z<sub>u</sub> up) to NED (N north, E east, D down) is: <span class="f">N = y<sub>n</sub></span>, <span class="f">E = x<sub>e</sub></span>, <span class="f">D = −z<sub>u</sub></span>. The way back is <span class="f">x<sub>e</sub> = E</span>, <span class="f">y<sub>n</sub> = N</span>, <span class="f">z<sub>u</sub> = −D</span>. A climb is a negative D and a negative down velocity. The code of PX4 labels its climb case "up" in the test <code>_unsmoothed_velocity_setpoint(2) &lt; 0.f</code> [<a class="cite" href="../reference/references.html#ref-29">29</a>, FlightTaskAuto.cpp:839]. The example in the Project AirSim documentation climbs with <code>v_down=-1.0</code> [<a class="cite" href="../reference/references.html#ref-51">51</a>, lines 55-57]:</p>
+<pre class="code" data-src="iamaisim/ProjectAirSim|c80cff5|docs/api.md|55-57">move_up = await drone.move_by_velocity_async(
+    v_north=0.0, v_east=0.0, v_down=-1.0, duration=4.0
+)</pre>
+<figure><svg id="f9" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Two sets of three axes. Left, the course axes: x east to the right, y north into the page, z up. Right, the NED axes: x north into the page, y east to the right, z down"></svg>
+<figcaption>Figure 12. The two sets of axes. Left: the course axes of pages 2.2a and 2.2b (x east, y north, z up). Right: NED, used by PX4 and Project AirSim (x north, y east, z down). The north and east axes swap their names, and the vertical axis points the other way. Both sets are right-handed.</figcaption></figure></div>
+<div data-b="airsim-table"><p><b>What Project AirSim says about states and motion commands.</b> Project AirSim names four flight controllers: <q class="src" data-src="iamaisim/ProjectAirSim|c80cff5|docs/controllers/controllers.md|5">Project AirSim supports the following flight controllers: Simple Flight, PX4 Autopilot, ArduPilot, and Manual Controller.</q> [<a class="cite" href="../reference/references.html#ref-52">52</a>, line 5]. For ArduPilot it states that <q class="src" data-src="iamaisim/ProjectAirSim|c80cff5|docs/controllers/controllers.md|19">Its Client API flight commands are not supported</q> [<a class="cite" href="../reference/references.html#ref-52">52</a>, line 19]. This page reads the Simple Flight case, in which the client API commands the vehicle: first enable API control, then arm, then take off, then call a move command [<a class="cite" href="../reference/references.html#ref-44">44</a>, lines 16-19].</p>
+<p><b>How to read this table.</b> The table has five rows, one for each thing that the page needs from Project AirSim. Read a row from left to right: the topic, what the documentation or the client code says, the place in the documentation, and the place in the code. Here is every symbol. <span class="f">NED</span> is north, east, down. <span class="f">v_north</span>, <span class="f">v_east</span> and <span class="f">v_down</span> are the three components of a velocity in NED (m/s). <span class="f">duration</span> is the time for which a command is sent (s). <span class="f">velocity</span> is a speed in m/s. <span class="f">path</span> is a list of points in NED (m). <span class="f">accels</span>, <span class="f">twist</span> and <span class="f">pose</span> are the names that Project AirSim gives to the acceleration, the velocity (linear and angular) and the position with the orientation. Docs are at commit c80cff5 in the folder <code>docs/</code> and code at the same commit [<a class="cite" href="../reference/references.html#ref-30">30</a>, <a class="cite" href="../reference/references.html#ref-51">51</a>]. It matters for flying because these five rows are everything that a client program needs to move a simulated drone. Figure 13 draws every row and the way the rows connect.</p>
+<table class="t"><tr><th>Row</th><th>Topic</th><th>What it says</th><th>Documentation [<a class="cite" href="../reference/references.html#ref-51">51</a>]</th><th>Code [<a class="cite" href="../reference/references.html#ref-30">30</a>]</th></tr>
+<tr><td>1</td><td><b>Axes and units</b></td><td>SI units and NED. The gravity vector of the world has only a third component, <code>Vector3(0, 0, g)</code>, so the third axis points down.</td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/docs/api.md#L20"><code>docs/api.md:20</code></a></td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/include/core_sim/environment.hpp#L44-L45"><code>core_sim/include/core_sim/environment.hpp:44-45</code></a></td></tr>
+<tr><td>2</td><td><b>Kinematics state</b></td><td>Keys <code>time_stamp</code>, <code>pose</code> (position, orientation), <code>twist</code> (linear, angular) and <code>accels</code> (linear, angular). The physics computes the linear acceleration as force times 1/mass plus gravity, and the velocity with the trapezoid rule of 2.2.11.</td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/docs/api.md#L238-L250"><code>docs/api.md:238-250</code></a></td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/physics/src/fast_physics.cpp#L525"><code>physics/src/fast_physics.cpp:525</code></a> and <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/physics/src/fast_physics.cpp#L541-L543"><code>541-543</code></a></td></tr>
+<tr><td>3</td><td><b>Move by velocity</b></td><td><code>move_by_velocity_async(v_north, v_east, v_down, duration, ...)</code>: a velocity vector in NED, sent for <code>duration</code> seconds.</td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/docs/api.md#L217"><code>docs/api.md:217</code></a></td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/client/python/projectairsim/src/projectairsim/drone.py#L292-L317"><code>client/python/projectairsim/src/projectairsim/drone.py:292-317</code></a></td></tr>
+<tr><td>4</td><td><b>Move to a position with a speed</b></td><td><code>move_to_position_async(north, east, down, velocity, ...)</code>: one target point and one speed. On the server this is a path with one point.</td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/docs/api.md#L219"><code>docs/api.md:219</code></a></td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/client/python/projectairsim/src/projectairsim/drone.py#L476-L507"><code>drone.py:476-507</code></a> and <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/src/multirotor_api_base.cpp#L957-L967"><code>vehicle_apis/multirotor_api/src/multirotor_api_base.cpp:957-967</code></a></td></tr>
+<tr><td>5</td><td><b>Move on a path</b></td><td><code>move_on_path_async(path, velocity, ...)</code>: a list of NED points and one speed. A "carrot following algorithm" sends, once per command period, a velocity vector of size <code>velocity</code> toward the next point ahead.</td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/docs/api.md#L220"><code>docs/api.md:220</code></a></td><td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/client/python/projectairsim/src/projectairsim/drone.py#L595-L597"><code>drone.py:595-597</code></a>, <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/src/multirotor_api_base.cpp#L1325-L1326"><code>multirotor_api_base.cpp:1325-1326</code></a></td></tr></table>
+<figure><svg id="f10" viewBox="0 0 860 400" width="100%" style="max-width:860px" role="img" aria-label="Five boxes for the five rows of the table. Three client commands at the top, move to position, move on path and move by velocity, with arrows between them, a box for the kinematics state below them, and a band for the axes and units under everything"></svg>
+<figcaption>Figure 13. The five rows of the table. Row 4 (move to a position) becomes a path with one point, which is row 5. Row 5 sends a velocity vector once per command period, which is row 3. Row 3 changes the kinematics state (row 2), which the physics updates. Row 1, the NED axes and SI units, is under all of them.</figcaption></figure>
+<p>The two lines of code in row 4 and row 5 are these. A move to a position builds a path with one point [<a class="cite" href="../reference/references.html#ref-30">30</a>, multirotor_api_base.cpp:963-966]:</p>
+<pre class="code" data-src="iamaisim/ProjectAirSim|c80cff5|vehicle_apis/multirotor_api/src/multirotor_api_base.cpp|963-966">std::vector&lt;Vector3&gt; path{Vector3(x, y, z)};
+  return MoveOnPathInternal(path, velocity, timeout_sec, drivetrain,
+                            yaw_is_rate, yaw, lookahead, adaptive_lookahead,
+                            command_start_time_nanos);</pre>
+<p>Each command period the path follower makes the velocity vector with the length <code>velocity</code> [<a class="cite" href="../reference/references.html#ref-30">30</a>, multirotor_api_base.cpp:1325-1326]. Here <code>cur_dest</code> is the vector from the drone to the next point, and <code>cur_dest_norm</code> is its length:</p>
+<pre class="code" data-src="iamaisim/ProjectAirSim|c80cff5|vehicle_apis/multirotor_api/src/multirotor_api_base.cpp|1325-1326">} else if (cur_dest_norm &gt;= expected_dist) {
+    velocity_vect = (cur_dest / cur_dest_norm) * velocity;</pre>
+<p>At the end of a path the follower slows down. It does so when the speed is above <code>braking_vel</code>, and the numbers are in the structure <code>MultirotorApiParams</code> [<a class="cite" href="../reference/references.html#ref-30">30</a>, multirotor_api_base.hpp:252-258]:</p>
+<pre class="code" data-src="iamaisim/ProjectAirSim|c80cff5|vehicle_apis/multirotor_api/include/multirotor_api_base.hpp|252-258">float vel_to_braking_dist =
+    0.5f;  // ideally this should be 2X for very high speed but for testing
+           // we are keeping it 0.5
+float min_braking_dist = 1;  // min braking distance
+float max_braking_dist = 3;  // min braking distance
+float braking_vel = 1.0f;
+float min_vel_for_braking = 3;</pre>
+<p>The braking distance is the speed times <code>vel_to_braking_dist</code>, held between <code>min_braking_dist</code> and <code>max_braking_dist</code> [<a class="cite" href="../reference/references.html#ref-30">30</a>, multirotor_api_base.cpp:789-795]. Inside that distance from the end, a leg whose speed is above <code>min_vel_for_braking</code> is flown with <code>braking_vel</code> [<a class="cite" href="../reference/references.html#ref-30">30</a>, multirotor_api_base.cpp:826-833]. The values above are the defaults of the header; the same header lets a parameter map replace them (lines 223-237). I searched the Project AirSim files that I read for this page for the word "jerk", and it appears in none of them. So there is no jerk limit in the path follower; the speed in a command is the speed that the follower asks for, and the smoothing comes from the flight controller and from the physics.</p></div>
+<div data-b="airsim-try56"><div class="prob"><div class="tag">TRY IT 56 · A VELOCITY FROM NED TO THE COURSE AXES</div>
+A command is <code>move_by_velocity_async(v_north=3.0, v_east=4.0, v_down=-2.0, duration=5.0)</code>. Write the velocity in the course axes (east, north, up) and find the speed. How far does the drone go in the 5.0 s, if the velocity were exactly constant?
+<details><summary>Show solution</summary><ol><li><span class="f">v<sub>x</sub> = E = <span class="ans">4.0</span></span>, <span class="f">v<sub>y</sub> = N = <span class="ans">3.0</span></span>, <span class="f">v<sub>z</sub> = −D = −(−2.0) = <span class="ans">+2.0 m/s</span></span>.</li><li>Speed: <span class="f">√(3.0² + 4.0² + 2.0²) = √(9.0 + 16.0 + 4.0) = √29.0 = <span class="ans">5.385 m/s</span></span>.</li><li>Distance: <span class="f">5.385 × 5.0 = <span class="ans">26.93 m</span></span>.</li></ol></details></div></div>
+<div data-b="airsim-try57"><div class="prob"><div class="tag">TRY IT 57 · A GATE FROM THE COURSE AXES TO NED</div>
+A gate is at x = 40 m east, y = 15 m north, z = 8 m up of the launch pad. Which three numbers go into <code>move_to_position_async(north, east, down, velocity)</code>?
+<details><summary>Show solution</summary><span class="f">N = y<sub>n</sub> = <span class="ans">15</span></span>, <span class="f">E = x<sub>e</sub> = <span class="ans">40</span></span>, <span class="f">D = −z<sub>u</sub> = <span class="ans">−8</span></span>. The call is <code>move_to_position_async(15, 40, -8, velocity)</code>.</details></div></div>
+<div data-b="airsim-try58"><div class="prob"><div class="tag">TRY IT 58 · THE BRAKING DISTANCE AT THE END OF A PATH</div>
+Use the defaults of the header. Find the braking distance for the path speeds 4.0 m/s, 8.0 m/s and 0.8 m/s, and the speed used inside it.
+<details><summary>Show solution</summary><ol><li>4.0 m/s is above <code>braking_vel</code> = 1.0, so there is a braking distance: <span class="f">clip(4.0 × 0.5, 1, 3) = clip(2.0, 1, 3) = <span class="ans">2.0 m</span></span>. 4.0 is above <code>min_vel_for_braking</code> = 3, so the leg is flown with <span class="ans">1.0 m/s</span> inside the last 2.0 m.</li><li>8.0 m/s: <span class="f">clip(8.0 × 0.5, 1, 3) = clip(4.0, 1, 3) = <span class="ans">3.0 m</span></span> (held at the largest value), and the leg is flown with <span class="ans">1.0 m/s</span> inside it.</li><li>0.8 m/s is not above <code>braking_vel</code> = 1.0, so the braking distance stays <span class="ans">0 m</span> and the speed does not change.</li></ol></details></div></div>
+
+<div data-b="think-14"><div class="prob think"><div class="tag">THINK 14 · A GATE IN NED, AND THE TIME THE PATH FOLLOWER NEEDS</div>
+<p><b>Situation.</b> A program flies a drone in Project AirSim [<a class="cite" href="../reference/references.html#ref-30">30</a>, <a class="cite" href="../reference/references.html#ref-51">51</a>]. In the course axes (east, north, up) the drone is at (10, 35, 3) m and the gate is at (40, 15, 8) m. The program calls <code>move_to_position_async(north, east, down, velocity)</code> with the speed 5.0 m/s. Use the rules of 2.2.19: the call becomes a path with one point, the follower sends a velocity vector of the length 5.0 m/s toward the point, and inside the braking distance it flies with <code>braking_vel</code> (defaults of the header). Figure 14 shows the drone and the gate from above, and the two times.</p>
+<figure><svg id="t14" viewBox="0 0 860 320" width="100%" style="max-width:860px" role="img" aria-label="Left: the drone and the gate seen from above with the east and north differences, 30 meters east and 20 meters south. Right: two bars of time, 7.28 seconds at full speed and 9.28 seconds with the slow last 2.5 meters"></svg>
+<figcaption>Figure 14. Left: from above, the gate is 30 m east and 20 m south of the drone (so N = −20 and E = +30), and 5 m higher (so D = −5). Right: the time at full speed (7.28 s) and the time with the slow last 2.5 m (9.28 s).</figcaption></figure>
+<p><b>Questions.</b> (a) Which numbers does the call need, relative to the drone? (b) What velocity vector does the follower send (in NED), and what is the distance? (c) How long would the flight take at 5.0 m/s all the way? (d) How long does it take with the braking rule?</p>
+<p><b>Think first.</b></p>
+<ol><li>The call wants the point in NED. Which of the three differences changes its sign, and which two change their names?</li>
+<li>The vector must point at the gate and have the length 5.0 m/s. What do you divide by?</li>
+<li>Is 5.0 m/s above <code>braking_vel</code> and above <code>min_vel_for_braking</code>?</li></ol>
+<details><summary>Hint</summary>Use N = north difference, E = east difference, D = −(up difference). Then the unit vector is (N, E, D) divided by the distance.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> convert each difference to NED (2.2.19). The north difference is <span class="f">N = 15 − 35 = <span class="ans">−20</span></span>, the east difference is <span class="f">E = 40 − 10 = <span class="ans">30</span></span>, and the down difference is <span class="f">D = −(8 − 3) = <span class="ans">−5</span></span>. The gate is higher, so D is negative.</li>
+<li><i>Why this step:</i> the distance is the length of the difference vector. <span class="f">√((−20)² + 30² + (−5)²) = √(400 + 900 + 25) = √1325 = <span class="ans">36.40 m</span></span>.</li>
+<li><i>Why this step:</i> the follower multiplies the unit vector by the speed. <span class="f">5.0 × (−20, 30, −5) / 36.40 = <span class="ans">(−2.75, 4.12, −0.69) m/s</span></span> as (v_north, v_east, v_down).</li>
+<li><i>Why this step:</i> with the same speed all the way, the time is the distance divided by the speed. <span class="f">36.40 / 5.0 = <span class="ans">7.28 s</span></span>.</li>
+<li><i>Why this step:</i> the braking distance is the speed times 0.5, held between 1 and 3 m. <span class="f">clip(5.0 × 0.5, 1, 3) = <span class="ans">2.5 m</span></span>. The speed 5.0 m/s is above <code>braking_vel</code> (1.0) and above <code>min_vel_for_braking</code> (3), so the last 2.5 m are flown at 1.0 m/s. <span class="f">(36.40 − 2.5) / 5.0 + 2.5 / 1.0 = 6.78 + 2.5 = <span class="ans">9.28 s</span></span>.</li></ol>
+<p><b>Check your answer.</b> The braking rule adds time: the last 2.5 m take 2.5 s instead of 0.5 s. <span class="f">2.5 / 1.0 − 2.5 / 5.0 = 2.5 − 0.5 = 2.0 s</span>, and <span class="f">7.28 + 2.0 = 9.28 s</span>. A wrong sign of D (+5 instead of −5) would send the drone 5 m down, away from the gate, which the gate height 8 m above the 3 m start makes easy to see.</p>
+<p><b>What if …</b> the speed in the call were 2.5 m/s?</p>
+<details><summary>Show the answer</summary>2.5 m/s is not above <code>min_vel_for_braking</code> (3), so the leg is not changed. The time is <span class="f">36.40 / 2.5 = <span class="ans">14.56 s</span></span>. The faster call, 5.0 m/s, arrives 5.28 s earlier even with its slow end.</details>
+</details></div></div>
+
+<h2 class="sub"><span class="no">✓</span> Check yourself</h2>
+<div data-b="quiz"><div class="box"><ol>
+ <li>What is the unit of the jerk, and what does a negative jerk mean? <details><summary>answer</summary>The unit is m/s³. A negative jerk means that the acceleration is getting smaller.</details></li>
+ <li>Why does the planner of PX4 limit the jerk? <details><summary>answer</summary>PX4 [<a class="cite" href="../reference/references.html#ref-48">48</a>] wants the setpoint to change as a ramp. The course's reason is that a drone must tilt and its motors must change speed, which takes time, so a jump of the acceleration cannot be followed.</details></li>
+ <li>For A = 3.0 m/s², J = 4.0 m/s³ and V = 6.0 m/s, what are T1, T2, T3 and T? <details><summary>answer</summary>T1 = T3 = A / J = 0.75 s, T2 = V / A − A / J = 1.25 s, T = 2.75 s.</details></li>
+ <li>What does the jerk limit cost on a speed change when A is reached? <details><summary>answer</summary>An extra time A / J compared with the constant acceleration A.</details></li>
+ <li>How do the course axes become NED? <details><summary>answer</summary>N = y<sub>n</sub>, E = x<sub>e</sub>, D = −z<sub>u</sub>.</details></li>
+</ol></div></div>
+
+<h2 class="sub"><span class="no">★</span> Summary</h2>
+<div data-b="summary"><ul style="margin:6px 0 8px 20px;padding:0">
+<li><b>Jerk.</b> <span class="f">j = da/dt</span> in m/s³. With a constant jerk: <span class="f">a = a₀ + j·t</span>, <span class="f">v = v₀ + a₀·t + ½·j·t²</span>, <span class="f">x = x₀ + v₀·t + ½·a₀·t² + (1/6)·j·t³</span>.</li>
+<li><b>S-curve from rest.</b> If <span class="f">V ≥ A² / J</span>: <span class="f">T<sub>1</sub> = T<sub>3</sub> = A / J</span>, <span class="f">T<sub>2</sub> = V / A − A / J</span>, <span class="f">T = V / A + A / J</span>. Otherwise <span class="f">T<sub>1</sub> = T<sub>3</sub> = √(V / J)</span> and <span class="f">T<sub>2</sub> = 0</span>. The distance is <span class="f">x = ½·(v₀ + V)·T</span>.</li>
+<li><b>Cost of the jerk limit.</b> A / J more time for each speed change, compared with the constant acceleration A.</li>
+<li><b>PX4 defaults in automatic flight</b> [<a class="cite" href="../reference/references.html#ref-29">29</a>]. V = 5.0 m/s (MPC_XY_CRUISE), A = 3.0 m/s² (MPC_ACC_HOR), J = 4.0 m/s³ (MPC_JERK_AUTO), largest speed 12.0 m/s (MPC_XY_VEL_MAX).</li>
+<li><b>Speed limit near the target.</b> <span class="f">v<sub>max</sub> = ½·(−b + √(b² + 8·A·d))</span> with <span class="f">b = 4·A² / J</span>.</li>
+<li><b>Fixed wings.</b> No jerk limit was found; the limits are airspeeds and climb and sink rates.</li>
+<li><b>Project AirSim</b> [<a class="cite" href="../reference/references.html#ref-30">30</a>, <a class="cite" href="../reference/references.html#ref-51">51</a>]. NED and SI units; the state has pose, twist and accels; a move command has a velocity vector or a target with one speed.</li>
+</ul></div>
+
+<div data-b="prev"><div class="box howto"><b>Pages before:</b> <a href="2.2a_Position_velocity_acceleration_on_a_line.html">2.2a Position, velocity and acceleration on a straight line</a> and <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b Three dimensions, laps, falling, fixed wings and the simulators</a>. <b>Next in the course:</b> 2.3 Dynamics (not written yet): the forces of section 2.1 become the accelerations of section 2.2. The source notes for 2.3 are in the folder <code>knowledge</code> of this draft.</div></div>
+
+<div data-b="refs"><p style="margin-top:22px;font-size:20px;font-weight:700">References</p>
+<ul class="reflist" style="list-style:none;margin:0;padding:0">
+<li>[<a class="cite" href="../reference/references.html#ref-29">29</a>] PX4-Autopilot, source code at commit d28a642 (VelocitySmoothing.cpp, VelocitySmoothing.hpp, PositionSmoothing.cpp, TrajMath.hpp, FlightTaskAuto.cpp, sih.cpp and the parameter files of mc_pos_control and fw_performance_model)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-30">30</a>] Project AirSim, source code at commit c80cff5 (multirotor_api_base.cpp and .hpp, drone.py, fast_physics.cpp, first_order_filter.hpp, environment.hpp)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-38">38</a>] PX4 User Guide, <i>Controller Diagrams</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-44">44</a>] Project AirSim documentation, <i>Simple Flight Controller for Drones</i> (<code>docs/controllers/simple_flight.md</code>)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-47">47</a>] PX4 User Guide, <i>Jerk-limited Type Trajectory for Multicopters</i> (<code>docs/en/config_mc/mc_jerk_limited_type_trajectory.md</code> at d28a642)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-48">48</a>] PX4 User Guide, <i>Multicopter Setpoint Tuning (Trajectory Generator)</i> (<code>docs/en/config_mc/mc_trajectory_tuning.md</code> at d28a642)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-49">49</a>] PX4 User Guide, <i>Terminology</i> (<code>docs/en/contribute/notation.md</code> at d28a642; the definition of NED)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-50">50</a>] PX4 User Guide, <i>TrajectorySetpoint (UORB message)</i> (<code>docs/en/msg_docs/TrajectorySetpoint.md</code> at d28a642)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-51">51</a>] Project AirSim documentation, <i>API Overview</i> (<code>docs/api.md</code> at c80cff5)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-52">52</a>] Project AirSim documentation, <i>Flight Controllers</i> (<code>docs/controllers/controllers.md</code> at c80cff5)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-53">53</a>] PX4 User Guide, <i>VehicleLocalPosition (UORB message)</i> (<code>docs/en/msg_docs/VehicleLocalPosition.md</code> at d28a642)</li></ul>
+<p class="lead">The lines of code are quoted from the files named next to them, at the commits named. The numbers in the exercises are made up for practice, not measurements of real parts. Every number and every quotation on this page is checked by <code>check_2_2c.py</code>.</p></div>
+</main>
+<script>
+"use strict";
+// Figure helper. Every figure of this page is drawn here from the same numbers that the text uses, so a label cannot disagree with a formula.
+// Text markup: "v_{0}" is a subscript, "m^{2}" a superscript.
+const nf = (v, d = 0) => { const s = Math.abs(v).toFixed(d); return (v < 0 && Number(s) !== 0 ? "−" : "") + s; };
+const COL = {x:"#2E9E4A", v:"#2F6FD0", a:"#D68910", j:"#7A3FC0", ink:"#1C1C1C", grey:"#5B5752", line:"#E2DED8", red:"#C0392B", purple:"#7A3FC0"};
+function F(id){
+  const s = document.getElementById(id), ns = "http://www.w3.org/2000/svg";
+  if (!s) return null;
+  const mk = (t, a, txt) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+  const add = (t, a, txt) => { const e = mk(t, a, txt); s.appendChild(e); return e; };
+  const done = {};
+  const marker = c => { const k = "mk" + id + c.replace("#", "");
+    if (!done[k]) { let d = s.querySelector("defs"); if (!d) { d = mk("defs", {}); s.prepend(d); }
+      const m = mk("marker", {id:k, viewBox:"0 0 10 10", refX:9, refY:5, markerWidth:7, markerHeight:7, orient:"auto"});
+      m.appendChild(mk("path", {d:"M0,0L10,5L0,10z", fill:c})); d.appendChild(m); done[k] = 1; }
+    return "url(#" + k + ")"; };
+  const o = {s, add};
+  o.line = (x1, y1, x2, y2, c = COL.ink, w = 2, dash) => add("line", Object.assign({x1, y1, x2, y2, stroke:c, "stroke-width":w}, dash ? {"stroke-dasharray":dash} : {}));
+  o.arrow = (x1, y1, x2, y2, c = COL.ink, w = 3) => add("line", {x1, y1, x2, y2, stroke:c, "stroke-width":w, "marker-end":marker(c)});
+  o.rect = (x, y, w, h, fill = "none", stroke = "none", sw = 1, fo = 1) => add("rect", {x, y, width:w, height:h, fill, stroke, "stroke-width":sw, "fill-opacity":fo});
+  o.poly = (pts, fill = "none", stroke = COL.ink, sw = 2, fo = 1, dash, close = false) => add(close || fill !== "none" ? "polygon" : "polyline",
+    Object.assign({points:pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill, stroke, "stroke-width":sw, "fill-opacity":fo}, dash ? {"stroke-dasharray":dash} : {}));
+  o.circle = (cx, cy, r, fill = COL.ink, stroke = "none") => add("circle", {cx, cy, r, fill, stroke});
+  o.text = (x, y, str, op = {}) => {
+    const {size = 12, fill = COL.ink, anchor = "start", bold = false, rot = null} = op;
+    const e = add("text", Object.assign({x, y, "font-size":size, fill, "text-anchor":anchor}, bold ? {"font-weight":700} : {}, rot ? {transform:`rotate(${rot} ${x} ${y})`} : {}));
+    for (const part of String(str).split(/(_\{[^}]*\}|\^\{[^}]*\})/)) { if (!part) continue;
+      if (part.startsWith("_{") || part.startsWith("^{")) e.appendChild(mk("tspan", {"baseline-shift":part[0] === "_" ? "sub" : "super", "font-size":Math.round(size * 0.75)}, part.slice(2, -1)));
+      else e.appendChild(document.createTextNode(part)); }
+    return e; };
+  // graph(box=[left, top, width, height], {x:[a,b], y:[a,b], xt, yt, xd, yd, xl, yl}) -> {X, Y}
+  o.graph = (b, g) => {
+    const [L, T, W, H] = b, X = x => L + (x - g.x[0]) / (g.x[1] - g.x[0]) * W, Y = y => T + H - (y - g.y[0]) / (g.y[1] - g.y[0]) * H;
+    for (const v of g.xt || []) { o.line(X(v), T, X(v), T + H, COL.line, 1); o.text(X(v), T + H + 14, nf(v, g.xd || 0), {size:11, anchor:"middle", fill:COL.grey}); }
+    for (const v of g.yt || []) { o.line(L, Y(v), L + W, Y(v), COL.line, 1); o.text(L - 5, Y(v) + 4, nf(v, g.yd || 0), {size:11, anchor:"end", fill:COL.grey}); }
+    if (g.y[0] < 0 && g.y[1] > 0) o.line(L, Y(0), L + W, Y(0), COL.ink, 1.2);
+    o.line(L, T + H, L + W, T + H, COL.ink, 1.5); o.line(L, T, L, T + H, COL.ink, 1.5);
+    if (g.xl) o.text(L + W / 2, T + H + 30, g.xl, {size:12, anchor:"middle"});
+    if (g.yl) o.text(L - 40, T + H / 2, g.yl, {size:12, anchor:"middle", rot:-90});
+    return {X, Y, L, T, W, H}; };
+  o.curve = (g, f, x0, x1, c = COL.ink, w = 3, dash, n = 160) => { const p = []; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } return o.poly(p, "none", c, w, 1, dash); };
+  o.area = (g, f, x0, x1, c, fo = 0.25, base = 0, n = 120) => { const p = [[g.X(x0), g.Y(base)]]; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } p.push([g.X(x1), g.Y(base)]); return o.poly(p, c, "none", 0, fo); };
+  o.dot = (g, x, y, c = COL.ink, r = 4.5) => o.circle(g.X(x), g.Y(y), r, c);
+  return o;
+}
+// Each figure runs in its own try block; the number checker reads window.figErrors, so one broken figure cannot hide the others.
+window.figErrors = [];
+function fig(id, fn){ try { const f = F(id); if (!f) throw new Error("no svg with this id"); fn(f); } catch (e) { window.figErrors.push(id + ": " + e.message); } }
+// The S-curve of 2.2.14 for a speed change v0 -> V with the limits A and J, starting with a = 0 (the formulas printed on the page).
+function scurve(v0, V, A, J, x0 = 0){
+  const D = Math.abs(V - v0), d = V >= v0 ? 1 : -1, sat = J * D > A * A;
+  const T1 = sat ? A / J : Math.sqrt(D / J), T2 = sat ? D / A - A / J : 0, T3 = T1, T = T1 + T2 + T3;
+  const seg = []; let t = 0, a = 0, v = v0, x = x0;
+  for (const [dt, j] of [[T1, d * J], [T2, 0], [T3, -d * J]]) {
+    seg.push({t0:t, t1:t + dt, j, a0:a, v0:v, x0:x});
+    x += v * dt + 0.5 * a * dt * dt + j * dt * dt * dt / 6; v += a * dt + 0.5 * j * dt * dt; a += j * dt; t += dt; }
+  const at = tt => {
+    if (tt >= T) return {j:0, a:0, v:V, x:x + V * (tt - T)};
+    let s = seg[2]; for (const q of seg) if (tt <= q.t1) { s = q; break; }
+    const u = Math.max(0, tt - s.t0);
+    return {j:s.j, a:s.a0 + s.j * u, v:s.v0 + s.a0 * u + 0.5 * s.j * u * u, x:s.x0 + s.v0 * u + 0.5 * s.a0 * u * u + s.j * u * u * u / 6}; };
+  return {T1, T2, T3, T, sat, seg, at, xEnd:x};
+}
+const PH = ["#2E9E4A", "#2F6FD0", "#D68910"];                 // colors of the three parts
+const A0 = 3.0, J0 = 4.0, V0 = 6.0;                            // the example of 2.2.14
+
+// ---------- Figure 1: x, v, a, j of the S-curve ----------
+fig("f1", f => {
+  const S = scurve(0, V0, A0, J0), TT = 3.0, tops = [34, 182, 330, 478], H = 112;
+  const specs = [{y:[0, 10], yt:[0, 3, 6, 9], yl:"x (m)", c:COL.x, k:"x"}, {y:[0, 7], yt:[0, 2, 4, 6], yl:"v (m/s)", c:COL.v, k:"v"},
+                 {y:[0, 3.6], yt:[0, 1, 2, 3], yl:"a (m/s²)", c:COL.a, k:"a"}, {y:[-5.5, 5.5], yt:[-4, 0, 4], yl:"j (m/s³)", c:COL.j, k:"j"}];
+  specs.forEach((sp, i) => {
+    const g = f.graph([90, tops[i], 520, H], {x:[0, TT], y:sp.y, xt:[0, 0.5, 1, 1.5, 2, 2.5, 3], xd:1, yt:sp.yt, xl:i === 3 ? "time t (s)" : null, yl:sp.yl});
+    S.seg.forEach((s, k) => f.rect(g.X(s.t0), g.T, g.X(s.t1) - g.X(s.t0), g.H, PH[k], "none", 0, 0.12));
+    if (sp.k === "j") { S.seg.forEach(s => f.line(g.X(s.t0), g.Y(s.j), g.X(s.t1), g.Y(s.j), sp.c, 3.5)); f.line(g.X(S.T), g.Y(0), g.X(TT), g.Y(0), sp.c, 3.5);
+      [1, 2].forEach(k => f.line(g.X(S.seg[k].t0), g.Y(S.seg[k - 1].j), g.X(S.seg[k].t0), g.Y(S.seg[k].j), sp.c, 1.5, "3 3"));
+      f.line(g.X(S.T), g.Y(-J0), g.X(S.T), g.Y(0), sp.c, 1.5, "3 3");
+      f.text(g.X(0.05), g.Y(4) - 7, "+4.0", {size:12, bold:true, fill:sp.c}); f.text(g.X(1.4), g.Y(0) - 7, "0", {size:12, bold:true, fill:sp.c, anchor:"middle"}); f.text(g.X(2.05), g.Y(-4) - 8, "−4.0", {size:12, bold:true, fill:sp.c}); }
+    else f.curve(g, t => S.at(t)[sp.k], 0, TT, sp.c, 3.5, null, 240);
+    if (sp.k === "x") f.text(g.X(0.08), g.Y(8.4), "x = 8.25 m at T = 2.75 s", {size:12, bold:true, fill:sp.c});
+    if (sp.k === "v") f.text(g.X(2.95), g.Y(6) + 18, "v = 6.0 m/s", {size:12, bold:true, fill:sp.c, anchor:"end"});
+    if (sp.k === "a") f.text(g.X(0.8), g.Y(3) + 16, "a = 3.0 m/s²", {size:12, bold:true, fill:sp.c});
+    f.text(630, tops[i] + 38, `row ${i + 1} · ${["position x", "velocity v", "acceleration a", "jerk j"][i]}`, {size:13, bold:true, fill:sp.c});
+    f.text(630, tops[i] + 58, ["the start of the chain", "v is the slope of x", "a is the slope of v", "j is the slope of a"][i], {size:12});
+  });
+  ["part 1 (T1)", "part 2 (T2)", "part 3 (T3)"].forEach((t, k) => { const g0 = 90, W = 520, s = S.seg[k]; f.text(g0 + (s.t0 + s.t1) / 2 / 3 * W, 24, t, {size:12, bold:true, anchor:"middle", fill:PH[k]}); });
+});
+
+// ---------- Figure 2: jump or ramp ----------
+fig("f2", f => {
+  const R = scurve(0, 3.0, A0, J0), step = t => (t >= 0 && t < 1.0 ? 3.0 : 0);
+  f.text(230, 22, "acceleration a(t)", {size:13, bold:true, anchor:"middle"}); f.text(655, 22, "jerk j(t)", {size:13, bold:true, anchor:"middle"});
+  let g = f.graph([70, 36, 340, 240], {x:[0, 2], y:[0, 3.8], xt:[0, 0.5, 1, 1.5, 2], xd:1, yt:[0, 1, 2, 3], xl:"time t (s)", yl:"a (m/s²)"});
+  f.poly([[g.X(0), g.Y(0)], [g.X(0), g.Y(3)], [g.X(1), g.Y(3)], [g.X(1), g.Y(0)], [g.X(2), g.Y(0)]], "none", COL.red, 3.5);
+  f.curve(g, t => R.at(t).a, 0, 2, COL.x, 3.5, null, 200);
+  f.text(g.X(0.05), g.Y(3.62), "jump: 3.0 m/s in 1.0 s", {size:12, bold:true, fill:COL.red}); f.text(g.X(1.05), g.Y(3.62), "ramp: 3.0 m/s in 1.75 s", {size:12, bold:true, fill:COL.x});
+  g = f.graph([500, 36, 340, 240], {x:[0, 2], y:[-6, 6], xt:[0, 0.5, 1, 1.5, 2], xd:1, yt:[-4, 0, 4], xl:"time t (s)", yl:"j (m/s³)"});
+  R.seg.forEach(s => f.line(g.X(s.t0), g.Y(s.j), g.X(s.t1), g.Y(s.j), COL.x, 3.5));
+  f.arrow(g.X(0.02), g.Y(0.4), g.X(0.02), g.Y(5.9), COL.red, 3); f.arrow(g.X(1.0), g.Y(-0.4), g.X(1.0), g.Y(-5.9), COL.red, 3);
+  f.text(g.X(0.08), g.Y(5.3), "jump: infinite", {size:12, bold:true, fill:COL.red}); f.text(g.X(1.06), g.Y(-5.2), "jump: infinite", {size:12, bold:true, fill:COL.red});
+  f.text(g.X(1.1), g.Y(4.7), "ramp: +4.0, 0, −4.0", {size:12, bold:true, fill:COL.x});
+});
+
+// ---------- Figure 3: areas of the three parts ----------
+fig("f3", f => {
+  const S = scurve(0, V0, A0, J0), TT = 3.0;
+  let g = f.graph([90, 40, 700, 170], {x:[0, TT], y:[0, 3.6], xt:[0, 0.5, 1, 1.5, 2, 2.5, 3], xd:1, yt:[0, 1, 2, 3], xl:"time t (s)", yl:"a (m/s²)"});
+  S.seg.forEach((s, k) => f.area(g, t => S.at(Math.min(t, s.t1 - 1e-9)).a, s.t0, s.t1, PH[k], 0.28));
+  f.curve(g, t => S.at(t).a, 0, TT, COL.a, 3.5, null, 240);
+  f.text(g.X(0.5), g.Y(0.9), "A²/(2·J)", {size:12, bold:true, anchor:"middle", fill:PH[0]}); f.text(g.X(0.5), g.Y(0.45), "= 1.125", {size:12, bold:true, anchor:"middle", fill:PH[0]});
+  f.text(g.X(1.375), g.Y(1.5), "A·T_{2} = 3.0 × 1.25", {size:12, bold:true, anchor:"middle", fill:PH[1]}); f.text(g.X(1.375), g.Y(1.0), "= 3.75", {size:12, bold:true, anchor:"middle", fill:PH[1]});
+  f.text(g.X(2.38), g.Y(0.9), "A²/(2·J)", {size:12, bold:true, anchor:"middle", fill:PH[2]}); f.text(g.X(2.38), g.Y(0.45), "= 1.125", {size:12, bold:true, anchor:"middle", fill:PH[2]});
+  ["T_{1} = 0.75", "T_{2} = 1.25", "T_{3} = 0.75"].forEach((t, k) => f.text(g.X((S.seg[k].t0 + S.seg[k].t1) / 2), g.Y(3.35), t, {size:12, bold:true, anchor:"middle", fill:PH[k]}));
+  g = f.graph([90, 270, 700, 150], {x:[0, TT], y:[0, 7], xt:[0, 0.5, 1, 1.5, 2, 2.5, 3], xd:1, yt:[0, 2, 4, 6], xl:"time t (s)", yl:"v (m/s)"});
+  S.seg.forEach((s, k) => f.rect(g.X(s.t0), g.T, g.X(s.t1) - g.X(s.t0), g.H, PH[k], "none", 0, 0.12));
+  f.curve(g, t => S.at(t).v, 0, TT, COL.v, 3.5, null, 240);
+  [[0.75, 1.125, "v_{1} = 1.125"], [2.0, 4.875, "v_{2} = 4.875"], [2.75, 6.0, "V = 6.0"]].forEach(([t, v, lab], k) => { f.dot(g, t, v, COL.ink, 5); f.text(g.X(t) - 8, g.Y(v) - 8, lab, {size:12, bold:true, anchor:"end"}); });
+});
+
+// ---------- Figure 5: the fourteen parameters as ranges ----------
+fig("f4", f => {
+  const rows = [["MPC_XY_CRUISE", "5.0", "m/s", "3", "20"], ["MPC_XY_VEL_MAX", "12.0", "m/s", "0", "20"], ["MPC_ACC_HOR", "3.0", "m/s^2", "2", "15"], ["MPC_JERK_AUTO", "4.0", "m/s^3", "1", "80"],
+    ["MPC_Z_V_AUTO_UP", "3.0", "m/s", "0.5", "8"], ["MPC_Z_V_AUTO_DN", "1.5", "m/s", "0.5", "4"], ["MPC_ACC_UP_MAX", "4.0", "m/s^2", "2", "15"], ["MPC_ACC_DOWN_MAX", "3.0", "m/s^2", "2", "15"],
+    ["MPC_XY_TRAJ_P", "0.5", "", "0.1", "1"], ["MPC_XY_ERR_MAX", "2.0", "", "0", "10"], ["MPC_Z_VEL_MAX_UP", "3.0", "m/s", "0.5", "8"], ["MPC_Z_VEL_MAX_DN", "1.5", "m/s", "0.5", "4"],
+    ["MPC_JERK_MAX", "8.0", "m/s^3", "0.5", "500"], ["MPC_ACC_HOR_MAX", "5.0", "m/s^2", "2", "15"]];
+  f.text(10, 20, "row · parameter", {size:12, bold:true, fill:COL.grey}); f.text(272, 20, "min", {size:12, bold:true, fill:COL.grey, anchor:"end"}); f.text(412, 20, "allowed range, red mark = default", {size:12, bold:true, fill:COL.grey, anchor:"middle"}); f.text(560, 20, "max", {size:12, bold:true, fill:COL.grey}); f.text(650, 20, "default", {size:12, bold:true, fill:COL.grey});
+  const X0 = 280, W = 270, y0 = 34, dy = 32;
+  rows.forEach(([name, d, u, mn, mx], i) => {
+    const y = y0 + i * dy, grp = i < 10 ? COL.v : COL.a;
+    f.rect(X0, y + 4, W, 14, "#EFEDE9", grp, 1.2);
+    const fr = (Number(d) - Number(mn)) / (Number(mx) - Number(mn));
+    f.rect(X0, y + 4, Math.max(2, W * fr), 14, grp, "none", 0, 0.25);
+    f.line(X0 + W * fr, y, X0 + W * fr, y + 22, COL.red, 3);
+    f.text(10, y + 16, `${i + 1} · ${name}`, {size:12, bold:true, fill:grp}); f.text(X0 - 8, y + 16, mn, {size:12, anchor:"end"}); f.text(X0 + W + 8, y + 16, mx, {size:12});
+    f.text(650, y + 16, `${d} ${u || "(no unit in the file)"}`, {size:12, bold:true}); });
+  f.text(10, y0 + 14 * dy + 14, "blue = rows 1 to 10, the planner of automatic flight; orange = rows 11 to 14, the manual modes", {size:12, fill:COL.grey});
+});
+
+// ---------- Figure 6: the default run, constant a against S-curve ----------
+fig("f5", f => {
+  const S = scurve(0, V0, A0, J0), Tc = V0 / A0;
+  const vc = t => (t < Tc ? A0 * t : V0), xc = t => (t < Tc ? 0.5 * A0 * t * t : V0 * Tc / 2 + V0 * (t - Tc));
+  f.text(230, 22, "speed v(t)", {size:13, bold:true, anchor:"middle"}); f.text(655, 22, "position x(t)", {size:13, bold:true, anchor:"middle"});
+  let g = f.graph([70, 36, 340, 280], {x:[0, 4], y:[0, 7.5], xt:[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4], xd:1, yt:[0, 2, 4, 6], xl:"time t (s)", yl:"v (m/s)"});
+  f.poly([[g.X(0), g.Y(0)], ...Array.from({length:121}, (_, i) => [g.X(2.75 * i / 120), g.Y(vc(2.75 * i / 120))]), ...Array.from({length:121}, (_, i) => { const t = 2.75 * (1 - i / 120); return [g.X(t), g.Y(S.at(t).v)]; })], COL.a, "none", 0, 0.28);
+  f.curve(g, vc, 0, 4, COL.v, 3.5, null, 200); f.curve(g, t => S.at(t).v, 0, 4, COL.x, 3.5, null, 200);
+  f.dot(g, 2.0, 6.0, COL.v, 5); f.dot(g, 2.75, 6.0, COL.x, 5);
+  f.text(g.X(1.95), g.Y(6) - 10, "constant a: 2.0 s", {size:12, bold:true, fill:COL.v, anchor:"end"}); f.text(g.X(2.85), g.Y(5.0), "S-curve: 2.75 s", {size:12, bold:true, fill:COL.x});
+  f.text(g.X(0.1), g.Y(7.1), "orange: speed not yet gained by the S-curve", {size:12, fill:COL.a});
+  g = f.graph([500, 36, 340, 280], {x:[0, 4], y:[0, 20], xt:[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4], xd:1, yt:[0, 5, 10, 15, 20], xl:"time t (s)", yl:"x (m)"});
+  f.curve(g, xc, 0, 4, COL.v, 3.5, null, 200); f.curve(g, t => S.at(t).x, 0, 4, COL.x, 3.5, null, 200);
+  f.dot(g, 2.0, 6.0, COL.v, 5); f.dot(g, 2.75, 8.25, COL.x, 5);
+  f.text(g.X(1.9), g.Y(6) - 10, "6.0 m at 2.0 s", {size:12, bold:true, fill:COL.v, anchor:"end"}); f.text(g.X(2.85), g.Y(8.25) + 18, "8.25 m at 2.75 s", {size:12, bold:true, fill:COL.x});
+  f.text(g.X(3.95), g.Y(18) - 8, "constant a: 18.0 m at 4.0 s", {size:12, fill:COL.v, anchor:"end"}); f.text(g.X(3.95), g.Y(2.2), "S-curve: 15.75 m at 4.0 s", {size:12, fill:COL.x, anchor:"end"});
+});
+
+// ---------- Figure 7: the gate-run speeds ----------
+fig("f6", f => {
+  const up = scurve(6, 24, 6.0, 4.0), dn = scurve(24, 8, 8.0, 4.0);
+  f.text(230, 22, "speed-up 6 → 24 m/s (rows 1 and 2)", {size:13, bold:true, anchor:"middle"}); f.text(655, 22, "braking 24 → 8 m/s (rows 3 and 4)", {size:13, bold:true, anchor:"middle"});
+  let g = f.graph([70, 36, 340, 280], {x:[0, 5], y:[0, 28], xt:[0, 1, 2, 3, 4, 5], xd:0, yt:[0, 6, 12, 18, 24], xl:"time t (s)", yl:"v (m/s)"});
+  f.curve(g, t => (t < 3 ? 6 + 6 * t : 24), 0, 5, COL.v, 3.5, null, 200); f.curve(g, t => up.at(t).v, 0, 5, COL.x, 3.5, null, 200);
+  f.dot(g, 3, 24, COL.v, 5); f.dot(g, 4.5, 24, COL.x, 5);
+  f.text(g.X(2.9), g.Y(26.2), "row 1: 3.0 s, 45.0 m", {size:12, bold:true, fill:COL.v, anchor:"end"}); f.text(g.X(4.95), g.Y(14), "row 2: 4.5 s, 67.5 m", {size:12, bold:true, fill:COL.x, anchor:"end"});
+  g = f.graph([500, 36, 340, 280], {x:[0, 5], y:[0, 28], xt:[0, 1, 2, 3, 4, 5], xd:0, yt:[0, 6, 12, 18, 24], xl:"time t (s)", yl:"v (m/s)"});
+  f.curve(g, t => (t < 2 ? 24 - 8 * t : 8), 0, 5, COL.v, 3.5, null, 200); f.curve(g, t => dn.at(t).v, 0, 5, COL.x, 3.5, null, 200);
+  f.dot(g, 2, 8, COL.v, 5); f.dot(g, 4, 8, COL.x, 5);
+  f.text(g.X(2.1), g.Y(4.5), "row 3: 2.0 s, 32.0 m", {size:12, bold:true, fill:COL.v}); f.text(g.X(4.95), g.Y(12), "row 4: 4.0 s, 64.0 m", {size:12, bold:true, fill:COL.x, anchor:"end"});
+  f.text(430, 382, "the two S-curve rows need 67.5 + 64.0 = 131.5 m; the run is 100 m long", {size:13, bold:true, anchor:"middle", fill:COL.red});
+});
+
+// ---------- Figure 9: speed limit with d to go, and the time stretch ----------
+fig("f7", f => {
+  const A = 3.0, J = 4.0, b = 4 * A * A / J, vm = d => 0.5 * (-b + Math.sqrt(b * b + 8 * A * d));
+  f.text(280, 22, "largest speed with d to go", {size:13, bold:true, anchor:"middle"}); f.text(745, 22, "time stretch factor", {size:13, bold:true, anchor:"middle"});
+  let g = f.graph([60, 36, 440, 280], {x:[0, 30], y:[0, 10], xt:[0, 5, 10, 15, 20, 25, 30], yt:[0, 2, 4, 6, 8, 10], xl:"distance to the target d (m)", yl:"v_{max} (m/s)"});
+  f.curve(g, vm, 0, 30, COL.v, 3.5, null, 200);
+  f.line(g.X(0), g.Y(6), g.X(30), g.Y(6), COL.red, 2, "6 4"); f.text(g.X(29.5), g.Y(6) - 8, "cruise V = 6.0 m/s", {size:12, bold:true, fill:COL.red, anchor:"end"});
+  f.line(g.X(8.25), g.Y(0), g.X(8.25), g.Y(6), COL.grey, 1.5, "2 4"); f.text(g.X(8.6), g.Y(1.0), "S-curve stops in 8.25 m", {size:12, fill:COL.grey});
+  f.dot(g, 10, vm(10), COL.ink, 5); f.text(g.X(10.5), g.Y(vm(10)) + 20, "d = 10.0 m: 4.458 m/s", {size:12, bold:true});
+  f.dot(g, 15, 6.0, COL.ink, 5); f.text(g.X(15.4), g.Y(6) + 20, "d = 15.0 m: 6.0 m/s", {size:12, bold:true});
+  g = f.graph([620, 36, 200, 280], {x:[0, 2], y:[0, 1.1], xt:[0, 0.5, 1, 1.5, 2], xd:1, yt:[0, 0.25, 0.5, 0.75, 1], yd:2, xl:"error e (m)", yl:"factor"});
+  f.line(g.X(0), g.Y(1), g.X(2), g.Y(0), COL.x, 3.5); f.dot(g, 0.5, 0.75, COL.ink, 5); f.text(g.X(0.6), g.Y(0.75) - 8, "0.75 at e = 0.5", {size:12, bold:true});
+});
+
+// ---------- Figure 11: the fixed-wing limits ----------
+fig("f8", f => {
+  const rows = [["1 · FW_AIRSPD_STALL", 7.0, COL.v], ["2 · FW_AIRSPD_MIN", 10.0, COL.v], ["3 · FW_AIRSPD_TRIM", 15.0, COL.v], ["4 · FW_AIRSPD_MAX", 20.0, COL.v], ["5 · FW_T_CLMB_MAX", 5.0, COL.a], ["6 · FW_T_SINK_MIN", 2.0, COL.a]];
+  const X0 = 210, W = 560, X = v => X0 + v / 24 * W, y0 = 40, dy = 38;
+  for (const t of [0, 5, 10, 15, 20]) { f.line(X(t), y0 - 8, X(t), y0 + 6 * dy - 8, COL.line, 1); f.text(X(t), y0 + 6 * dy + 8, String(t), {size:11, anchor:"middle", fill:COL.grey}); }
+  f.text(X0 + W / 2, y0 + 6 * dy + 28, "speed or rate (m/s)", {size:12, anchor:"middle"});
+  f.rect(X(10), y0 - 8, X(20) - X(10), 4 * dy, COL.v, "none", 0, 0.1); f.text(X(15), y0 - 14, "band of commanded airspeed", {size:12, fill:COL.grey, anchor:"middle"});
+  rows.forEach(([name, v, c], i) => { const y = y0 + i * dy; f.text(10, y + 18, name, {size:12, bold:true, fill:c}); f.rect(X0, y + 4, X(v) - X0, 22, c, "none", 0, 0.6); f.text(X(v) + 8, y + 20, nf(v, 1) + " m/s", {size:12, bold:true}); });
+});
+
+// ---------- Figure 12: the two sets of axes ----------
+fig("f9", f => {
+  const tri = (ox, oy, lab, title) => {                       // right-handed triad: first axis to the right? set per call
+    f.text(ox, 24, title, {size:13, bold:true, anchor:"middle"});
+    lab.forEach(([dx, dy, t, c]) => { f.arrow(ox, oy, ox + dx, oy + dy, c, 4); f.text(ox + dx * 1.12 + (dx < 0 ? -6 : 6), oy + dy * 1.12 + (dy < 0 ? -4 : 14), t, {size:13, bold:true, fill:c, anchor:dx < 0 ? "end" : "start"}); });
+    f.circle(ox, oy, 5, COL.ink); };
+  tri(215, 200, [[150, 0, "x east", COL.v], [70, -62, "y north", COL.x], [0, -130, "z up", COL.red]], "course axes (pages 2.2a, 2.2b)");
+  tri(590, 120, [[70, -62, "x north", COL.x], [150, 0, "y east", COL.v], [0, 120, "z down", COL.red]], "NED (PX4, Project AirSim)");
+  f.text(215, 300, "N = y_{n},  E = x_{e},  D = −z_{u}", {size:14, bold:true, anchor:"middle"}); f.text(590, 300, "x_{e} = E,  y_{n} = N,  z_{u} = −D", {size:14, bold:true, anchor:"middle"});
+  f.text(430, 326, "the horizontal axes swap their names; the vertical axis points the other way", {size:12, fill:COL.grey, anchor:"middle"});
+});
+
+// ---------- Figure 13: the five rows of the Project AirSim table ----------
+fig("f10", f => {
+  const box = (x, y, w, h, fill, stroke, t1, t2, t3) => { f.rect(x, y, w, h, fill, stroke, 1.5); f.text(x + 10, y + 24, t1, {size:14, bold:true}); f.text(x + 10, y + 46, t2, {size:11.5}); if (t3) f.text(x + 10, y + 66, t3, {size:11.5}); };
+  box(10, 30, 260, 92, "#F3F7FD", "#CFE2FA", "4 · move to a position", "(north, east, down, velocity)", "one point and one speed");
+  box(300, 30, 260, 92, "#EAF7ED", "#9BD3A8", "5 · move on a path", "(path, velocity)", "carrot following, braking at the end");
+  box(590, 30, 260, 92, "#FFF5E3", "#F2C27A", "3 · move by velocity", "(v_north, v_east, v_down, duration)", "a velocity vector in NED");
+  f.arrow(271, 76, 298, 76, COL.ink, 2.5); f.arrow(561, 76, 588, 76, COL.ink, 2.5);
+  f.text(285, 142, "a path with", {size:11, anchor:"middle", fill:COL.grey}); f.text(285, 156, "one point", {size:11, anchor:"middle", fill:COL.grey});
+  f.text(575, 142, "a velocity vector", {size:11, anchor:"middle", fill:COL.grey}); f.text(575, 156, "each command period", {size:11, anchor:"middle", fill:COL.grey});
+  f.arrow(800, 124, 800, 196, COL.ink, 2.5); f.text(790, 174, "the controller and the physics", {size:11, fill:COL.grey, anchor:"end"}); f.text(790, 188, "change the state", {size:11, fill:COL.grey, anchor:"end"});
+  box(300, 200, 550, 92, "#F3F7FD", "#CFE2FA", "2 · kinematics state", "time_stamp · pose (position, orientation) · twist (linear, angular)", "accels (linear, angular); a = F/m + g, v by the trapezoid rule");
+  f.rect(10, 312, 840, 64, "#EFEDE9", COL.grey, 1.5); f.text(24, 336, "1 · axes and units: NED and SI units (m, rad, m/s) for every number above", {size:14, bold:true}); f.text(24, 358, "gravity is Vector3(0, 0, g): the third axis points down", {size:11.5});
+});
+
+// ---------- Think figures (T11 to T14) ----------
+fig("t11", f => {
+  const g = f.graph([90, 20, 700, 250], {x: [0, 7.5], y: [0, 3.2], xt: [0, 1, 2, 3, 4, 5, 6, 7], yt: [0, 0.5, 1, 1.5, 2, 2.5, 3], yd: 1, xl: "speed change V (m/s)", yl: "duration T (s)"});
+  const T = V => V <= 2.25 ? 2 * Math.sqrt(V / 4) : V / 3 + 0.75;
+  f.line(g.X(2.25), g.Y(0), g.X(2.25), g.Y(1.5), COL.grey, 1.5, "4 3");
+  f.curve(g, T, 0, 7, COL.v, 3.5);
+  f.dot(g, 1.0, 1.0, COL.a, 5.5); f.dot(g, 2.25, 1.5, COL.grey, 5); f.dot(g, 6.0, 2.75, COL.x, 5.5);
+  f.text(g.X(2.5), g.Y(0.75), "log 2 (orange dot): V = 1.0 m/s, T = 1.0 s", {size: 12, bold: true, fill: COL.a});
+  f.text(g.X(2.45), g.Y(1.2), "border: V = 2.25 m/s, T = 1.5 s", {size: 12, fill: COL.grey});
+  f.text(g.X(5.8), g.Y(3.05), "log 1: V = 6.0 m/s, T = 2.75 s", {size: 12, bold: true, fill: COL.x, anchor: "end"});
+});
+fig("t12", f => {
+  const g = f.graph([90, 20, 700, 250], {x: [0, 5.2], y: [0, 6.5], xt: [0, 1, 2, 3, 4, 5], yt: [0, 2, 4, 6], xl: "time t (s)", yl: "speed v (m/s)"});
+  const Vp = 4.97955772, S = scurve(0, Vp, 3.0, 4.0), Tr = S.T, w = t => t <= Tr ? S.at(t).v : S.at(2 * Tr - t).v;
+  f.area(g, w, 0, Tr, COL.x, 0.2); f.area(g, w, Tr, 2 * Tr, COL.a, 0.2);
+  f.line(g.X(0), g.Y(6), g.X(5.2), g.Y(6), COL.red, 2, "7 4");
+  f.line(g.X(Tr), g.Y(0), g.X(Tr), g.Y(Vp), COL.grey, 1, "3 3");
+  f.curve(g, w, 0, 2 * Tr, COL.v, 3.5);
+  f.dot(g, Tr, Vp, COL.ink, 5);
+  f.text(g.X(0.1), g.Y(6.25), "wanted 6.0 m/s (not reached)", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(Tr), g.Y(Vp) - 12, "peak 4.98 m/s at 2.41 s", {size: 12, bold: true, anchor: "middle"});
+  f.text(g.X(Tr / 2), g.Y(0.35), "speed-up: 6.0 m", {size: 12, bold: true, anchor: "middle", fill: COL.x});
+  f.text(g.X(1.5 * Tr), g.Y(0.35), "slow-down: 6.0 m", {size: 12, bold: true, anchor: "middle", fill: COL.a});
+  f.text(g.X(2 * Tr), g.Y(0) - 8, "4.82 s", {size: 12, anchor: "middle"});
+});
+fig("t13", f => {
+  const g = f.graph([70, 20, 400, 260], {x: [1.5, 5], y: [13, 19], xt: [2, 3, 4, 5], xd: 1, yt: [14, 15, 16, 17, 18], xl: "acceleration limit A (m/s²)", yl: "distance d (m)"});
+  const d = A => 18 / A + 3 * A;
+  f.curve(g, d, 1.5, 5, COL.v, 3.5);
+  f.dot(g, 2, 15, COL.a, 5.5); f.dot(g, 3, 15, COL.a, 5.5); f.dot(g, 4, 16.5, COL.a, 5.5); f.dot(g, Math.sqrt(6), 14.697, COL.x, 5.5);
+  f.text(g.X(1.58), g.Y(18.7), "A = 2.0: d = 15.0 m", {size: 12, bold: true, fill: COL.a});
+  f.text(g.X(1.58), g.Y(18.25), "A = 3.0: d = 15.0 m", {size: 12, bold: true, fill: COL.a});
+  f.text(g.X(1.58), g.Y(17.8), "A = 4.0: d = 16.5 m", {size: 12, bold: true, fill: COL.a});
+  f.text(g.X(1.58), g.Y(17.35), "minimum 14.70 m at A = 2.449", {size: 12, bold: true, fill: COL.x});
+  f.text(500, 22, "d = braking term + delay term", {size: 13, bold: true});
+  [[2, 9.0, 6.0, 15.0], [3, 6.0, 9.0, 15.0], [4, 4.5, 12.0, 16.5]].forEach(([A, b1, b2, tot], i) => { const y = 60 + i * 86, x0 = 520, k = 12;
+    f.text(x0, y - 8, `A = ${A}.0 m/s²: d = ${tot.toFixed(1)} m`, {size: 12, bold: true});
+    f.rect(x0, y, b1 * k, 26, COL.v, "none", 0, 0.85); f.rect(x0 + b1 * k, y, b2 * k, 26, COL.a, "none", 0, 0.85);
+    f.text(x0 + 6, y + 18, b1.toFixed(1), {size: 13, bold: true, fill: "#fff"}); f.text(x0 + b1 * k + 6, y + 18, b2.toFixed(1), {size: 13, bold: true, fill: "#fff"}); });
+  f.text(520, 300, "blue: V² / (2·A)      orange: (2·A / J)·V", {size: 12, fill: COL.grey});
+});
+fig("t14", f => {
+  f.text(20, 22, "From above (north up, east right)", {size: 13, bold: true});
+  const px = e => 60 + e * 5, py = n => 290 - n * 5.5, d = [px(10), py(35)], gt = [px(40), py(15)];
+  f.line(d[0], d[1], gt[0], d[1], COL.grey, 1.5, "5 4"); f.line(gt[0], d[1], gt[0], gt[1], COL.grey, 1.5, "5 4");
+  f.arrow(d[0], d[1], gt[0] - 5, gt[1] - 4, COL.x, 3.5);
+  f.circle(d[0], d[1], 6, COL.ink); f.circle(gt[0], gt[1], 8, "#fff", COL.ink);
+  f.text(185, d[1] - 8, "E = +30 m", {size: 12, anchor: "middle"});
+  f.text(gt[0] + 10, 156, "N = −20 m", {size: 12});
+  f.text(d[0] - 8, d[1] - 34, "drone (10, 35, 3)", {size: 12, bold: true});
+  f.text(gt[0] - 70, gt[1] + 28, "gate (40, 15, 8)", {size: 12, bold: true});
+  f.text(110, 168, "36.40 m", {size: 12, bold: true, fill: COL.x});
+  f.text(30, 285, "D = −5 m: the gate is 5 m higher", {size: 12, fill: COL.grey});
+  f.text(480, 22, "Time to the gate", {size: 13, bold: true});
+  const x0 = 480, k = 22;
+  f.text(x0, 56, "5.0 m/s all the way", {size: 12}); f.rect(x0, 62, 7.28 * k, 26, COL.v, "none", 0, 0.85); f.text(x0 + 8, 80, "7.28 s", {size: 13, bold: true, fill: "#fff"});
+  f.text(x0, 130, "with the slow last 2.5 m", {size: 12});
+  f.rect(x0, 136, 6.78 * k, 26, COL.v, "none", 0, 0.85); f.text(x0 + 8, 154, "6.78 s", {size: 13, bold: true, fill: "#fff"});
+  f.rect(x0 + 6.78 * k, 136, 2.5 * k, 26, COL.a, "none", 0, 0.9); f.text(x0 + 6.78 * k + 6, 154, "2.5 s", {size: 13, bold: true, fill: "#fff"});
+  f.text(x0 + 9.28 * k + 10, 154, "9.28 s", {size: 15, bold: true});
+  f.text(x0, 212, "the last 2.5 m: 0.5 s at 5.0 m/s,", {size: 12, fill: COL.grey}); f.text(x0, 230, "but 2.5 s at 1.0 m/s", {size: 12, fill: COL.grey});
+});
+const PAGE = "2.2c";                                 // note keys: "2.2c:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes (owner's order 2026-10-20: "each table must have an editor tool").
+// A table's key is "<page>:<block>#t<n>", n counting the tables inside that block.
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+</script>
+</body>
+</html>

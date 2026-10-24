@@ -1,0 +1,54 @@
+name: Plan page test (think-test)
+on:
+  push:
+    branches: [plan-test]
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q playwright==1.47.0 && python -m playwright install --with-deps chromium
+      - run: python test_page.py
+      - name: renumber the figures of 2.1a, 2.1b and the four pages of section 2.2 (writes the diff and the renumbered pages to out/)
+        run: |
+          mkdir -p out/renumbered
+          for f in page/samples/2.1a_*.html page/samples/2.1b_*.html page/samples/2.2a_*.html page/samples/2.2b_*.html page/samples/2.2c_*.html page/samples/2.2d_*.html; do
+            cp "$f" "out/before_$(basename "$f")"
+            python renumber_figures.py "$f" | tee -a out/renumber_map.json
+            diff "out/before_$(basename "$f")" "$f" > "out/renumber_$(basename "$f").diff" || true
+            cp "$f" "out/renumbered/$(basename "$f")"
+          done
+          wc -c out/renumber_*.diff
+      - run: python check_2_1.py page/samples/2.1a_The_four_forces_one_at_a_time.html page/samples/2.1b_Forces_together_tilt_wind_simulators.html
+      - name: check section 2.2 (numbers, figures, tables, code quotes, links, notes)
+        if: always()
+        run: python check_2_2.py page/samples/2.2a_Position_velocity_acceleration_on_a_line.html page/samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html
+      - name: check page 2.2c (S-curve numbers three ways, quotations against the files, parameter tables against the YAML, figures, tables)
+        if: always()
+        run: python check_2_2c.py page/samples/2.2c_How_PX4_and_Project_AirSim_plan_motion.html
+      - name: check the Think problems of 2.2a, 2.2b, 2.2c and 2.2d (every printed number, quotations, figures, tables, notes)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python check_2_2d.py page/samples/2.2a_Position_velocity_acceleration_on_a_line.html page/samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html page/samples/2.2c_How_PX4_and_Project_AirSim_plan_motion.html page/samples/2.2d_Real_scenarios_thinking_problems.html
+      - name: check the autopilot map and the why boxes (rows, GitHub links, figures, anchors)
+        if: always()
+        run: python check_map.py
+      - if: always()
+        run: python check_ref.py page/reference/sim_physics_formulas.html
+      - name: check the references (the list, its page, every [n] on the eight course pages, the References blocks, the crumbs)
+        if: always()
+        run: python check_refs.py
+      - name: check page 2.3 (every number, 31 figures, tables, code quotes, references, negative control)
+        if: always()
+        run: python check_2_3.py page/samples/2.3_Dynamics_Newtons_second_law.html
+      - if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python check_quotes.py page/reference
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-test
+          path: out/

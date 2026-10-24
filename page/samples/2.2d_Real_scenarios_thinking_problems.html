@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.2d Real scenarios: thinking problems with wind, payload and turbulence</title>
+<!-- Section 2.2 of the v2 course (Part I, Ch 2), page 2.2d. Numbers are checked by check_2_2d.py (cloud). Marks and notes go to ..\notes.json under keys "2.2d:<block>" and "2.2d:<block>#t<n>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px;display:flex;align-items:center;gap:10px}
+h2 .step{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 9px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:17px;white-space:nowrap}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prob{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:6px;padding:10px 14px}
+.prob .tag{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--accent)}
+.prob ol{margin:6px 0 0;padding-left:22px}.prob li{margin:3px 0}
+details{margin-top:8px}summary{cursor:pointer;font-weight:600;color:var(--cL)}
+.ans{font-weight:700;background:#EAF7ED;border-radius:4px;padding:1px 6px}
+.trap{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:6px 10px;margin-top:6px}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+h2.sub{font-size:21px;margin:34px 0 10px;padding-top:10px;border-top:2px solid var(--ink)}
+h2.sub .no{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 10px}
+h3.sub3{font-size:17px;margin:22px 0 8px 12px}
+.big{font-size:21px;text-align:center;margin:10px 0}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+.src{font-size:12px;color:var(--ink2)}
+.prob.think{border-left-color:#7A3FC0;background:#FBF9FE}.prob.think .tag{color:#7A3FC0}
+.prob.think p{margin:8px 0}.prob.think .steps{margin:6px 0 0;padding-left:22px}.prob.think .steps li{margin:9px 0}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I — Flight theory</a> › Ch 2 How things fly › <b>2.2d Real scenarios: thinking problems</b> (draft)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>2.2d Real scenarios: thinking problems with wind, payload and turbulence</h1>
+<p class="lead">Part I · Chapter 2 · section 2, page 4 of 4 · about 2 hours · paper and a calculator · pages before: <a href="2.2a_Position_velocity_acceleration_on_a_line.html">2.2a</a>, <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b</a> and <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html">2.2c</a></p>
+<p class="lead">Page 2.2a: 2.2.1-2.2.6, Think 1-4. Page 2.2b: 2.2.7-2.2.12, Think 5-10 and 10a-10c. Page 2.2c: 2.2.13-2.2.19, Think 11-14. This page: 2.2.20-2.2.25, Think 15-25. Think numbers run on across the four pages. Figures are numbered on each page from 1; a figure on another page is always named with its page and its subject.</p></div>
+
+<div data-b="goal"><div class="box"><b>Goal.</b> After this page you can solve a flight problem in which several ideas meet: falling, laps, speed, acceleration, takeoff, height, braking and the time of a roll, with wind from any direction, a payload and turbulence. You can choose the idea that fits, watch for the trap, test whether a plan is possible, and work backward from a measurement. You also see why the parts of the autopilot of the <a href="../reference/autopilot_map.html">autopilot map</a> (the planner, the estimator and the simulator) need these ideas.</div></div>
+<div data-b="howto"><div class="box howto"><b>How this page works.</b> Every problem is a <b>Think</b> problem, and it has the same five parts. (1) The <b>situation</b>, with a figure that draws it. (2) <b>Think first</b>: two to four questions about what is asked, what is unknown, which ideas apply and where a trap may be; a hint is hidden under them. (3) The <b>solution</b>: numbered steps, and every step starts with <i>Why this step</i>, one or two sentences of reasoning, before the formula in letters, then in numbers, then the result. (4) <b>Check your answer</b>: a test of units, of a limit case, or a second method. (5) <b>What if …</b>: a twist that changes one condition, with a short hidden answer. Try the problem on paper before you open the solution. Each problem names the sections where its ideas are taught. <b>Gravity:</b> the home field is φ = 45°, h = 0 m, g = 9.8062 m/s², and Denver is φ = 39.74°, h = 1 600 m, g = 9.7965 m/s² and ρ = 1.049 kg/m³ (version 4 of 2.1.2 on <a href="2.1a_The_four_forces_one_at_a_time.html#s2.1.2">page 2.1a</a>). <b>Drag</b> is ignored in every problem unless it says otherwise; where drag would change the answer, the problem says in words what it would change. <b>Numbers</b> that are made up for practice are marked "made up". Axes: x east, y north, z up, as on page 2.2b.</div></div>
+
+<div data-b="conv"><h3 class="sub3">Two conventions that every problem uses</h3>
+<p><b>A bearing</b> is a compass direction in degrees, measured clockwise from north: 0° is north, 90° is east, 180° is south and 270° is west. <b>A wind is named after the direction it comes from.</b> "Wind from 240°" comes from the south-west and blows toward <span class="f">240° − 180° = 60°</span>, which is north-east (page 2.1b, section 2.1.12 has the trap box). The wind arrow <span class="f">w</span> therefore points toward 60°, and its east and north parts are <span class="f">(w·sin 60°, w·cos 60°)</span>.</p>
+<p><b>Ground = air + wind.</b> The drone moves through the air with the airspeed arrow, and the air itself moves over the ground with the wind arrow. The ground velocity is the sum of the two arrows (page 2.1b, section 2.1.12 writes it the other way round, <span class="f">V = v<sub>g</sub> − v<sub>w</sub></span>). Figure 1 draws the bearings on the left and the sum on the right, for a drone that flies north at 12 m/s in a wind of 6 m/s from 240°.</p>
+<figure><svg id="f1" viewBox="0 0 860 300" width="100%" style="max-width:860px" role="img" aria-label="Left: a compass with the wind arrow coming from the bearing 240 degrees and blowing toward 60 degrees. Right: the airspeed arrow of 12 meters per second north plus the wind arrow of 6 meters per second toward 60 degrees gives the ground velocity arrow"></svg>
+<figcaption>Figure 1. Left: bearings are measured clockwise from north. A wind from 240° (grey arrow) blows toward 60°. Right: ground velocity = airspeed + wind. The drone flies north at 12 m/s through the air (blue). The wind (grey) adds 5.196 m/s to the east and 3.0 m/s to the north. The ground velocity (green) is (5.196 east, 15.0 north) m/s.</figcaption></figure></div>
+
+<h2 class="sub" id="s2.2.20"><span class="no">2.2.20</span> Falling after a motor failure, with a parcel and the wind</h2>
+<div data-b="think-15"><div class="prob think"><div class="tag">THINK 15 · THE MOTORS STOP IN A CROSSWIND, WITH A PARCEL</div>
+<p><b>Situation.</b> A delivery drone of 1.5 kg carries a parcel of 2.0 kg, so the total mass is 3.5 kg. It flies north at an airspeed of 12 m/s, 40 m above the ground. The wind comes from 240° at 6 m/s. At one moment all four motors stop. Drag is ignored (home field, g = 9.8062 m/s²). <i>Ideas used:</i> the ground velocity of <a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a> and the free fall of <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.9">2.2.9</a>.</p>
+<figure><svg id="t15" viewBox="0 0 860 320" width="100%" style="max-width:860px" role="img" aria-label="Left: the drift seen from above, 14.84 meters east and 42.84 meters north from the point below the failure to the landing point. Middle: the fall seen from the side, 40 meters high and 45.34 meters along the ground track. Right: the velocities before the failure"></svg>
+<figcaption>Figure 2. The fall of Think 15. Left: from above, the drone keeps its ground velocity (5.196 east, 15.0 north) and lands 14.84 m east and 42.84 m north of the point below the failure. Middle: from the side, along the ground track, it falls 40 m in 2.856 s while it drifts 45.34 m. Right: the arrows before the failure.</figcaption></figure>
+<p><b>Questions.</b> (a) What is the ground velocity at the moment of the failure? (b) How long does the fall last? (c) Where does the drone land, compared with the point below the failure? (d) How fast is it at impact?</p>
+<p><b>Think first.</b></p>
+<ol><li>Does the mass of the parcel change the fall time?</li>
+<li>At the moment the motors stop, which velocity does the drone have: the air velocity or the ground velocity?</li>
+<li>With drag ignored, what changes the horizontal velocity after the failure?</li>
+<li>The wind comes from 240°. Toward which bearing does it blow?</li></ol>
+<details><summary>Hint</summary>Turn "from 240°" into "toward 60°", split the wind into an east part and a north part, and add it to the airspeed arrow. After that, the horizontal and the vertical motion are two separate problems.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the wind arrow must point where the air goes, not where it comes from. The air blows toward <span class="f">240° − 180° = 60°</span>. <span class="f">w = (6 × sin 60°, 6 × cos 60°) = (5.196, 3.0) m/s</span> (east, north).</li>
+<li><i>Why this step:</i> the drone moves over the ground with the sum of its airspeed arrow and the wind arrow, and this is its velocity when the motors stop. <span class="f">v = (0 + 5.196, 12 + 3.0) = (5.196, 15.0) m/s</span>. Its size is <span class="f">|v| = √(5.196² + 15.0²) = √(27.0 + 225.0) = √252 = <span class="ans">15.87 m/s</span></span>, and its direction is <span class="f">arctan(5.196 / 15.0) = <span class="ans">19.1°</span></span> east of north.</li>
+<li><i>Why this step:</i> with drag ignored, nothing pushes the drone sideways after the failure, so the horizontal velocity stays the same, and only gravity acts on the vertical motion. The mass of the parcel does not enter (2.2.9). The fall time is <span class="f">t = √(2·h / g) = √(2 × 40 / 9.8062) = √8.1581 = <span class="ans">2.856 s</span></span>.</li>
+<li><i>Why this step:</i> the drift is the horizontal velocity times the fall time, for each direction separately. North: <span class="f">15.0 × 2.856 = <span class="ans">42.84 m</span></span>. East: <span class="f">5.196 × 2.856 = <span class="ans">14.84 m</span></span>. Together: <span class="f">√(42.84² + 14.84²) = √(1835.3 + 220.2) = √2055.5 = <span class="ans">45.34 m</span></span>.</li>
+<li><i>Why this step:</i> the impact speed has a vertical part from the fall and a horizontal part that did not change. The vertical part is <span class="f">g·t = 9.8062 × 2.856 = <span class="ans">28.01 m/s</span></span> downward. The total is <span class="f">√(252 + 28.01²) = √(252 + 784.56) = √1036.56 = <span class="ans">32.20 m/s</span></span>.</li></ol>
+<p><b>Check your answer.</b> A second method for the drift: the ground speed times the fall time, <span class="f">√252 × 2.856 = 45.34 m</span>, equals the result of step 4. A comparison with Try it 30: a fall from 45 m ends at 29.70 m/s, and a fall from 40 m must end a little slower. The result, 28.01 m/s, is slower.</p>
+<p><b>What if …</b> drag were not ignored?</p>
+<details><summary>Show the answer</summary>The fall would take longer and the vertical impact speed would be smaller, because drag grows with the speed and pushes against the fall. Drag would also pull the drone toward the speed of the air. The horizontal velocity would shrink from (5.196, 15.0) toward the wind velocity (5.196, 3.0), so the drone would land closer to the point below the failure than 45.34 m, but still downwind of it.</details>
+</details></div></div>
+<div data-b="think-16"><div class="prob think"><div class="tag">THINK 16 · THE MOTORS STOP IN A CLIMB, WITH A TAILWIND</div>
+<p><b>Situation.</b> A drone climbs at 30° above the horizontal on a north heading, with an airspeed of 10 m/s. The wind comes from the south (180°) at 5.0 m/s, so it is a tailwind. At the height of 25 m all motors stop. Drag is ignored (home field). <i>Ideas used:</i> the wind and the ground velocity of <a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>, the three-dimensional motion of <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.7">2.2.7</a> and the fall that starts with an upward velocity (<a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.9">2.2.9</a>, Try it 33).</p>
+<figure><svg id="t16" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Height against the distance north after the failure: two parabolas that start at 25 meters with a climb of 5 meters per second; the path with the tailwind lands 38.59 meters ahead and the path without wind lands 24.46 meters ahead; both rise to 26.27 meters first"></svg>
+<figcaption>Figure 3. The two falls of Think 16, seen from the side. Both paths start at 25 m and rise first to 26.27 m, because the drone still climbs at 5.0 m/s. With the tailwind the ground speed is 13.660 m/s and the drone lands 38.59 m ahead. Without wind it would land 24.46 m ahead. The fall time, 2.825 s, is the same.</figcaption></figure>
+<p><b>Questions.</b> (a) What are the horizontal and the vertical parts of the ground velocity at the failure? (b) How long until the drone is on the ground? (c) How far north does it land, and how much of that is the effect of the wind? (d) How high does it rise first? (e) How fast is it at impact?</p>
+<p><b>Think first.</b></p>
+<ol><li>Which part of the velocity does the wind change, the horizontal part or the vertical part?</li>
+<li>The drone is still rising when the motors stop. What does gravity do to the rise?</li>
+<li>Which equation gives the time when you know the start height, the start velocity and the end height?</li></ol>
+<details><summary>Hint</summary>Write the height as <span class="f">z = z₀ + v<sub>z</sub>·t − ½·g·t²</span> and set z = 0. This is a quadratic equation in t. Keep the positive root.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> first split the airspeed into its horizontal and vertical parts. <span class="f">10 × cos 30° = <span class="ans">8.660 m/s</span></span> horizontally and <span class="f">10 × sin 30° = <span class="ans">5.0 m/s</span></span> upward.</li>
+<li><i>Why this step:</i> the wind blows north, in the flight direction, and it has no vertical part. It adds to the horizontal part only. <span class="f">8.660 + 5.0 = <span class="ans">13.660 m/s</span></span> north. The vertical part stays 5.0 m/s.</li>
+<li><i>Why this step:</i> after the failure the vertical motion is a straight-line problem with a = −g, z₀ = 25 and a start velocity of +5.0 m/s. Setting z = 0 gives <span class="f">t = (v<sub>z</sub> + √(v<sub>z</sub>² + 2·g·z₀)) / g</span>. First the root: <span class="f">√(5.0² + 2 × 9.8062 × 25) = √515.31 = 22.70</span>. Then <span class="f">t = (5.0 + 22.70) / 9.8062 = <span class="ans">2.825 s</span></span>.</li>
+<li><i>Why this step:</i> the horizontal distance is the horizontal ground speed times the time. <span class="f">13.660 × 2.825 = <span class="ans">38.59 m</span></span>. Without wind it would be <span class="f">8.660 × 2.825 = 24.46 m</span>, so the wind adds <span class="f">38.59 − 24.46 = <span class="ans">14.13 m</span></span>.</li>
+<li><i>Why this step:</i> the highest point is where the upward velocity is used up. It is higher than 25 m by <span class="f">v<sub>z</sub>² / (2·g) = 5.0² / (2 × 9.8062) = 25.0 / 19.6124 = 1.27 m</span>, so the height is <span class="f">25 + 1.27 = <span class="ans">26.27 m</span></span>, reached after <span class="f">5.0 / 9.8062 = 0.510 s</span>.</li>
+<li><i>Why this step:</i> the impact speed has the final vertical velocity (equation 3 gives its size, 22.70 m/s downward) and the unchanged horizontal part. <span class="f">√(13.660² + 22.70²) = √(186.60 + 515.29) = √701.89 = <span class="ans">26.49 m/s</span></span>.</li></ol>
+<p><b>Check your answer.</b> A second method for the final vertical velocity: <span class="f">5.0 − 9.8062 × 2.825 = 5.0 − 27.70 = −22.70 m/s</span>, the same as the root in step 3 with a minus sign. The tailwind did not change the fall time. It only moved the landing point, by the wind speed times the fall time, <span class="f">5.0 × 2.825</span>, which is the 14.13 m of step 4 (to within the rounding).</p>
+<p><b>What if …</b> the wind were a headwind of 5.0 m/s (from the north)?</p>
+<details><summary>Show the answer</summary>The fall time stays 2.825 s. The horizontal ground speed becomes <span class="f">8.660 − 5.0 = 3.660 m/s</span>, so the drone lands only <span class="f">3.660 × 2.825 = <span class="ans">10.34 m</span></span> ahead of the failure point.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.21"><span class="no">2.2.21</span> Wind on a lap, and finding the wind</h2>
+<div data-b="think-17"><div class="prob think"><div class="tag">THINK 17 · A SQUARE LAP IN A STEADY WIND</div>
+<p><b>Situation.</b> A drone flies a square lap with four legs of 300 m each, in this order: north, east, south, west. It holds an airspeed of 15 m/s on every leg, and it points its nose so that it flies exactly along each leg. The wind comes from 300° at 6 m/s and is steady. Acceleration at the corners is ignored. <i>Ideas used:</i> ground = air + wind (<a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>, the crosswind case) and the lap as a list of phases (<a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.8">2.2.8</a>).</p>
+<figure><svg id="t17" viewBox="0 0 860 310" width="100%" style="max-width:860px" role="img" aria-label="A square lap flown north, east, south and west with the ground speed and the time written at each leg, and the wind arrow from 300 degrees at the right"></svg>
+<figcaption>Figure 4. The four rows of the table, drawn on the lap. Each leg shows its ground speed and its time. The wind arrow (grey, at the right) points toward 120°. The legs with a headwind (1 and 4) are the slow ones.</figcaption></figure>
+<p><b>Questions.</b> (a) What are the ground speed and the time of each leg? (b) What is the lap time, and how does it compare with the lap in still air? (c) Why does a steady wind always make a lap with equal legs longer, even though two legs get a tailwind?</p>
+<p><b>Think first.</b></p>
+<ol><li>Which part of the wind helps or opposes the drone along a leg, and which part pushes it sideways?</li>
+<li>The drone must not drift. What does it have to do with its nose, and what does that cost in speed along the leg?</li>
+<li>Is "15 plus the tailwind" the ground speed of a leg with a crosswind? Why not?</li></ol>
+<details><summary>Hint</summary>For each leg, split the wind into a part along the leg and a part across it. The nose turns into the crosswind part, and only the rest of the airspeed, <span class="f">√(V² − w⊥²)</span>, is left for moving along the leg.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> first make the wind arrow. It blows toward <span class="f">300° − 180° = 120°</span>. <span class="f">w = (6 × sin 120°, 6 × cos 120°) = (5.20, −3.00) m/s</span> (east, north): it blows to the east and to the south.</li>
+<li><i>Why this step:</i> for each leg, the part of the wind along the leg is a tailwind (+) or a headwind (−), and the part across the leg is a crosswind. Leg 1 (north): the north part of the wind is −3.00, so there is a 3.00 m/s headwind, and the east part, 5.20, is across. The other legs follow in the same way (table below).</li>
+<li><i>Why this step:</i> the drone must cancel the crosswind with its nose, so only <span class="f">√(V² − w⊥²)</span> of the airspeed is left along the leg. The ground speed is that part plus the wind along the leg. The table gives all four rows.</li>
+<li><i>Why this step:</i> add the four times for the lap, and compare with still air. <span class="f">27.10 + 15.08 + 17.57 + 31.58 = <span class="ans">91.33 s</span></span>. In still air: <span class="f">4 × 300 / 15 = 80.0 s</span>. The wind costs <span class="f">91.33 − 80.0 = <span class="ans">11.33 s</span></span>, which is <span class="f">11.33 / 80.0 = 14 %</span>.</li></ol>
+<p><b>How to read this table.</b> The table has four rows, one for each leg of the lap. Read a row from left to right: the leg and its track, the part of the wind along the track, the part of the wind across the track, the ground speed, the time, and the direction of the nose. It matters for flying because the lap time is the sum of the four leg times. Here is every symbol. <span class="f">V</span> = 15 m/s is the airspeed. <span class="f">w∥</span> is the wind along the track, in m/s: plus for a tailwind and minus for a headwind. <span class="f">w⊥</span> is the size of the wind across the track, in m/s; it pushes the drone sideways. <span class="f">√(V² − w⊥²)</span> is the part of the airspeed that is left for moving along the track after the nose has turned into the crosswind; it is smaller than V. The ground speed <span class="f">v<sub>g</sub></span> is that part plus w∥, in m/s. The time is <span class="f">300 / v<sub>g</sub></span>, in s. The nose direction is a compass bearing in degrees: the track bearing, turned by the angle <span class="f">arcsin(w⊥ / V)</span> into the crosswind. Figure 4 draws the four rows on the lap.</p>
+<table class="t"><tr><th>Leg</th><th>w∥ (m/s)</th><th>w⊥ (m/s)</th><th>Ground speed v<sub>g</sub> (m/s)</th><th>Time (s)</th><th>Nose direction</th></tr>
+<tr><td>1 north, track 0°</td><td class="f">−3.00</td><td class="f">5.20</td><td class="f">√(15² − 5.20²) − 3.00 = 14.07 − 3.00 = 11.07</td><td class="f">300 / 11.07 = 27.10</td><td class="f">0° − 20.3° = 339.7°</td></tr>
+<tr><td>2 east, track 90°</td><td class="f">+5.20</td><td class="f">3.00</td><td class="f">√(15² − 3.00²) + 5.20 = 14.70 + 5.20 = 19.90</td><td class="f">300 / 19.90 = 15.08</td><td class="f">90° − 11.5° = 78.5°</td></tr>
+<tr><td>3 south, track 180°</td><td class="f">+3.00</td><td class="f">5.20</td><td class="f">14.07 + 3.00 = 17.07</td><td class="f">300 / 17.07 = 17.57</td><td class="f">180° + 20.3° = 200.3°</td></tr>
+<tr><td>4 west, track 270°</td><td class="f">−5.20</td><td class="f">3.00</td><td class="f">14.70 − 5.20 = 9.50</td><td class="f">300 / 9.50 = 31.58</td><td class="f">270° + 11.5° = 281.5°</td></tr></table>
+<p><i>The turn angles:</i> <span class="f">arcsin(5.20 / 15) = 20.3°</span> for the legs 1 and 3, and <span class="f">arcsin(3.00 / 15) = 11.5°</span> for the legs 2 and 4. Whether the nose turns left or right depends on the side from which the crosswind comes.</p>
+<p><b>Why the wind always costs time.</b> Take two opposite legs, for example 1 and 3. They have the same crosswind and the same leftover airspeed c = <span class="f">√(V² − w⊥²)</span>, but their along-wind parts are +w and −w. Their times add up to <span class="f">L / (c − w) + L / (c + w) = 2·L·c / (c² − w²)</span>, and this is at least <span class="f">2·L / c</span>, because the denominator is smaller than c². Also c is at most V. So the sum is at least <span class="f">2·L / V</span>, the time in still air. With numbers: <span class="f">27.10 + 17.57 = 44.67 s</span> and <span class="f">15.08 + 31.58 = 46.66 s</span>, both more than the still-air <span class="f">2 × 300 / 15 = 40.0 s</span>. In words: the drone spends more time in the slow headwind leg than in the fast tailwind leg, and every crosswind wastes a part of the airspeed on the turn of the nose.</p>
+<p><b>Check your answer.</b> The ground speeds must lie between 15 − 6 = 9 and 15 + 6 = 21 m/s, the extremes of a wind of 6 m/s. They do: 9.50 to 19.90. A second method for leg 1: the nose arrow has 14.07 m/s along the track and 5.20 m/s across, against the crosswind. The wind has −3.00 along and 5.20 across. The sum is 14.07 − 3.00 = 11.07 m/s along the track and 0 across, so the drone does not drift.</p>
+<p><b>What if …</b> the wind were as fast as the airspeed, 15 m/s from 300°?</p>
+<details><summary>Show the answer</summary>The wind arrow is then <span class="f">(15 × sin 120°, 15 × cos 120°) = (12.99, −7.50)</span>. On the west leg the headwind is 12.99 m/s and the crosswind is 7.50 m/s, so <span class="f">√(15² − 7.50²) = √168.75 = 12.99</span> is left, and the ground speed is <span class="f">12.99 − 12.99 = <span class="ans">0.00 m/s</span></span>. The drone cannot fly the west leg at all: the lap cannot be finished.</details>
+</details></div></div>
+<div data-b="think-18"><div class="prob think"><div class="tag">THINK 18 · FIND THE WIND FROM TWO GROUND SPEEDS</div>
+<p><b>Situation.</b> A drone holds an airspeed of 15 m/s on three legs, and the wind is steady. The log kept only the ground <b>speeds</b> (the size of the GPS velocity), not their directions. On leg A the nose pointed north and the ground speed was 20.22 m/s. On leg B the nose pointed east and the ground speed was 22.29 m/s. On leg C the nose pointed south and the ground speed was 13.00 m/s. <i>Ideas used:</i> ground = air + wind (<a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>) and the length of a vector (<a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.7">2.2.7</a>).</p>
+<figure><svg id="t18" viewBox="0 0 860 370" width="100%" style="max-width:860px" role="img" aria-label="The plane of the wind with its east and north parts: three circles for the three legs, centered at 0 and minus 15, minus 15 and 0, and 0 and 15 with the radii 20.22, 22.29 and 13.00; circles A and B meet in two points, and only one of them lies on circle C"></svg>
+<figcaption>Figure 5. The plane of the wind (east part across, north part up). Each measured ground speed is a circle: all winds that give this ground speed on that leg. Circles A (blue) and B (orange) meet in two points. Only the green point, (6.929, 3.996), also lies on circle C (green), so it is the wind. The other point, (−18.996, −21.929), is a wind of 29 m/s, twice the airspeed.</figcaption></figure>
+<p><b>Questions.</b> (a) What equation does each of the legs A and B give for the wind? (b) Find all winds that fit A and B. (c) Use leg C to choose one. (d) What are the wind speed and the bearing the wind comes from?</p>
+<p><b>Think first.</b></p>
+<ol><li>The log gives a length, not an arrow. Which winds give one length? What shape do they form?</li>
+<li>Two such shapes meet in how many points? What does this mean for the answer?</li>
+<li>What does a third measurement do?</li></ol>
+<details><summary>Hint</summary>For leg A the ground arrow is (w<sub>E</sub>, 15 + w<sub>N</sub>), and its length is 20.22. Write the same for leg B, subtract the two equations, and the squared terms cancel.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the ground arrow is the airspeed arrow plus the wind arrow, and the log gives its length. Leg A (nose north, airspeed arrow (0, 15)): <span class="f">w<sub>E</sub>² + (15 + w<sub>N</sub>)² = 20.22² = 408.85</span>. Leg B (nose east, airspeed arrow (15, 0)): <span class="f">(15 + w<sub>E</sub>)² + w<sub>N</sub>² = 22.29² = 496.84</span>.</li>
+<li><i>Why this step:</i> subtract the second equation from the first. The terms w<sub>E</sub>², w<sub>N</sub>² and 225 appear in both and cancel, and only a linear equation is left: <span class="f">30 × w<sub>N</sub> − 30 × w<sub>E</sub> = 408.85 − 496.84 = −87.99</span>, so <span class="f">w<sub>N</sub> − w<sub>E</sub> = −87.99 / 30 = −2.933</span>.</li>
+<li><i>Why this step:</i> put w<sub>N</sub> = w<sub>E</sub> − 2.933 into the first equation, so that only one unknown is left. <span class="f">w<sub>E</sub>² + (12.067 + w<sub>E</sub>)² = 2 × w<sub>E</sub>² + 24.134 × w<sub>E</sub> + 145.61</span>, and this equals 408.85. Therefore <span class="f">2 × w<sub>E</sub>² + 24.134 × w<sub>E</sub> − 263.24 = 0</span>.</li>
+<li><i>Why this step:</i> a quadratic equation has two roots, and both are possible winds. <span class="f">w<sub>E</sub> = (−24.134 ± √(24.134² + 8 × 263.24)) / 4 = (−24.134 ± √2688.37) / 4 = (−24.134 ± 51.849) / 4</span>. The roots are <span class="f">w<sub>E</sub> = <span class="ans">6.929</span></span> and <span class="f">w<sub>E</sub> = <span class="ans">−18.996</span></span>.</li>
+<li><i>Why this step:</i> the north part follows from the linear equation. <span class="f">w<sub>N</sub> = 6.929 − 2.933 = <span class="ans">3.996</span></span> and <span class="f">w<sub>N</sub> = −18.996 − 2.933 = <span class="ans">−21.929</span></span>.</li>
+<li><i>Why this step:</i> turn each wind into a speed and a bearing. Wind 1: <span class="f">√(6.929² + 3.996²) = √(48.01 + 15.97) = √63.98 = <span class="ans">8.00 m/s</span></span>, toward <span class="f">arctan(6.929 / 3.996) = 60.0°</span>, so it comes from 240°. Wind 2: <span class="f">√(18.996² + 21.929²) = √(360.85 + 480.88) = √841.73 = <span class="ans">29.01 m/s</span></span>, toward 180° + <span class="f">arctan(18.996 / 21.929) = 180° + 40.9°</span>, so it comes from 40.9°.</li>
+<li><i>Why this step:</i> leg C decides. For the nose south the airspeed arrow is (0, −15). Wind 1 predicts <span class="f">√(6.929² + (3.996 − 15)²) = √(48.01 + 121.09) = √169.10 = <span class="ans">13.00 m/s</span></span>, which is the measured value. Wind 2 predicts <span class="f">√(18.996² + (−21.929 − 15)²) = √(360.85 + 1363.75) = √1724.60 = 41.53 m/s</span>, which is not. So the wind is <b>8.0 m/s from 240°</b>.</li></ol>
+<p><b>Check your answer.</b> Put wind 1 back into the equations of legs A and B. Leg A: <span class="f">√(6.929² + (15 + 3.996)²) = √(48.01 + 360.85) = √408.86 = 20.22 m/s</span>. Leg B: <span class="f">√((15 + 6.929)² + 3.996²) = √(480.88 + 15.97) = √496.85 = 22.29 m/s</span>. Both agree with the log. Wind 2 would be stronger than the airspeed (29 m/s against 15 m/s), which is also a reason to doubt it.</p>
+<p><b>What if …</b> the drone now flies a leg with the nose pointing west? Predict its ground speed.</p>
+<details><summary>Show the answer</summary>The airspeed arrow is (−15, 0), so the ground speed is <span class="f">√((6.929 − 15)² + 3.996²) = √(65.14 + 15.97) = √81.11 = <span class="ans">9.01 m/s</span></span>. A found wind lets you predict any leg.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.22"><span class="no">2.2.22</span> Takeoff and landing rolls at Denver, in a wind, with a load</h2>
+<div data-b="think-19"><div class="prob think"><div class="tag">THINK 19 · WHICH RUNWAY DIRECTION, AND IS 150 m ENOUGH?</div>
+<p><b>Situation.</b> A fixed-wing aircraft works at Denver (ρ = 1.049 kg/m³, g = 9.7965 m/s²) from a strip of 150 m, which can be used as runway 27 (heading 270°, toward the west) or as runway 09 (heading 90°, toward the east). The wind comes from 240° at 8.0 m/s. In 2.2.10 the same aircraft, without a load, takes off at Denver with 27.0 m/s and 2.141 m/s² (row 4 of the table there). A load now makes it 5 % heavier (mass factor 1.05). The takeoff speed grows with the square root of the mass, and the acceleration falls in proportion to 1 / mass (Think 8). At touchdown its airspeed is 25.0 m/s and its brakes give −2.0 m/s² (both made up). The roll ends at the <b>ground</b> speed that matches the airspeed at liftoff: ground speed = airspeed − headwind component. <i>Ideas used:</i> the rolls and the Denver numbers of <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.10">2.2.10</a>, and the wind of <a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>.</p>
+<figure><svg id="t19" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Left: the strip as runway 27 and 09 with the wind arrow from 240 degrees. Right: five bars for the rolls, 105.48 and 293.57 meters for the takeoffs on 27 and 09, 187.75 meters for a takeoff in still air, 81.63 and 254.88 meters for the landings, with a line at the strip length of 150 meters"></svg>
+<figcaption>Figure 6. Left: the strip and the wind. For runway 27 the wind comes from 30° off the nose: headwind 6.93 m/s, crosswind 4.00 m/s. For runway 09 it is a tailwind of 6.93 m/s. Right: the five rows of the table as bars. Green bars end inside the 150 m strip (the dashed line), red bars do not.</figcaption></figure>
+<p><b>Questions.</b> (a) What are the headwind and the crosswind components for each runway direction? (b) What are the takeoff rolls and the landing rolls? (c) Which direction should be used, and does 150 m suffice? (d) What headwind makes the takeoff just fit?</p>
+<p><b>Think first.</b></p>
+<ol><li>The angle that counts is between the wind direction (where it comes from) and the runway heading. Which angle is it for each runway?</li>
+<li>A headwind does not change the acceleration in this simple model. What does it change?</li>
+<li>Would the aircraft fit on the strip in still air? Guess first, and check at the end.</li></ol>
+<details><summary>Hint</summary>The headwind component is <span class="f">w·cos(angle)</span> and the crosswind is <span class="f">w·sin(angle)</span>, with the angle between "wind from" and the heading. Then use <span class="f">s = (ground speed)² / (2·a)</span>.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> first get the loaded aircraft. <span class="f">√1.05 = 1.0247</span>, so <span class="f">V = 27.0 × 1.0247 = <span class="ans">27.67 m/s</span></span>, and <span class="f">a = 2.141 / 1.05 = <span class="ans">2.039 m/s²</span></span>. Then <span class="f">2·a = 2 × 2.039 = 4.078</span>.</li>
+<li><i>Why this step:</i> split the wind for each heading. Runway 27: the wind comes from 240°, the heading is 270°, so the angle is 30°. Headwind <span class="f">8.0 × cos 30° = <span class="ans">6.93 m/s</span></span>, crosswind <span class="f">8.0 × sin 30° = <span class="ans">4.00 m/s</span></span>. Runway 09: the angle is 240° − 90° = 150°. <span class="f">8.0 × cos 150° = −6.93 m/s</span>, which means a tailwind of 6.93 m/s, and <span class="f">8.0 × sin 150° = 4.00 m/s</span> across.</li>
+<li><i>Why this step:</i> the aircraft lifts off at the airspeed V, and the wind supplies part of it, so the ground speed at liftoff is V minus the headwind. The roll then follows from equation 3 with the ground speed, as in 2.2.10. The table gives the rolls for the five cases (takeoff on 27, takeoff on 09, takeoff in still air, landing on 27, landing on 09).</li></ol>
+<p><b>How to read this table.</b> The table has five rows, one for each case. Read a row from left to right: the case, the part of the wind along the runway, the ground speed, the roll length, and whether the roll fits on the strip of 150 m. It matters for flying because the roll length decides whether a runway direction can be used. Here is every symbol. The headwind is positive and the tailwind negative, in m/s. For a takeoff the ground speed is the takeoff airspeed 27.67 m/s minus the headwind; for a landing it is the touchdown airspeed 25.0 m/s minus the headwind, in m/s. The roll is <span class="f">s = (ground speed)² / (2·a)</span> in m, with 2·a = 4.078 m/s² for the takeoff and 2·a = 4.0 m/s² for the landing. Figure 6 draws the five rows as bars.</p>
+<table class="t"><tr><th>Case</th><th>Headwind (m/s)</th><th>Ground speed (m/s)</th><th>Roll (m)</th><th>Fits 150 m?</th></tr>
+<tr><td>1 takeoff on 27</td><td class="f">+6.93</td><td class="f">27.67 − 6.93 = 20.74</td><td class="f">20.74² / 4.078 = 430.15 / 4.078 = 105.48</td><td>yes</td></tr>
+<tr><td>2 takeoff on 09</td><td class="f">−6.93</td><td class="f">27.67 + 6.93 = 34.60</td><td class="f">34.60² / 4.078 = 1197.16 / 4.078 = 293.57</td><td>no</td></tr>
+<tr><td>3 takeoff, still air</td><td class="f">0</td><td class="f">27.67</td><td class="f">27.67² / 4.078 = 765.63 / 4.078 = 187.75</td><td>no</td></tr>
+<tr><td>4 landing on 27</td><td class="f">+6.93</td><td class="f">25.0 − 6.93 = 18.07</td><td class="f">18.07² / 4.0 = 326.52 / 4.0 = 81.63</td><td>yes</td></tr>
+<tr><td>5 landing on 09</td><td class="f">−6.93</td><td class="f">25.0 + 6.93 = 31.93</td><td class="f">31.93² / 4.0 = 1019.52 / 4.0 = 254.88</td><td>no</td></tr></table>
+<ol class="steps" start="4">
+<li><i>Why this step:</i> read the answer to (c) from the table. Use <b>runway 27</b>, into the wind, for both the takeoff (105.48 m) and the landing (81.63 m). Both fit in 150 m. The crosswind, 4.00 m/s, is the same for both runways. (The limit for a crosswind depends on the aircraft; this problem does not give one.)</li>
+<li><i>Why this step:</i> for (d), work backward. The roll may be at most 150 m, so the ground speed may be at most <span class="f">√(2·a·150) = √(4.078 × 150) = √611.70 = <span class="ans">24.73 m/s</span></span>. The headwind must then be <span class="f">27.67 − 24.73 = <span class="ans">2.94 m/s</span></span>. This is the part along the runway, so the wind must be <span class="f">2.94 / cos 30° = 2.94 / 0.866 = <span class="ans">3.39 m/s</span></span> from 240°.</li></ol>
+<p><b>Check your answer.</b> The guess of the second question was probably "yes, it fits in still air". The table shows the opposite: in still air the loaded aircraft needs 187.75 m, so without the wind it cannot use this strip at all. Even the aircraft without the load needs 170.2 m (row 4 of 2.2.10). The wind of 6.93 m/s along the runway is what makes the strip usable, and the tailwind runway is the worst case, with 293.57 m, nearly twice the strip.</p>
+<p><b>What if …</b> the headwind component were only 3.00 m/s?</p>
+<details><summary>Show the answer</summary>The ground speed would be <span class="f">27.67 − 3.00 = 24.67 m/s</span>, and the roll <span class="f">24.67² / 4.078 = 608.61 / 4.078 = <span class="ans">149.24 m</span></span>. The takeoff would just fit (the limit is 2.94 m/s). Any wind weaker than 3.39 m/s from 240° would make the takeoff impossible on this strip.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.23"><span class="no">2.2.23</span> Stopping and climbing with a payload, in a tailwind and in an updraft</h2>
+<div data-b="think-20"><div class="prob think"><div class="tag">THINK 20 · STOP OVER THE PAD, WITH A PARCEL AND A TAILWIND</div>
+<p><b>Situation.</b> The loaded quadrotor of Problem 5 on <a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.14">page 2.1b</a> (1.5 kg, with a parcel of 2.0 kg, four motors of at most 15 N each, so T<sub>max</sub> = 60 N) flies north toward a landing pad, 20.0 m ahead. Its airspeed is 12 m/s and a tailwind of 6 m/s (wind from 180°) blows north. It also descends at 3.0 m/s. It must arrive at the pad with both the horizontal and the vertical speed equal to 0, with constant accelerations (home field, drag ignored). The default horizontal acceleration limit of the planner of PX4 is 3.0 m/s² (row 3 of 2.2.15) [<a class="cite" href="../reference/references.html#ref-29">29</a>]. <i>Ideas used:</i> braking (<a href="2.2a_Position_velocity_acceleration_on_a_line.html#s2.2.6">2.2.6</a>), the tilt limit and the payload (<a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.10">2.1.10</a>, Problem 5) and the wind (<a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>). Newton's second law, <span class="f">F = m·a</span>, is taken as given, as on page 2.2b (section 2.3 explains it).</p>
+<figure><svg id="t20" viewBox="0 0 860 385" width="100%" style="max-width:860px" role="img" aria-label="Left: the approach seen from the side, 20 meters ahead and 3.33 meters above the pad, with the ground speed of 18 meters per second and the descent of 3 meters per second. Right: the plane of the two accelerations, with a circle of radius 17.14 for the largest thrust per kilogram, a point inside it at 8.10 and 11.156 for the planned stop, and a point outside it for a tailwind of 12 meters per second"></svg>
+<figcaption>Figure 7. Left: the approach, seen from the side. Right: the plane of the accelerations. The horizontal axis is the braking acceleration, and the vertical axis is g plus the upward acceleration. The thrust per kilogram is the length of the arrow from the origin to a point, and the circle is the largest value, 60 N / 3.5 kg = 17.14 m/s². The planned stop (green) is inside the circle. A tailwind of 12 m/s (red) would need a point outside.</figcaption></figure>
+<p><b>Questions.</b> (a) What constant horizontal deceleration does the stop need? (b) What upward acceleration stops the descent in the same time, and how far below the drone is the pad? (c) What thrust is needed, and how much of the maximum is that? (d) Could the drone stop in 20.0 m with the default acceleration limit of the planner? What airspeed would it need then?</p>
+<p><b>Think first.</b></p>
+<ol><li>The horizontal speed is the ground speed. Is that the airspeed?</li>
+<li>Both speeds must reach 0 together. What do they share?</li>
+<li>The thrust must hold the weight and also make the two accelerations. How do you combine the three parts into one number?</li></ol>
+<details><summary>Hint</summary>The thrust arrow has an upward part <span class="f">m·(g + a<sub>up</sub>)</span> and a horizontal part <span class="f">m·a<sub>h</sub></span>. They are the two short sides of a right triangle, and T is the long side.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the distance to the pad is a ground distance, so the speed that counts is the ground speed: airspeed plus tailwind. <span class="f">v = 12 + 6 = <span class="ans">18 m/s</span></span>. The weight of the loaded drone is <span class="f">W = 3.5 × 9.8062 = 34.322 N</span>.</li>
+<li><i>Why this step:</i> equation 3 with v = 0 gives the braking acceleration. <span class="f">a<sub>h</sub> = v² / (2·d) = 18² / (2 × 20.0) = 324 / 40.0 = <span class="ans">8.10 m/s²</span></span>. The time of the stop is the distance divided by the average speed. <span class="f">t = 2·d / v = 2 × 20.0 / 18 = <span class="ans">2.222 s</span></span>.</li>
+<li><i>Why this step:</i> the vertical speed must also reach 0 after the same time, so the upward acceleration follows from equation 1. <span class="f">a<sub>up</sub> = 3.0 / 2.222 = <span class="ans">1.35 m/s²</span></span>. The pad is below the drone by <span class="f">½ × 3.0 × 2.222 = <span class="ans">3.33 m</span></span>.</li>
+<li><i>Why this step:</i> the rotors must make the force that holds the weight (g), makes the upward acceleration, and makes the horizontal braking. The upward part is <span class="f">m·(g + a<sub>up</sub>)</span> and the horizontal part is <span class="f">m·a<sub>h</sub></span>. <span class="f">T = m·√(a<sub>h</sub>² + (g + a<sub>up</sub>)²) = 3.5 × √(8.10² + (9.8062 + 1.35)²) = 3.5 × √(65.61 + 124.46) = 3.5 × √190.07 = <span class="ans">48.25 N</span></span>.</li>
+<li><i>Why this step:</i> compare with the limit of one rotor. <span class="f">48.25 / 4 = <span class="ans">12.06 N</span></span> per rotor, which is <span class="f">12.06 / 15 = <span class="ans">80.4 %</span></span> of the maximum. The hover needs <span class="f">34.322 / 4 / 15 = 57.2 %</span>. The stop is possible by 20 % of the thrust.</li>
+<li><i>Why this step:</i> for (d), test the default limit of the planner. With 3.0 m/s² the stop from 18 m/s needs <span class="f">18² / (2 × 3.0) = 324 / 6.0 = <span class="ans">54.0 m</span></span>, far more than 20.0 m. The largest ground speed from which the planner can stop in 20.0 m is <span class="f">√(2 × 3.0 × 20.0) = √120.0 = <span class="ans">10.95 m/s</span></span>, which is an airspeed of only <span class="f">10.95 − 6.0 = <span class="ans">4.95 m/s</span></span> in this tailwind.</li></ol>
+<p><b>Check your answer.</b> The thrust of the stop is larger than the thrust of the hover, as it must be: <span class="f">48.25 / 34.322 = 1.406</span>, that is 41 % more. A stop without the tailwind (ground speed 12 m/s) would need <span class="f">12² / (2 × 3.0) = 144 / 6.0 = 24.0 m</span> even at the default limit. So the tailwind turns an easy stop into one that needs a much harder brake: the stop distance grows with the square of the ground speed.</p>
+<p><b>What if …</b> the tailwind were 12 m/s (ground speed 24 m/s)?</p>
+<details><summary>Show the answer</summary>Then <span class="f">a<sub>h</sub> = 24² / (2 × 20.0) = 14.40 m/s²</span>, <span class="f">t = 2 × 20.0 / 24 = 1.667 s</span> and <span class="f">a<sub>up</sub> = 3.0 / 1.667 = 1.80 m/s²</span>. The thrust is <span class="f">T = 3.5 × √(14.40² + (9.8062 + 1.80)²) = 3.5 × √(207.36 + 134.70) = 3.5 × √342.06 = <span class="ans">64.73 N</span></span>, which is more than the 60 N that the motors can make. The stop is impossible: the drone would arrive too fast, or it must slow down earlier.</details>
+</details></div></div>
+<div data-b="think-21"><div class="prob think"><div class="tag">THINK 21 · A CLIMB TO A GATE IN A HEADWIND AND AN UPDRAFT</div>
+<p><b>Situation.</b> GPS is lost, so the drone can only hold its velocity relative to the <b>air</b>. It starts at a height of 2 m. A gate is 60 m ahead (east) at a height of 20 m. The pilot sets an air velocity of 10 m/s east and 3.0 m/s up. The wind has a headwind of 4.0 m/s (from the east) and, near a ridge, an updraft of 1.5 m/s. The motors can give a climb rate of at most 3.0 m/s relative to the air (made up). <i>Ideas used:</i> the motion in three dimensions (<a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.7">2.2.7</a>) and the wind that also blows up or down (<a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>, Try it 31).</p>
+<figure><svg id="t21" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Height against the distance east: a red dashed path that climbs to 47 meters at the gate distance of 60 meters, and a green path that reaches the gate at 20 meters; the headwind and the updraft are drawn as arrows"></svg>
+<figcaption>Figure 8. The path of the pilot's setting (red, dashed) passes the gate far too high, 47.0 m instead of 20 m, because the updraft adds to the climb. The green path uses an air climb rate of only 0.3 m/s and reaches the gate at 20.0 m.</figcaption></figure>
+<p><b>Questions.</b> (a) What is the ground velocity with the pilot's setting, and at what height does the drone pass x = 60 m? (b) What air climb rate would hit the gate? (c) A downdraft of 1.5 m/s (behind the ridge) replaces the updraft. Can the drone still reach the gate at the same horizontal ground speed? If not, what is the best it can do?</p>
+<p><b>Think first.</b></p>
+<ol><li>Does the wind change the horizontal part, the vertical part, or both?</li>
+<li>Which speed fixes the time to reach x = 60 m: the airspeed or the ground speed?</li>
+<li>For (c), which limit is used up, and what can the pilot change?</li></ol>
+<details><summary>Hint</summary>Ground velocity = air velocity + wind velocity, part by part. Find the time from the horizontal part, then the height from the vertical part.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> add the air velocity and the wind, one part at a time. The headwind is −4.0 east, the updraft is +1.5 up. <span class="f">(10 − 4.0, 3.0 + 1.5) = <span class="ans">(6.0, 4.5) m/s</span></span> (east, up).</li>
+<li><i>Why this step:</i> the horizontal ground speed fixes the time. <span class="f">t = 60 / 6.0 = <span class="ans">10.0 s</span></span>. The height at that time is <span class="f">2 + 4.5 × 10.0 = <span class="ans">47.0 m</span></span>, which is 27 m above the gate.</li>
+<li><i>Why this step:</i> work backward. The drone must rise 18 m in the same 10.0 s, so the ground climb rate must be <span class="f">18 / 10.0 = <span class="ans">1.8 m/s</span></span>. The updraft supplies 1.5 m/s of it, so the air climb rate is <span class="f">1.8 − 1.5 = <span class="ans">0.3 m/s</span></span>.</li></ol>
+<p><b>Check your answer.</b> With 0.3 m/s the ground climb rate is 0.3 + 1.5 = 1.8 m/s, and in 10.0 s the drone rises <span class="f">1.8 × 10.0 = 18.0 m</span>, from 2 m to 20 m. The air climb rate 0.3 m/s is below the limit of 3.0 m/s.</p>
+<p><b>What if …</b> a downdraft of 1.5 m/s replaces the updraft (part c)?</p>
+<details><summary>Show the answer</summary>For the same 10.0 s, the air climb rate would have to be <span class="f">1.8 − (−1.5) = 3.3 m/s</span>, above the limit of 3.0 m/s. The best ground climb rate is <span class="f">3.0 + (−1.5) = 1.5 m/s</span>. The climb of 18 m then needs at least <span class="f">18 / 1.5 = <span class="ans">12.0 s</span></span>, so the horizontal ground speed may be at most <span class="f">60 / 12.0 = <span class="ans">5.0 m/s</span></span>. Against the 4.0 m/s headwind, the pilot must set an airspeed of <span class="f">5.0 + 4.0 = <span class="ans">9.0 m/s</span></span>. The drone must fly more slowly to reach the gate at the right height.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.24"><span class="no">2.2.24</span> Gusts and sensor errors</h2>
+<div data-b="think-22"><div class="prob think"><div class="tag">THINK 22 · A GUST ON THE WAY TO THE GATE</div>
+<p><b>Situation.</b> A drone holds an airspeed of 12 m/s toward a gate 120 m ahead, straight into the wind, and it has no way to correct for the wind. The planner predicted the arrival with the steady wind of 4.0 m/s. A gust arrives. The headwind follows this profile (made up). It is 4.0 m/s until t = 6 s. It then grows in a straight line to 10.0 m/s at t = 8 s. It stays at 10.0 m/s until t = 12 s. It falls in a straight line back to 4.0 m/s at t = 14 s, and then stays there. The profile is a simplified version of the wind model of Gazebo [<a class="cite" href="../reference/references.html#ref-31">31</a>]: in the reference rows GZ-46 and GZ-47 (<code>WindEffects.cc</code> @ 9e3b78f) the wind magnitude follows a commanded value with a first-order lag, whose default characteristic time is 1.0 s, and a sine can be added. Here the rise is a straight line, so that every distance is the area of a trapezoid. <i>Ideas used:</i> the lap as phases (<a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html#s2.2.8">2.2.8</a>), the area under a speed graph (<a href="2.2a_Position_velocity_acceleration_on_a_line.html#s2.2.4">2.2.4</a>) and ground = air + wind (<a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.12">2.1.12</a>).</p>
+<figure><svg id="t22" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Left: the ground speed against time, 8 meters per second, then a dip to 2 meters per second between 8 and 12 seconds, then 8 again, with the distances of the phases written in the areas. Right: the position against time, actual and planned, with the gate at 120 meters, the planned arrival at 15 seconds with the drone at 84 meters, and the real arrival at 19.5 seconds"></svg>
+<figcaption>Figure 9. Left: the ground speed v<sub>g</sub> = 12.0 − headwind, with the distance of each phase as the area under it (48.0, 10.0, 8.0, 10.0 and 44.0 m). Right: the position against time. The dashed line is the plan (8.0 m/s all the way, 15.0 s). The solid line is the real flight: at 15.0 s the drone is at 84.0 m, 36.0 m short of the gate, and it arrives at 19.5 s.</figcaption></figure>
+<p><b>Questions.</b> (a) Integrate the position phase by phase. (b) When does the drone reach the gate? How much later than planned? (c) Where is the drone at the planned time of arrival?</p>
+<p><b>Think first.</b></p>
+<ol><li>The ground speed is 12 m/s minus the headwind. How does it change in each phase?</li>
+<li>In a phase where the speed changes in a straight line, which average speed gives the distance?</li>
+<li>The last phase has no fixed end. What is the unknown there?</li></ol>
+<details><summary>Hint</summary>The distance of a phase is the area under the speed graph: a rectangle for a steady speed, a trapezoid for a straight change. Add the areas until you have 120 m.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the ground speed is the airspeed minus the headwind, so it is 12.0 − 4.0 = 8.0 m/s at the start and 12.0 − 10.0 = 2.0 m/s in the gust. The table gives the phases one by one.</li></ol>
+<p><b>How to read this table.</b> The table has five rows, one for each phase. Read a row from left to right: the time span, the headwind, the ground speed, the distance of the phase, and the position at its end. It matters for flying because the position at the planned time shows how far the gust moved the arrival. Here is every symbol. The headwind is in m/s; an arrow means a straight change. The ground speed is <span class="f">v<sub>g</sub> = 12.0 − headwind</span>, in m/s. The distance of a phase is the area under the speed graph, in m: speed times time for a steady speed, and <span class="f">½ × (first speed + last speed) × time</span> for a straight change. The position at the end is the sum of the distances so far, in m. Phase 5 has no end time yet, so its time is computed from the distance that is left. Figure 9 draws the speed and the position of all five rows.</p>
+<table class="t"><tr><th>Phase</th><th>Time span (s)</th><th>Headwind (m/s)</th><th>Ground speed (m/s)</th><th>Distance (m)</th><th>Position at the end (m)</th></tr>
+<tr><td>1</td><td class="f">0 to 6</td><td class="f">4.0</td><td class="f">8.0</td><td class="f">8.0 × 6.0 = 48.0</td><td class="f">48.0</td></tr>
+<tr><td>2 gust rises</td><td class="f">6 to 8</td><td class="f">4.0 → 10.0</td><td class="f">8.0 → 2.0</td><td class="f">½ × (8.0 + 2.0) × 2.0 = 10.0</td><td class="f">58.0</td></tr>
+<tr><td>3 gust steady</td><td class="f">8 to 12</td><td class="f">10.0</td><td class="f">2.0</td><td class="f">2.0 × 4.0 = 8.0</td><td class="f">66.0</td></tr>
+<tr><td>4 gust falls</td><td class="f">12 to 14</td><td class="f">10.0 → 4.0</td><td class="f">2.0 → 8.0</td><td class="f">½ × (2.0 + 8.0) × 2.0 = 10.0</td><td class="f">76.0</td></tr>
+<tr><td>5 to the gate</td><td class="f">14 to ?</td><td class="f">4.0</td><td class="f">8.0</td><td class="f">120 − 76.0 = 44.0 in 44.0 / 8.0 = 5.5 s</td><td class="f">120.0</td></tr></table>
+<ol class="steps" start="2">
+<li><i>Why this step:</i> phase 5 ends at the gate. The time that is left is the distance divided by the speed, and the arrival is the end of phase 4 plus that time. <span class="f">T = 14.0 + 5.5 = <span class="ans">19.5 s</span></span>.</li>
+<li><i>Why this step:</i> the planner expected the steady wind, so its arrival time was <span class="f">120 / 8.0 = <span class="ans">15.0 s</span></span>. The gust delays the drone by <span class="f">19.5 − 15.0 = <span class="ans">4.5 s</span></span>.</li>
+<li><i>Why this step:</i> at the planned arrival time the drone is 1.0 s into phase 5. <span class="f">76.0 + 8.0 × 1.0 = <span class="ans">84.0 m</span></span>. It is <span class="f">120 − 84.0 = <span class="ans">36.0 m</span></span> short of the gate.</li></ol>
+<p><b>Check your answer.</b> The average ground speed over the first 15.0 s is <span class="f">84.0 / 15.0 = 5.6 m/s</span>, so the average headwind was <span class="f">12.0 − 5.6 = 6.4 m/s</span>, between 4.0 and 10.0 as it must be. The position error of 36.0 m is 30 % of the flight, far more than the tolerance of a gate. The lowest ground speed (2.0 m/s) lasts only 4 s but decides the delay.</p>
+<p><b>What if …</b> the steady part of the gust lasted only 2 s (from 8 s to 10 s)?</p>
+<details><summary>Show the answer</summary>Phase 3 covers <span class="f">2.0 × 2.0 = 4.0 m</span> and the falling phase 4 (10 s to 12 s) covers 10.0 m, so the position at 12 s is <span class="f">48.0 + 10.0 + 4.0 + 10.0 = 72.0 m</span>. The rest takes <span class="f">(120 − 72.0) / 8.0 = 6.0 s</span>, so the arrival is at <span class="f">12.0 + 6.0 = <span class="ans">18.0 s</span></span>, which is <span class="f">18.0 − 15.0 = <span class="ans">3.0 s</span></span> late. Each second of the full gust costs 0.75 s of arrival time, because the drone loses 6 m, and 6 m take 0.75 s at 8.0 m/s.</details>
+</details></div></div>
+<div data-b="think-23"><div class="prob think"><div class="tag">THINK 23 · HOW LONG UNTIL A BIAS MAKES THE DRONE MISS A GATE?</div>
+<p><b>Situation.</b> A drone flies straight at 10 m/s without GPS. Its estimator [<a class="cite" href="../reference/references.html#ref-40">40</a>] estimates the position, the velocity, the attitude and the accelerometer biases (row 10 of the <a href="../reference/autopilot_map.html#row-10">autopilot map</a>), and it keeps the position by adding up the accelerometer data. The estimate of one accelerometer bias is wrong by <span class="f">b = 0.04 m/s²</span> (made up), so the error acts like a constant false acceleration. Gates stand every 40 m. A gate is missed when the position error is more than 1.5 m (made up). <i>Ideas used:</i> position from a constant acceleration (<a href="2.2a_Position_velocity_acceleration_on_a_line.html#s2.2.5">2.2.5</a>, equation 2), the tilt of <a href="2.1b_Forces_together_tilt_wind_simulators.html#s2.1.10">2.1.10</a> and the estimator row of <a href="2.2a_Position_velocity_acceleration_on_a_line.html">page 2.2a</a>.</p>
+<figure><svg id="t23" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Position error against time for a bias of 0.04 meters per second squared and for 0.01; the gates are passed at 4, 8, 12, 16 and 20 seconds; the 0.04 curve is below the limit of 1.5 meters at the gates at 4 and 8 seconds and above it at 12 seconds"></svg>
+<figcaption>Figure 10. The position error ½·b·t² against the time without GPS, for b = 0.04 m/s² (orange) and b = 0.01 m/s² (blue), and the limit of 1.5 m. The dotted lines mark the gates, one every 4 s. With b = 0.04 m/s², the errors at the gates are 0.32 m, 1.28 m and 2.88 m: the third gate is missed.</figcaption></figure>
+<p><b>Questions.</b> (a) After how many seconds, and how many meters, does the error reach 1.5 m? (b) What are the errors at the first three gates, and which gate is missed first? (c) Which tilt error of the attitude makes the same false acceleration? (d) How does the answer change if the bias is four times smaller?</p>
+<p><b>Think first.</b></p>
+<ol><li>A constant false acceleration b, starting at rest, gives a position error of what size after a time t?</li>
+<li>The gates are 40 m apart. At what times does the drone pass them?</li>
+<li>Does halving the bias double the time to the limit?</li></ol>
+<details><summary>Hint</summary>Equation 2 with v₀ = 0: the error is <span class="f">½·b·t²</span>. For the tilt: a drone tilted by δ measures the part <span class="f">g·sin δ</span> of gravity as a horizontal acceleration.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the estimator integrates the false acceleration twice, so the error is the position of a constant acceleration, <span class="f">½·b·t²</span>. Setting it equal to the limit E gives <span class="f">t = √(2·E / b) = √(2 × 1.5 / 0.04) = √75.0 = <span class="ans">8.66 s</span></span>. The distance flown is <span class="f">10 × 8.66 = <span class="ans">86.6 m</span></span>.</li>
+<li><i>Why this step:</i> the gates are passed at 40 / 10 = 4.0 s, 8.0 s and 12.0 s. The errors there are <span class="f">½ × 0.04 × 4.0² = <span class="ans">0.32 m</span></span>, <span class="f">½ × 0.04 × 8.0² = <span class="ans">1.28 m</span></span> and <span class="f">½ × 0.04 × 12.0² = <span class="ans">2.88 m</span></span>. The first two are below 1.5 m; the third gate is missed. The velocity error there is <span class="f">0.04 × 12.0 = 0.48 m/s</span>.</li>
+<li><i>Why this step:</i> a tilt error δ of the estimated attitude lets the estimator mistake part of gravity for a horizontal acceleration, <span class="f">b = g·sin δ</span>. Solve for δ: <span class="f">δ = asin(b / g) = asin(0.04 / 9.8062) = asin(0.004079) = <span class="ans">0.234°</span></span>. A tilt error of a quarter of a degree is enough.</li>
+<li><i>Why this step:</i> for a four times smaller bias, b = 0.01 m/s², use the same formula. <span class="f">t = √(2 × 1.5 / 0.01) = √300.0 = <span class="ans">17.32 s</span></span>.</li></ol>
+<p><b>Check your answer.</b> The time to the limit scales with 1 / √b. A bias four times smaller gives a time <span class="f">17.32 / 8.66 = 2.0</span> times longer, not four times longer. The errors grow with t², so doubling the time gives four times the error: 0.32 m at 4.0 s and 1.28 m at 8.0 s.</p>
+<p><b>What if …</b> the bias is 0.01 m/s² (part d): how many gates can the drone pass?</p>
+<details><summary>Show the answer</summary>The errors at the gates at 16.0 s and 20.0 s are <span class="f">½ × 0.01 × 16.0² = <span class="ans">1.28 m</span></span> and <span class="f">½ × 0.01 × 20.0² = <span class="ans">2.00 m</span></span>. The drone passes four gates (at 4, 8, 12 and 16 s) and misses the fifth, after 200 m.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.25"><span class="no">2.2.25</span> Planning: an S-curve with a parcel, and the best plan</h2>
+<div data-b="think-24"><div class="prob think"><div class="tag">THINK 24 · THE S-CURVE WITH A PARCEL: IS THE CRUISE SPEED REACHED?</div>
+<p><b>Situation.</b> A delivery drone must move 20.0 m from rest at one pad to rest at the next pad. The wanted cruise speed is 6.0 m/s. The jerk limit has the default of PX4, J = 4.0 m/s³ (row 4 of 2.2.15) [<a class="cite" href="../reference/references.html#ref-29">29</a>, <a class="cite" href="../reference/references.html#ref-47">47</a>]. To protect a parcel, the operator lowers the acceleration limit from the default A = 3.0 m/s² to A = 2.0 m/s², the smallest value that row 3 allows. The plan is a speed-up S-curve, a cruise, and a slow-down S-curve of the same size. <i>Ideas used:</i> the S-curve of <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html#s2.2.14">2.2.14</a> and the cost of the jerk limit of <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html#s2.2.16">2.2.16</a> (the same method as Think 12).</p>
+<figure><svg id="t24" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Speed against time for the two plans: with the default acceleration limit the drone reaches 6 meters per second, cruises for 0.583 seconds and arrives after 6.083 seconds; with the lowered limit the speed rises only to 5.84 meters per second and the run takes 6.84 seconds"></svg>
+<figcaption>Figure 11. The two plans for 20.0 m. Blue: A = 3.0 m/s², the drone reaches 6.0 m/s, cruises for 0.583 s and arrives after 6.083 s. Orange: A = 2.0 m/s², the two S-curves meet at a peak of 5.84 m/s and the run takes 6.84 s. The dashed line is the wanted cruise speed.</figcaption></figure>
+<p><b>Questions.</b> (a) With the default A, how long does the run take? (b) With A = 2.0 m/s², does the drone reach 6.0 m/s? (c) If not, what peak speed does it reach, and how much time does the lower limit cost?</p>
+<p><b>Think first.</b></p>
+<ol><li>How much track do the two S-curves to 6.0 m/s need together, for each A?</li>
+<li>If the track is too short, which number is unknown?</li>
+<li>Does the distance rule of 2.2.17 make the real planner more or less careful than this plan?</li></ol>
+<details><summary>Hint</summary>One S-curve to V covers <span class="f">V·T / 2</span> with <span class="f">T = V / A + A / J</span>. If two do not fit, each half covers half of the run, and V is the unknown, as in Think 12.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> first the default, as the reference. One speed-up: <span class="f">T = 6.0 / 3.0 + 3.0 / 4.0 = 2.75 s</span> and <span class="f">x = 6.0 × 2.75 / 2 = <span class="ans">8.25 m</span></span>. Two together: <span class="f">2 × 8.25 = 16.5 m</span>, so a cruise of <span class="f">20.0 − 16.5 = 3.5 m</span> is left, which takes <span class="f">3.5 / 6.0 = 0.583 s</span>. The run takes <span class="f">2 × 2.75 + 0.583 = <span class="ans">6.083 s</span></span>.</li>
+<li><i>Why this step:</i> now the lowered limit. The test of 2.2.14 first: <span class="f">A² / J = 2.0² / 4.0 = 1.0</span>, which is below 6.0, so A is reached. <span class="f">T = V / A + A / J = 6.0 / 2.0 + 2.0 / 4.0 = 3.0 + 0.5 = <span class="ans">3.5 s</span></span>, and one speed-up covers <span class="f">V·T / 2 = 6.0 × 3.5 / 2 = <span class="ans">10.5 m</span></span>. Two of them need <span class="f">2 × 10.5 = 21.0 m</span>, which is more than 20.0 m. So <span class="ans">the drone does not reach 6.0 m/s</span>.</li>
+<li><i>Why this step:</i> V is now the unknown. Each half covers 10.0 m, and the equation of Think 12 reads <span class="f">V² + (A² / J) × V − 2 × A × 10.0 = V² + 1.0 × V − 40.0 = 0</span>. <span class="f">V = ½ × (−1.0 + √(1.0² + 4 × 40.0)) = ½ × (−1.0 + √161.0) = ½ × (−1.0 + 12.689) = <span class="ans">5.84 m/s</span></span>.</li>
+<li><i>Why this step:</i> the time follows from the same formula for one half, doubled. <span class="f">T<sub>half</sub> = 5.84 / 2.0 + 0.5 = 2.92 + 0.5 = <span class="ans">3.42 s</span></span>, and <span class="f">2 × 3.42 = <span class="ans">6.84 s</span></span>. The lower limit costs <span class="f">6.84 − 6.083 = <span class="ans">0.76 s</span></span>.</li></ol>
+<p><b>Check your answer.</b> One half must cover 10.0 m: <span class="f">5.84 × 3.42 / 2 = 9.99 m</span>. The peak 5.84 m/s is below the wanted 6.0 m/s, and the time is longer than the default's, as it must be. The real planner of PX4 also cuts the speed with the distance to the target (2.2.17). With A = 2.0 and J = 4.0 we get <span class="f">b = 4 × 2.0² / 4.0 = 4.0</span>, and in the middle of the run, 10.0 m from the target, the rule allows only <span class="f">½ × (−4.0 + √(4.0² + 8 × 2.0 × 10.0)) = ½ × (−4.0 + √176.0) = ½ × (−4.0 + 13.266) = 4.63 m/s</span>. So the real planner is more careful than this plan: its speed in the middle of the run is at most 4.63 m/s, below 5.84 m/s.</p>
+<p><b>What if …</b> the run were 21.0 m long?</p>
+<details><summary>Show the answer</summary>Then each half covers 10.5 m, and the drone with A = 2.0 m/s² just reaches 6.0 m/s: <span class="f">2 × 10.5 = <span class="ans">21.0 m</span></span>, with no cruise at all.</details>
+</details></div></div>
+<div data-b="think-25"><div class="prob think"><div class="tag">THINK 25 · THE FASTEST PLAN, AND WHY CRUISING EARLIER IS SLOWER</div>
+<p><b>Situation.</b> A drone must fly L = 200 m in a straight line from rest to rest. Its speed limit is v<sub>max</sub> = 16 m/s, and it can speed up and brake with the acceleration a = 4.0 m/s² (both made up). It accelerates, may cruise, and brakes. Which plan gives the shortest time? A student proposes to reach a lower cruise speed "to be safe" and to cruise earlier. <i>Ideas used:</i> the straight run (<a href="2.2a_Position_velocity_acceleration_on_a_line.html#s2.2.6">2.2.6</a>) and the S-curve cost (<a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html#s2.2.16">2.2.16</a>).</p>
+<figure><svg id="t25" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Left: four trapezoids of speed against time for the cruise speeds 16, 14, 12 and 10 meters per second, taking 16.5, 17.79, 19.67 and 22.5 seconds. Right: the total time against the cruise speed, falling toward the speed limit of 16 meters per second"></svg>
+<figcaption>Figure 12. Left: the four plans of the table as speed against time. All cover 200 m (the area under each trapezoid). The plan with the highest cruise speed, 16 m/s, is the shortest, 16.5 s. Right: the total time T(v<sub>c</sub>) = v<sub>c</sub> / a + L / v<sub>c</sub> falls as the cruise speed grows. The best plan is at the speed limit.</figcaption></figure>
+<p><b>Questions.</b> (a) Find the time of each plan with the cruise speeds 16, 14, 12 and 10 m/s. (b) Which plan is the fastest, and why? (c) By how much does the time grow if the planner has a jerk limit J = 4.0 m/s³ (S-curve)?</p>
+<p><b>Think first.</b></p>
+<ol><li>For one plan, the speed-up and the braking use the same time and distance. What is left for the cruise?</li>
+<li>A higher cruise speed costs more time in the speed-up and saves time in the cruise. Which effect is bigger?</li>
+<li>Should the drone accelerate with less than its largest acceleration?</li></ol>
+<details><summary>Hint</summary>For a plan with the cruise speed v: speed-up time <span class="f">v / a</span>, speed-up distance <span class="f">v² / (2·a)</span>, cruise distance <span class="f">L − 2 × v² / (2·a)</span>, then the cruise time is that distance divided by v.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> compute every plan in the same way. The table gives the speed-up (and braking) time, the speed-up distance, the cruise distance, the cruise time and the total.</li></ol>
+<p><b>How to read this table.</b> The table has four rows, one for each cruise speed. Read a row from left to right: the cruise speed, the time of one speed-up, the distance of one speed-up, the cruise distance, the cruise time and the total time. The braking mirrors the speed-up. It matters for flying because it shows how the total time depends on the cruise speed. Here is every symbol. <span class="f">v<sub>c</sub></span> is the cruise speed in m/s. <span class="f">a</span> = 4.0 m/s² is the acceleration (and the size of the braking). The time of one speed-up is <span class="f">v<sub>c</sub> / a</span>, in s. Its distance is <span class="f">v<sub>c</sub>² / (2·a)</span>, in m. <span class="f">L</span> = 200 m is the length of the run; the cruise distance is <span class="f">L − 2 × (distance of one speed-up)</span>, in m. The cruise time is the cruise distance divided by v<sub>c</sub>, in s. The total time is twice the speed-up time plus the cruise time, in s. Figure 12 draws the four rows on the left.</p>
+<table class="t"><tr><th>v<sub>c</sub> (m/s)</th><th>Speed-up time (s)</th><th>Speed-up distance (m)</th><th>Cruise distance (m)</th><th>Cruise time (s)</th><th>Total time (s)</th></tr>
+<tr><td class="f">16</td><td class="f">16 / 4.0 = 4.0</td><td class="f">16² / (2 × 4.0) = 256 / 8.0 = 32.0</td><td class="f">200 − 2 × 32.0 = 136.0</td><td class="f">136.0 / 16 = 8.5</td><td class="f">2 × 4.0 + 8.5 = 16.5</td></tr>
+<tr><td class="f">14</td><td class="f">14 / 4.0 = 3.5</td><td class="f">14² / (2 × 4.0) = 196 / 8.0 = 24.5</td><td class="f">200 − 2 × 24.5 = 151.0</td><td class="f">151.0 / 14 = 10.786</td><td class="f">2 × 3.5 + 10.786 = 17.786</td></tr>
+<tr><td class="f">12</td><td class="f">12 / 4.0 = 3.0</td><td class="f">12² / (2 × 4.0) = 144 / 8.0 = 18.0</td><td class="f">200 − 2 × 18.0 = 164.0</td><td class="f">164.0 / 12 = 13.667</td><td class="f">2 × 3.0 + 13.667 = 19.667</td></tr>
+<tr><td class="f">10</td><td class="f">10 / 4.0 = 2.5</td><td class="f">10² / (2 × 4.0) = 100 / 8.0 = 12.5</td><td class="f">200 − 2 × 12.5 = 175.0</td><td class="f">175.0 / 10 = 17.5</td><td class="f">2 × 2.5 + 17.5 = 22.5</td></tr></table>
+<ol class="steps" start="2">
+<li><i>Why this step:</i> look for the rule behind the numbers. The speed-up and the braking take <span class="f">2 × v / a</span> together, and the cruise takes <span class="f">(L − v² / a) / v</span>. The sum simplifies to <span class="f">T(v) = v / a + L / v</span>. Check on two rows: <span class="f">16 / 4.0 + 200 / 16 = 4.0 + 12.5 = 16.5 s</span> and <span class="f">12 / 4.0 + 200 / 12 = 3.0 + 16.667 = 19.667 s</span>.</li>
+<li><i>Why this step:</i> raising the cruise speed by 1 m/s adds <span class="f">1 / a = 1 / 4.0 = 0.25 s</span> to the speed-up and the braking together, and it saves about <span class="f">L / v² = 200 / 16² = 0.78 s</span> of cruise at v = 16 m/s. The saving is bigger, so a higher cruise speed is always better here. The two effects balance only at <span class="f">v = √(a·L) = √(4.0 × 200) = √800 = 28.28 m/s</span>, far above the limit of 16 m/s.</li>
+<li><i>Why this step:</i> so the fastest plan accelerates as hard as possible up to the speed limit, cruises at the limit, and brakes as hard as possible. <b>Cruising earlier, at a lower speed, is slower</b>: 17.786 s, 19.667 s and 22.5 s against 16.5 s. The same reasoning says that a smaller acceleration is also slower.</li></ol>
+<p><b>Check your answer.</b> Each plan must cover 200 m. For the plan with v<sub>c</sub> = 16: <span class="f">32.0 + 136.0 + 32.0 = 200.0 m</span>. The times fall from 22.5 s to 16.5 s as the cruise speed rises from 10 to 16 m/s, in agreement with Figure 12.</p>
+<p><b>What if …</b> the planner adds the jerk limit J = 4.0 m/s³ (the S-curve of 2.2.16)?</p>
+<details><summary>Show the answer</summary>One speed-up takes <span class="f">V / A + A / J = 16 / 4.0 + 4.0 / 4.0 = <span class="ans">5.0 s</span></span> and covers <span class="f">16 × 5.0 / 2 = 40.0 m</span>. The cruise distance is <span class="f">200 − 2 × 40.0 = 120.0 m</span>, which takes <span class="f">120.0 / 16 = 7.5 s</span>. The total is <span class="f">2 × 5.0 + 7.5 = <span class="ans">17.5 s</span></span>, that is <span class="f">17.5 − 16.5 = 1.0 s</span> more, the value A / J of 2.2.16.</details>
+</details></div></div>
+
+<h2 class="sub"><span class="no">✓</span> Check yourself</h2>
+<div data-b="quiz"><div class="box"><ol>
+ <li>A weather report says "wind from 090° at 5 m/s". Toward which bearing does the air move, and what are the east and north parts of the wind arrow? <details><summary>answer</summary>The air moves toward 270°, west. The wind arrow is <span class="f">(5 × sin 270°, 5 × cos 270°) = (−5, 0) m/s</span>.</details></li>
+ <li>A drone flies a leg of 90 m and back at the airspeed of 15 m/s in a wind of 5 m/s along the leg. Does the wind change the round-trip time? <details><summary>answer</summary>Yes: <span class="f">90 / (15 − 5) + 90 / (15 + 5) = 9.0 + 4.5 = 13.5 s</span>, against <span class="f">2 × 90 / 15 = 12.0 s</span> in still air. The slow leg lasts longer than the fast leg.</details></li>
+ <li>Why does a headwind shorten a takeoff roll, when the acceleration does not change? <details><summary>answer</summary>The roll ends at the airspeed for liftoff. The wind supplies part of it, so the ground speed at liftoff is the airspeed minus the headwind, and the roll is <span class="f">(ground speed)² / (2·a)</span>.</details></li>
+ <li>A false acceleration b acts for a time t. How large is the position error, and what happens when t doubles? <details><summary>answer</summary>The error is <span class="f">½·b·t²</span>. It grows four times when the time doubles.</details></li>
+ <li>When does a drone with the speed limit v<sub>max</sub> and the acceleration a, from rest to rest over L, cruise at all? <details><summary>answer</summary>It cruises when the track holds both the speed-up and the braking: <span class="f">L ≥ v<sub>max</sub>² / a</span>. For v<sub>max</sub> = 16 m/s and a = 4.0 m/s² that is <span class="f">16² / 4.0 = 64.0 m</span>.</details></li>
+</ol></div></div>
+
+<h2 class="sub"><span class="no">★</span> Summary</h2>
+<div data-b="summary"><ul style="margin:6px 0 8px 20px;padding:0">
+<li><b>Wind.</b> A wind is named after the bearing it comes from. The air arrow points to that bearing plus 180°. Ground velocity = airspeed arrow + wind arrow (Think 15, 17, 18, 21).</li>
+<li><b>Crosswind.</b> On a leg with a crosswind w⊥ the nose turns into the wind and only <span class="f">√(V² − w⊥²)</span> is left for the way along the leg (Think 17).</li>
+<li><b>Falling.</b> After a motor failure the horizontal ground velocity stays (without drag), and the vertical motion is a free fall with a start velocity: <span class="f">t = (v<sub>z</sub> + √(v<sub>z</sub>² + 2·g·z₀)) / g</span> (Think 15, 16).</li>
+<li><b>Runways.</b> The roll uses the ground speed at liftoff: airspeed minus headwind. The roll grows with the square of the mass (Think 8, 19).</li>
+<li><b>Payload.</b> The thrust must hold the weight and make the acceleration: <span class="f">T = m·√(a<sub>h</sub>² + (g + a<sub>up</sub>)²)</span> (Think 20).</li>
+<li><b>Gusts.</b> Integrate phase by phase: the distance of a phase is the area under the ground-speed graph (Think 22).</li>
+<li><b>Sensor errors.</b> A constant false acceleration b gives the error ½·b·t² (Think 10, 23).</li>
+<li><b>Plans.</b> The fastest rest-to-rest plan accelerates fully, cruises at the limit and brakes fully; <span class="f">T(v) = v / a + L / v</span>. A lower A or a jerk limit costs time (Think 24, 25).</li>
+</ul></div>
+
+<div data-b="prev"><div class="box howto"><b>Pages before:</b> <a href="2.2a_Position_velocity_acceleration_on_a_line.html">2.2a Position, velocity and acceleration on a straight line</a>, <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b Three dimensions, laps, falling, fixed wings and the simulators</a> and <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html">2.2c The jerk, the S-curve, the planning limits and the simulator axes</a>. <b>Next in the course:</b> 2.3 Dynamics (not written yet): the forces of section 2.1 become the accelerations of section 2.2.</div></div>
+
+<div data-b="refs"><p style="margin-top:22px;font-size:20px;font-weight:700">References</p>
+<ul class="reflist" style="list-style:none;margin:0;padding:0">
+<li>[<a class="cite" href="../reference/references.html#ref-29">29</a>] PX4-Autopilot, source code at commit d28a642 (the default limits MPC_ACC_HOR and MPC_JERK_AUTO, as printed on page 2.2c)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-31">31</a>] gz-sim, source code at commit 9e3b78f (<code>WindEffects.cc</code>, reference rows GZ-46 and GZ-47 of the <a href="../reference/sim_physics_formulas.html">reference page</a>)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-40">40</a>] PX4 User Guide, <i>Using PX4's Navigation Filter (EKF2)</i> (what the estimator estimates)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-47">47</a>] PX4 User Guide, <i>Jerk-limited Type Trajectory for Multicopters</i></li></ul>
+<p class="lead">The numbers in the problems are made up for practice, not measurements of real parts. Every number on this page is checked by <code>check_2_2d.py</code>.</p></div>
+</main>
+<script>
+"use strict";
+// Figure helper. Every figure of this page is drawn here from the same numbers that the text uses.
+// Text markup: "v_{0}" is a subscript, "m^{2}" a superscript.
+const nf = (v, d = 0) => { const s = Math.abs(v).toFixed(d); return (v < 0 && Number(s) !== 0 ? "−" : "") + s; };
+const COL = {x:"#2E9E4A", v:"#2F6FD0", a:"#D68910", ink:"#1C1C1C", grey:"#5B5752", line:"#E2DED8", red:"#C0392B", purple:"#7A3FC0"};
+function F(id){
+  const s = document.getElementById(id), ns = "http://www.w3.org/2000/svg";
+  if (!s) return null;
+  const mk = (t, a, txt) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+  const add = (t, a, txt) => { const e = mk(t, a, txt); s.appendChild(e); return e; };
+  const done = {};
+  const marker = c => { const k = "mk" + id + c.replace("#", "");
+    if (!done[k]) { let d = s.querySelector("defs"); if (!d) { d = mk("defs", {}); s.prepend(d); }
+      const m = mk("marker", {id:k, viewBox:"0 0 10 10", refX:9, refY:5, markerWidth:7, markerHeight:7, orient:"auto"});
+      m.appendChild(mk("path", {d:"M0,0L10,5L0,10z", fill:c})); d.appendChild(m); done[k] = 1; }
+    return "url(#" + k + ")"; };
+  const o = {s, add};
+  o.line = (x1, y1, x2, y2, c = COL.ink, w = 2, dash) => add("line", Object.assign({x1, y1, x2, y2, stroke:c, "stroke-width":w}, dash ? {"stroke-dasharray":dash} : {}));
+  o.arrow = (x1, y1, x2, y2, c = COL.ink, w = 3) => add("line", {x1, y1, x2, y2, stroke:c, "stroke-width":w, "marker-end":marker(c)});
+  o.rect = (x, y, w, h, fill = "none", stroke = "none", sw = 1, fo = 1) => add("rect", {x, y, width:w, height:h, fill, stroke, "stroke-width":sw, "fill-opacity":fo});
+  o.poly = (pts, fill = "none", stroke = COL.ink, sw = 2, fo = 1, dash, close = false) => add(close || fill !== "none" ? "polygon" : "polyline",
+    Object.assign({points:pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill, stroke, "stroke-width":sw, "fill-opacity":fo}, dash ? {"stroke-dasharray":dash} : {}));
+  o.circle = (cx, cy, r, fill = COL.ink, stroke = "none") => add("circle", {cx, cy, r, fill, stroke});
+  o.text = (x, y, str, op = {}) => {
+    const {size = 12, fill = COL.ink, anchor = "start", bold = false, rot = null} = op;
+    const e = add("text", Object.assign({x, y, "font-size":size, fill, "text-anchor":anchor}, bold ? {"font-weight":700} : {}, rot ? {transform:`rotate(${rot} ${x} ${y})`} : {}));
+    for (const part of String(str).split(/(_\{[^}]*\}|\^\{[^}]*\})/)) { if (!part) continue;
+      if (part.startsWith("_{") || part.startsWith("^{")) e.appendChild(mk("tspan", {"baseline-shift":part[0] === "_" ? "sub" : "super", "font-size":Math.round(size * 0.75)}, part.slice(2, -1)));
+      else e.appendChild(document.createTextNode(part)); }
+    return e; };
+  // graph(box=[left, top, width, height], {x:[a,b], y:[a,b], xt, yt, xd, yd, xl, yl}) -> {X, Y}
+  o.graph = (b, g) => {
+    const [L, T, W, H] = b, X = x => L + (x - g.x[0]) / (g.x[1] - g.x[0]) * W, Y = y => T + H - (y - g.y[0]) / (g.y[1] - g.y[0]) * H;
+    for (const v of g.xt || []) { o.line(X(v), T, X(v), T + H, COL.line, 1); o.text(X(v), T + H + 14, nf(v, g.xd || 0), {size:11, anchor:"middle", fill:COL.grey}); }
+    for (const v of g.yt || []) { o.line(L, Y(v), L + W, Y(v), COL.line, 1); o.text(L - 5, Y(v) + 4, nf(v, g.yd || 0), {size:11, anchor:"end", fill:COL.grey}); }
+    if (g.y[0] < 0 && g.y[1] > 0) o.line(L, Y(0), L + W, Y(0), COL.ink, 1.2);
+    o.line(L, T + H, L + W, T + H, COL.ink, 1.5); o.line(L, T, L, T + H, COL.ink, 1.5);
+    if (g.xl) o.text(L + W / 2, T + H + 30, g.xl, {size:12, anchor:"middle"});
+    if (g.yl) o.text(L - 40, T + H / 2, g.yl, {size:12, anchor:"middle", rot:-90});
+    return {X, Y, L, T, W, H}; };
+  o.curve = (g, f, x0, x1, c = COL.ink, w = 3, dash, n = 160) => { const p = []; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } return o.poly(p, "none", c, w, 1, dash); };
+  o.area = (g, f, x0, x1, c, fo = 0.25, base = 0, n = 120) => { const p = [[g.X(x0), g.Y(base)]]; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } p.push([g.X(x1), g.Y(base)]); return o.poly(p, c, "none", 0, fo); };
+  o.dot = (g, x, y, c = COL.ink, r = 4.5) => o.circle(g.X(x), g.Y(y), r, c);
+  return o;
+}
+// Each figure runs in its own try block; the number checker reads window.figErrors, so one broken figure cannot hide the others.
+window.figErrors = [];
+function fig(id, fn){ try { const f = F(id); if (!f) throw new Error("no svg with this id"); fn(f); } catch (e) { window.figErrors.push(id + ": " + e.message); } }
+// The S-curve of 2.2.14 for a speed change v0 -> V with the limits A and J, starting with a = 0 (the formulas printed on page 2.2c).
+function scurve(v0, V, A, J, x0 = 0){
+  const D = Math.abs(V - v0), d = V >= v0 ? 1 : -1, sat = J * D > A * A;
+  const T1 = sat ? A / J : Math.sqrt(D / J), T2 = sat ? D / A - A / J : 0, T3 = T1, T = T1 + T2 + T3;
+  const seg = []; let t = 0, a = 0, v = v0, x = x0;
+  for (const [dt, j] of [[T1, d * J], [T2, 0], [T3, -d * J]]) {
+    seg.push({t0:t, t1:t + dt, j, a0:a, v0:v, x0:x});
+    x += v * dt + 0.5 * a * dt * dt + j * dt * dt * dt / 6; v += a * dt + 0.5 * j * dt * dt; a += j * dt; t += dt; }
+  const at = tt => {
+    if (tt >= T) return {j:0, a:0, v:V, x:x + V * (tt - T)};
+    let s = seg[2]; for (const q of seg) if (tt <= q.t1) { s = q; break; }
+    const u = Math.max(0, tt - s.t0);
+    return {j:s.j, a:s.a0 + s.j * u, v:s.v0 + s.a0 * u + 0.5 * s.j * u * u, x:s.x0 + s.v0 * u + 0.5 * s.a0 * u * u + s.j * u * u * u / 6}; };
+  return {T1, T2, T3, T, sat, seg, at, xEnd:x};
+}
+const rad = d => d * Math.PI / 180;
+
+// ---------- Figure 1: bearings, and ground = air + wind ----------
+fig("f1", f => {
+  const cx = 190, cy = 160, R = 105, pt = (b, r) => [cx + r * Math.sin(rad(b)), cy - r * Math.cos(rad(b))];
+  f.text(20, 22, "Bearings: clockwise from north", {size: 13, bold: true});
+  f.circle(cx, cy, R, "none", COL.grey);
+  for (const [b, lab] of [[0, "N 0°"], [90, "E 90°"], [180, "S 180°"], [270, "W 270°"]]) { const p = pt(b, R + 16); f.text(p[0], p[1] + 4, lab, {size: 12, anchor: "middle", bold: true}); }
+  const s0 = pt(240, 92), e0 = pt(60, 80);
+  f.arrow(s0[0], s0[1], e0[0], e0[1], COL.grey, 4.5);
+  f.text(14, s0[1] + 38, "wind FROM 240°", {size: 12, bold: true, fill: COL.grey});
+  f.text(e0[0] + 14, e0[1] - 8, "the air moves toward 60°", {size: 12, bold: true, fill: COL.grey});
+  f.circle(cx, cy, 3, COL.ink);
+  f.text(470, 22, "Ground velocity = airspeed + wind", {size: 13, bold: true});
+  const k = 9, O = [540, 270], A = [540, 270 - 12 * k], G = [540 + 5.196 * k, 270 - 15 * k];
+  f.arrow(O[0], O[1], A[0], A[1] + 3, COL.v, 4); f.arrow(A[0], A[1], G[0] - 1, G[1] + 3, COL.grey, 4); f.arrow(O[0], O[1], G[0] - 3, G[1] + 5, COL.x, 4.5);
+  f.text(O[0] - 10, 215, "airspeed: 12 m/s north", {size: 12, bold: true, fill: COL.v, anchor: "end"});
+  f.text(A[0] + 56, A[1] - 22, "wind: 6 m/s toward 60°", {size: 12, bold: true, fill: COL.grey});
+  f.text(G[0] + 16, 175, "ground velocity:", {size: 12, bold: true, fill: COL.x}); f.text(G[0] + 16, 192, "(5.196 east, 15.0 north) m/s", {size: 12, bold: true, fill: COL.x});
+});
+
+// ---------- Think figures (T15 to T25) ----------
+fig("t15", f => {
+  f.text(20, 22, "From above", {size: 13, bold: true});
+  const ox = 70, oy = 290, k = 5, ex = ox + 14.84 * k, ny = oy - 42.84 * k;
+  f.line(ox, oy, ex, oy, COL.grey, 1.5, "5 4"); f.line(ex, oy, ex, ny, COL.grey, 1.5, "5 4");
+  f.arrow(ox, oy, ex - 3, ny + 7, COL.x, 3.5);
+  f.circle(ox, oy, 6, COL.ink); f.circle(ex, ny, 7, "#fff", COL.x);
+  f.text(ox + 8, oy - 8, "14.84 m east", {size: 12});
+  f.text(ex + 8, 190, "42.84 m north", {size: 12});
+  f.text(ex + 12, ny + 4, "lands here", {size: 12, bold: true, fill: COL.x});
+  f.text(ox - 40, oy + 20, "below the failure", {size: 12});
+  f.arrow(26, 90, 26, 50, COL.ink, 2); f.text(20, 42, "N", {size: 12, bold: true});
+  f.text(300, 22, "From the side, along the ground track", {size: 13, bold: true});
+  const sx = 330, sy = 290, k2 = 4.2, pts = [];
+  for (let i = 0; i <= 60; i++) { const u = i / 60; pts.push([sx + 45.34 * k2 * u, sy - 40 * k2 * (1 - u * u)]); }
+  f.line(sx - 10, sy, sx + 45.34 * k2 + 30, sy, COL.grey, 2);
+  f.poly(pts, "none", COL.v, 3.5); f.circle(sx, sy - 40 * k2, 5, COL.ink); f.circle(sx + 45.34 * k2, sy, 5.5, COL.x);
+  f.text(sx - 8, sy - 20 * k2, "40 m", {size: 12, anchor: "end"});
+  f.text(sx + 22.67 * k2, sy + 20, "45.34 m along the track", {size: 12, anchor: "middle"});
+  f.text(sx + 12, sy - 40 * k2 - 6, "fall time 2.856 s", {size: 12, bold: true, fill: COL.v});
+  f.line(sx - 3, sy, sx - 3, sy - 40 * k2, COL.grey, 1.5, "5 4");
+  f.text(sx + 45.34 * k2 + 10, sy - 30, "impact", {size: 12, bold: true}); f.text(sx + 45.34 * k2 + 10, sy - 14, "32.20 m/s", {size: 12, bold: true});
+  f.text(650, 22, "Before the failure", {size: 13, bold: true});
+  f.text(650, 56, "air: 12 m/s north", {size: 12, fill: COL.v, bold: true}); f.text(650, 78, "wind: 6 m/s toward 60°", {size: 12, fill: COL.grey, bold: true});
+  f.text(650, 100, "ground: 15.87 m/s,", {size: 12, fill: COL.x, bold: true}); f.text(650, 118, "19.1° east of north", {size: 12, fill: COL.x, bold: true});
+  f.text(650, 160, "mass 3.5 kg: no effect", {size: 12}); f.text(650, 178, "on the fall time", {size: 12});
+});
+fig("t16", f => {
+  const g = f.graph([90, 20, 700, 260], {x: [0, 42], y: [0, 30], xt: [0, 5, 10, 15, 20, 25, 30, 35, 40], yt: [0, 5, 10, 15, 20, 25, 30], xl: "distance north of the failure point (m)", yl: "height (m)"});
+  const T = 2.82479, gz = 9.8062, z = t => 25 + 5 * t - 0.5 * gz * t * t;
+  const path = vN => { const p = []; for (let i = 0; i <= 80; i++) { const t = T * i / 80; p.push([g.X(vN * t), g.Y(Math.max(0, z(t)))]); } return p; };
+  f.poly(path(8.660), "none", COL.v, 3.5, 1, "7 4"); f.poly(path(13.660), "none", COL.x, 3.5);
+  f.dot(g, 0, 25, COL.ink, 5); f.dot(g, 38.59, 0, COL.x, 5.5); f.dot(g, 24.46, 0, COL.v, 5.5);
+  f.text(g.X(0.6), g.Y(8.5), "motors stop at 25 m, climbing at 5.0 m/s", {size: 12, bold: true});
+  f.text(g.X(22), g.Y(29.2), "green: tailwind 5.0 m/s, lands 38.59 m ahead", {size: 12, bold: true, fill: COL.x});
+  f.text(g.X(22), g.Y(27.4), "blue (dashed): no wind, lands 24.46 m ahead", {size: 12, bold: true, fill: COL.v});
+  f.text(g.X(22), g.Y(25.6), "both reach 26.27 m after 0.510 s", {size: 12, fill: COL.grey});
+});
+fig("t17", f => {
+  const W = 200, x0 = 240, y0 = 250, y1 = 60, x1 = x0 + W;           // SW, NW, NE, SE corners: (x0,y0) (x0,y1) (x1,y1) (x1,y0)
+  f.arrow(x0, y0 - 4, x0, y1 + 8, COL.v, 4); f.arrow(x0 + 4, y1, x1 - 8, y1, COL.x, 4); f.arrow(x1, y1 + 4, x1, y0 - 8, COL.a, 4); f.arrow(x1 - 4, y0, x0 + 8, y0, COL.purple, 4);
+  f.text(x0 - 12, 150, "1 north", {size: 13, bold: true, anchor: "end", fill: COL.v}); f.text(x0 - 12, 168, "11.07 m/s, 27.10 s", {size: 12, anchor: "end", fill: COL.v});
+  f.text((x0 + x1) / 2, y1 - 24, "2 east", {size: 13, bold: true, anchor: "middle", fill: COL.x}); f.text((x0 + x1) / 2, y1 - 8, "19.90 m/s, 15.08 s", {size: 12, anchor: "middle", fill: COL.x});
+  f.text(x1 + 12, 150, "3 south", {size: 13, bold: true, fill: COL.a}); f.text(x1 + 12, 168, "17.07 m/s, 17.57 s", {size: 12, fill: COL.a});
+  f.text((x0 + x1) / 2, y0 + 22, "4 west", {size: 13, bold: true, anchor: "middle", fill: COL.purple}); f.text((x0 + x1) / 2, y0 + 38, "9.50 m/s, 31.58 s", {size: 12, anchor: "middle", fill: COL.purple});
+  f.text((x0 + x1) / 2, 160, "lap: 91.33 s", {size: 14, bold: true, anchor: "middle"}); f.text((x0 + x1) / 2, 180, "still air: 80.0 s", {size: 12, anchor: "middle", fill: COL.grey});
+  f.arrow(640, 70, 640 + 0.866 * 90, 70 + 0.5 * 90, COL.grey, 5);
+  f.text(620, 48, "wind FROM 300°, 6 m/s", {size: 12, bold: true, fill: COL.grey}); f.text(620, 190, "(it blows toward 120°)", {size: 12, fill: COL.grey});
+  f.arrow(790, 250, 790, 215, COL.ink, 2); f.text(784, 208, "N", {size: 12, bold: true});
+});
+fig("t18", f => {
+  const sc = 5, ox = 60 + 39 * sc, oy = 350 - 38 * sc, X = w => ox + w * sc, Y = w => oy - w * sc;
+  f.line(60, oy, 385, oy, COL.grey, 1, "4 3"); f.line(ox, 24, ox, 352, COL.grey, 1, "4 3");
+  f.text(300, oy + 16, "wind east (m/s)", {size: 11, fill: COL.grey}); f.text(68, 40, "wind north (m/s) up", {size: 11, fill: COL.grey});
+  [[0, -15, 20.22, COL.v, "A"], [-15, 0, 22.29, COL.a, "B"], [0, 15, 13.0, COL.x, "C"]].forEach(([cx, cy, r, c, lab]) => {
+    f.add("circle", {cx: X(cx), cy: Y(cy), r: r * sc, fill: "none", stroke: c, "stroke-width": 2.5}); f.circle(X(cx), Y(cy), 3.5, c);
+    f.text(X(cx) + 6, Y(cy) + 14, lab, {size: 13, bold: true, fill: c}); });
+  f.circle(X(6.929), Y(3.996), 6.5, COL.x, "#fff"); f.circle(X(-18.996), Y(-21.929), 6.5, COL.red, "#fff");
+  f.text(430, 40, "Each circle holds all winds that give one", {size: 12, bold: true}); f.text(430, 58, "measured ground speed on that leg.", {size: 12, bold: true});
+  f.text(430, 90, "blue A: nose north, 20.22 m/s, centre (0, −15)", {size: 12, fill: COL.v});
+  f.text(430, 110, "orange B: nose east, 22.29 m/s, centre (−15, 0)", {size: 12, fill: COL.a});
+  f.text(430, 130, "green C: nose south, 13.00 m/s, centre (0, 15)", {size: 12, fill: COL.x});
+  f.text(430, 165, "A and B meet in two points:", {size: 12, bold: true});
+  f.text(430, 187, "green dot (6.929, 3.996): 8.00 m/s from 240°", {size: 12, fill: COL.x, bold: true}); f.text(430, 205, "on circle C: 13.00 m/s, accepted", {size: 12, fill: COL.x});
+  f.text(430, 235, "red dot (−18.996, −21.929): 29.01 m/s from 40.9°", {size: 12, fill: COL.red, bold: true}); f.text(430, 253, "C would read 41.53 m/s, rejected", {size: 12, fill: COL.red});
+});
+fig("t19", f => {
+  f.text(20, 22, "The strip and the wind", {size: 13, bold: true});
+  f.rect(40, 180, 210, 22, "#EDEAE4", COL.ink, 1.5, 1);
+  f.text(32, 196, "27", {size: 14, bold: true, anchor: "end"}); f.text(258, 196, "09", {size: 14, bold: true});
+  f.arrow(190, 168, 100, 168, COL.v, 3); f.text(145, 156, "takeoff on 27: heading 270°", {size: 11, anchor: "middle", fill: COL.v});
+  f.arrow(60, 290, 60 + 0.866 * 120, 290 - 0.5 * 120, COL.grey, 4.5);
+  f.text(20, 312, "wind from 240°, 8.0 m/s", {size: 12, bold: true, fill: COL.grey});
+  f.text(20, 52, "runway 27: headwind 6.93 m/s,", {size: 12, bold: true}); f.text(20, 70, "crosswind 4.00 m/s", {size: 12, bold: true});
+  f.text(20, 92, "runway 09: tailwind 6.93 m/s,", {size: 12, bold: true}); f.text(20, 110, "crosswind 4.00 m/s", {size: 12, bold: true});
+  const x0 = 360, k = 1.5, rows = [["takeoff on 27", 105.48], ["takeoff on 09", 293.57], ["takeoff, still air", 187.75], ["landing on 27", 81.63], ["landing on 09", 254.88]];
+  f.text(x0, 22, "Roll lengths and the strip of 150 m", {size: 13, bold: true});
+  rows.forEach(([lab, s], i) => { const y = 66 + i * 50;
+    f.text(x0, y - 6, lab, {size: 11}); f.rect(x0, y, s * k, 24, s <= 150 ? COL.x : COL.red, "none", 0, 0.85);
+    f.text(x0 + 8, y + 17, s.toFixed(2) + " m", {size: 13, bold: true, fill: "#fff"}); });
+  f.line(x0 + 150 * k, 36, x0 + 150 * k, 312, COL.ink, 2, "5 4"); f.text(x0 + 150 * k + 6, 46, "strip 150 m", {size: 12, bold: true});
+});
+fig("t20", f => {
+  f.text(20, 22, "The approach, from the side", {size: 13, bold: true});
+  const x0 = 50, y0 = 130, k = 12;
+  f.line(x0, y0, x0 + 20 * k, y0, COL.grey, 1.5, "5 4"); f.line(x0 + 20 * k, y0, x0 + 20 * k, y0 + 3.33 * k, COL.grey, 1.5, "5 4");
+  f.arrow(x0, y0, x0 + 20 * k - 4, y0 + 3.33 * k - 2, COL.x, 3.5); f.circle(x0, y0, 5, COL.ink);
+  f.rect(x0 + 20 * k - 30, y0 + 3.33 * k, 60, 6, COL.ink, "none", 0, 1);
+  f.text(x0 + 10 * k, y0 - 8, "20.0 m ahead", {size: 12, anchor: "middle"}); f.text(x0 + 20 * k + 10, y0 + 22, "3.33 m", {size: 12});
+  f.text(x0 + 20 * k, y0 + 3.33 * k + 24, "pad", {size: 12, anchor: "middle", bold: true});
+  f.arrow(x0, 70, x0 + 70, 70, COL.grey, 3.5); f.text(x0, 56, "tailwind 6 m/s", {size: 12, fill: COL.grey, bold: true});
+  f.text(x0, 215, "ground speed 12 + 6 = 18 m/s, descent 3.0 m/s", {size: 12, bold: true});
+  f.text(x0, 237, "braking a = 8.10 m/s², upward a = 1.35 m/s²", {size: 12});
+  f.text(x0, 259, "time 2.222 s, thrust 48.25 N of 60 N", {size: 12, bold: true, fill: COL.x});
+  f.text(x0, 295, "PX4 default A = 3.0 m/s²: needs 54.0 m", {size: 12, fill: COL.red});
+  const g = f.graph([500, 40, 290, 290], {x: [0, 20], y: [0, 20], xt: [0, 5, 10, 15, 20], yt: [0, 5, 10, 15, 20], xl: "braking acceleration (m/s²)", yl: "g + upward acceleration (m/s²)"});
+  const Rm = 60 / 3.5, arc = []; for (let i = 0; i <= 90; i++) { const a = rad(i); arc.push([g.X(Rm * Math.cos(a)), g.Y(Rm * Math.sin(a))]); }
+  f.poly(arc, "none", COL.ink, 2.5);
+  f.line(g.X(0), g.Y(0), g.X(8.10), g.Y(11.1562), COL.x, 2, "4 3"); f.line(g.X(0), g.Y(0), g.X(14.40), g.Y(11.6062), COL.red, 2, "4 3");
+  f.dot(g, 8.10, 11.1562, COL.x, 6); f.dot(g, 14.40, 11.6062, COL.red, 6); f.dot(g, 0, 9.8062, COL.grey, 5);
+  f.text(g.X(1.5), g.Y(19.2), "limit circle: T = 60 N", {size: 12, bold: true}); f.text(g.X(0.4), g.Y(8.6), "hover", {size: 11, fill: COL.grey});
+  f.text(g.X(9.0), g.Y(4.5), "planned: 48.25 N", {size: 11, bold: true, fill: COL.x});
+  f.text(g.X(19.8), g.Y(15.6), "tailwind 12 m/s: 64.73 N", {size: 11, bold: true, fill: COL.red, anchor: "end"});
+});
+fig("t21", f => {
+  const g = f.graph([90, 20, 700, 270], {x: [0, 66], y: [0, 52], xt: [0, 10, 20, 30, 40, 50, 60], yt: [0, 10, 20, 30, 40, 50], xl: "distance east (m)", yl: "height (m)"});
+  f.line(g.X(0), g.Y(2), g.X(60), g.Y(47), COL.red, 3.5, "7 4"); f.line(g.X(0), g.Y(2), g.X(60), g.Y(20), COL.x, 3.5);
+  f.line(g.X(60), g.Y(16), g.X(60), g.Y(24), COL.ink, 5); f.add("circle", {cx: g.X(60), cy: g.Y(20), r: 11, fill: "none", stroke: COL.ink, "stroke-width": 2});
+  f.text(g.X(1), g.Y(50.4), "red: air climb 3.0 m/s, ground velocity (6.0, 4.5) m/s: 47.0 m high at x = 60 m", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(1), g.Y(47.4), "green: air climb 0.3 m/s, ground velocity (6.0, 1.8) m/s: 20.0 m at the gate", {size: 12, bold: true, fill: COL.x});
+  f.arrow(g.X(16), g.Y(40), g.X(5), g.Y(40), COL.grey, 3.5); f.text(g.X(17), g.Y(39.2), "headwind 4.0 m/s", {size: 12, fill: COL.grey, bold: true});
+  f.arrow(g.X(8), g.Y(27), g.X(8), g.Y(35), COL.grey, 3.5); f.text(g.X(10.5), g.Y(31), "updraft 1.5 m/s", {size: 12, fill: COL.grey, bold: true});
+  f.text(g.X(57), g.Y(12), "gate", {size: 12, bold: true, anchor: "middle"});
+});
+fig("t22", f => {
+  const g1 = f.graph([70, 30, 330, 220], {x: [0, 21], y: [0, 10], xt: [0, 5, 10, 15, 20], yt: [0, 2, 4, 6, 8, 10], xl: "time t (s)", yl: "ground speed (m/s)"});
+  const vg = [[0, 8], [6, 8], [8, 2], [12, 2], [14, 8], [19.5, 8]];
+  const cols = [COL.x, COL.a, COL.v, COL.a, COL.x];
+  for (let i = 0; i < 5; i++) { const [t0, v0] = vg[i], [t1, v1] = vg[i + 1]; f.poly([[g1.X(t0), g1.Y(0)], [g1.X(t0), g1.Y(v0)], [g1.X(t1), g1.Y(v1)], [g1.X(t1), g1.Y(0)]], cols[i], "none", 0, 0.25); }
+  f.poly(vg.map(p => [g1.X(p[0]), g1.Y(p[1])]), "none", COL.ink, 3.5);
+  [[3, 4, "48.0 m"], [7, 1.0, "10.0 m"], [10, 4.5, "8.0 m"], [13, 1.0, "10.0 m"], [16.7, 4, "44.0 m"]].forEach(([t, y, s]) => f.text(g1.X(t), g1.Y(y), s, {size: 11, bold: true, anchor: "middle"}));
+  f.text(g1.X(10), g1.Y(9.4), "headwind 10 m/s gust", {size: 11, anchor: "middle", fill: COL.grey});
+  const g2 = f.graph([490, 30, 330, 220], {x: [0, 21], y: [0, 130], xt: [0, 5, 10, 15, 20], yt: [0, 30, 60, 90, 120], xl: "time t (s)", yl: "position (m)"});
+  f.line(g2.X(0), g2.Y(120), g2.X(21), g2.Y(120), COL.red, 1.5, "6 4"); f.text(g2.X(0.4), g2.Y(124), "gate 120 m", {size: 11, fill: COL.red, bold: true});
+  f.line(g2.X(0), g2.Y(0), g2.X(15), g2.Y(120), COL.grey, 2.5, "7 4");
+  f.poly([[0, 0], [6, 48], [8, 58], [12, 66], [14, 76], [19.5, 120]].map(p => [g2.X(p[0]), g2.Y(p[1])]), "none", COL.v, 3.5);
+  f.dot(g2, 15, 84, COL.red, 5.5); f.dot(g2, 15, 120, COL.grey, 4.5); f.dot(g2, 19.5, 120, COL.v, 5.5);
+  f.text(g2.X(15.4), g2.Y(78), "84.0 m at 15.0 s", {size: 11, bold: true, fill: COL.red}); f.text(g2.X(15.4), g2.Y(66), "36.0 m short", {size: 11, fill: COL.red});
+  f.text(g2.X(8.5), g2.Y(30), "dashed: the plan, 15.0 s", {size: 11, fill: COL.grey, bold: true}); f.text(g2.X(8.5), g2.Y(17), "solid: with the gust, 19.5 s", {size: 11, fill: COL.v, bold: true});
+});
+fig("t23", f => {
+  const g = f.graph([90, 20, 700, 250], {x: [0, 22], y: [0, 3.2], xt: [0, 4, 8, 12, 16, 20], yt: [0, 0.5, 1, 1.5, 2, 2.5, 3], yd: 1, xl: "time without GPS (s)", yl: "position error (m)"});
+  f.line(g.X(0), g.Y(1.5), g.X(22), g.Y(1.5), COL.red, 2, "7 4");
+  for (const t of [4, 8, 12, 16, 20]) f.line(g.X(t), g.Y(0), g.X(t), g.Y(3.2), COL.grey, 1, "2 4");
+  f.curve(g, t => 0.5 * 0.04 * t * t, 0, 12.4, COL.a, 3.5); f.curve(g, t => 0.5 * 0.01 * t * t, 0, 22, COL.v, 3.5);
+  [4, 8, 12].forEach(t => f.dot(g, t, 0.02 * t * t, COL.a, 5)); [4, 8, 12, 16, 20].forEach(t => f.dot(g, t, 0.005 * t * t, COL.v, 5));
+  f.text(g.X(0.4), g.Y(3.0), "orange: b = 0.04 m/s²", {size: 12, bold: true, fill: COL.a}); f.text(g.X(0.4), g.Y(2.75), "errors 0.32, 1.28, 2.88 m at the gates", {size: 12, bold: true, fill: COL.a});
+  f.text(g.X(13.2), g.Y(2.7), "blue: b = 0.01 m/s², errors 1.28 m at 16 s,", {size: 12, bold: true, fill: COL.v}); f.text(g.X(13.2), g.Y(2.45), "2.00 m at 20 s", {size: 12, bold: true, fill: COL.v});
+  f.text(g.X(0.4), g.Y(1.62), "limit 1.5 m", {size: 12, fill: COL.red});
+  f.text(g.X(21.8), g.Y(0.3), "dotted lines: the gates, one every 4 s", {size: 11, anchor: "end", fill: COL.grey});
+});
+fig("t24", f => {
+  const g = f.graph([90, 20, 700, 260], {x: [0, 7.2], y: [0, 7.5], xt: [0, 1, 2, 3, 4, 5, 6, 7], yt: [0, 2, 4, 6], xl: "time t (s)", yl: "speed v (m/s)"});
+  const plan = (V, A, cr) => { const S = scurve(0, V, A, 4.0), Tr = S.T; return {T: 2 * Tr + cr, w: t => t <= Tr ? S.at(t).v : (t <= Tr + cr ? V : S.at(Math.max(0, 2 * Tr + cr - t)).v)}; };
+  const d = plan(6.0, 3.0, 3.5 / 6.0), p = plan(5.84428877, 2.0, 0);
+  f.area(g, d.w, 0, d.T, COL.v, 0.12); f.area(g, p.w, 0, p.T, COL.a, 0.12);
+  f.line(g.X(0), g.Y(6), g.X(7.2), g.Y(6), COL.red, 2, "7 4");
+  f.curve(g, d.w, 0, d.T, COL.v, 3.5, undefined, 200); f.curve(g, p.w, 0, p.T, COL.a, 3.5, undefined, 200);
+  f.text(g.X(0.15), g.Y(6.45), "wanted cruise speed 6.0 m/s", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(7.1), g.Y(7.2), "blue: A = 3.0, cruises, arrives at 6.083 s", {size: 12, bold: true, fill: COL.v, anchor: "end"});
+  f.text(g.X(7.1), g.Y(6.7), "orange: A = 2.0, peak 5.84 m/s, arrives at 6.84 s", {size: 12, bold: true, fill: COL.a, anchor: "end"});
+});
+fig("t25", f => {
+  const g = f.graph([70, 30, 440, 230], {x: [0, 23], y: [0, 19], xt: [0, 4, 8, 12, 16, 20], yt: [0, 4, 8, 12, 16], xl: "time t (s)", yl: "speed v (m/s)"});
+  [[16, COL.x, 16.5], [14, COL.v, 17.786], [12, COL.a, 19.667], [10, COL.purple, 22.5]].forEach(([v, c, T]) => { const tu = v / 4;
+    f.poly([[g.X(0), g.Y(0)], [g.X(tu), g.Y(v)], [g.X(T - tu), g.Y(v)], [g.X(T), g.Y(0)]], c, "none", 0, 0.08);
+    f.poly([[g.X(0), g.Y(0)], [g.X(tu), g.Y(v)], [g.X(T - tu), g.Y(v)], [g.X(T), g.Y(0)]], "none", c, 3);
+    f.text(g.X(tu + 1.2), g.Y(v + 0.5), `${v} m/s: ${T} s`, {size: 12, bold: true, fill: c}); });
+  const h = f.graph([590, 30, 230, 230], {x: [8, 20], y: [14, 28], xt: [8, 12, 16, 20], yt: [14, 18, 22, 26], xl: "cruise speed (m/s)", yl: "total time T (s)"});
+  f.line(h.X(16), h.Y(14), h.X(16), h.Y(28), COL.red, 1.5, "5 4");
+  f.curve(h, v => v / 4 + 200 / v, 8, 20, COL.ink, 3);
+  [[16, 16.5, COL.x], [14, 17.786, COL.v], [12, 19.667, COL.a], [10, 22.5, COL.purple]].forEach(([v, T, c]) => f.dot(h, v, T, c, 5.5));
+  f.text(h.X(16.3), h.Y(27), "speed limit", {size: 11, fill: COL.red, bold: true});
+  f.text(h.X(8.4), h.Y(14.9), "T(v) = v / a + L / v", {size: 11, fill: COL.grey});
+});
+const PAGE = "2.2d";                                 // note keys: "2.2d:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes (owner's order 2026-10-20: "each table must have an editor tool").
+// A table's key is "<page>:<block>#t<n>", n counting the tables inside that block.
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+</script>
+</body>
+</html>

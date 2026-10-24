@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Racing Drone Path v2 — plan</title>
+<!-- Source of truth: github coursera_mirror\mirrors\Autonomous_Racing_Drone_Path\v2\plan.html;
+     copied as is to the library folder V2_Plan\. Notes live in notes.json beside the copy. -->
+<style>
+:root{
+  --paper:#FAF8F5; --card:#FFFFFF; --ink:#1C1C1C; --ink2:#5B5752; --line:#E2DED8; --accent:#E8331C;
+  --m-yellow:#FFE9A8; --m-green:#CDEFD3; --m-red:#FBD0C8; --m-blue:#CFE2FA;
+  --b-yellow:#E0B100; --b-green:#2E9E4A; --b-red:#E8331C; --b-blue:#2F6FD0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+header .brand i{width:14px;height:14px;background:var(--accent);display:inline-block}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2);background:var(--paper)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}
+.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer;color:var(--ink)}
+button:hover{border-color:var(--ink2)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.wrap{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 54px)}
+nav{border-right:1px solid var(--line);padding:16px 10px;position:sticky;top:54px;align-self:start;height:calc(100vh - 54px);overflow:auto}
+nav a{display:block;padding:8px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:14px;margin-bottom:2px}
+nav a small{display:block;color:var(--ink2);font-size:12px}
+nav a.on{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);padding-left:7px}
+nav .count{float:right;font-size:11px;color:var(--accent);font-weight:700}
+nav .legend{margin-top:18px;padding:10px;border-top:1px solid var(--line);font-size:12px;color:var(--ink2)}
+nav .legend div{display:flex;align-items:center;gap:6px;margin:3px 0}
+nav .legend b{width:12px;height:12px;border-radius:3px;display:inline-block}
+main{padding:24px 28px 80px;max-width:1240px}
+h1{font-size:26px;margin:0 0 6px}
+h2{font-size:19px;margin:0}
+.lead{color:var(--ink2);margin:0}
+/* every annotatable block = content + margin */
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;margin:0 0 14px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px;position:relative}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}
+.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}
+.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}
+.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;color:var(--ink);outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}
+.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+/* section tables built as grids so each row takes notes */
+.thead,.trow{display:grid;grid-template-columns:2.2fr 2.4fr 1.3fr 1.6fr;gap:10px}
+.thead{font-size:12px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.03em;padding:0 12px 4px;border-bottom:2px solid var(--ink)}
+.thead.wide{margin-right:318px}
+.trow{font-size:14px}
+.trow .n{font-weight:600}
+.trow .pic{color:var(--ink2)}
+.trow .re{color:var(--ink2);font-size:13px}
+.thead.tt,.trow.tt{grid-template-columns:1.6fr 0.9fr 0.8fr 3fr}
+.thead.gp,.trow.gp{grid-template-columns:1.3fr 1.8fr 1.8fr 1.7fr 0.8fr}
+a.sample{display:block;font-weight:700;color:var(--accent);font-size:13px;margin-top:2px}
+.thead.src,.trow.src{grid-template-columns:2.4fr 2.4fr 0.9fr 2fr}
+.trow.src a{color:var(--ink)}
+.terms{margin-top:18px}
+.addrow{margin:6px 0 18px;padding-left:12px}
+.addrow button{border-style:dashed}
+.prop{border:2px dashed #7A3FC0;border-radius:8px;padding:8px 10px;background:#FBF8FF}
+.ptag{font-size:11px;font-weight:700;color:#7A3FC0;letter-spacing:.05em;display:flex;justify-content:space-between}
+.ptag .pdel{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+.ptitle{width:100%;font:inherit;font-weight:600;font-size:15px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:4px 0;margin:4px 0;outline:none}
+.pbody{width:100%;min-height:60px;font:inherit;font-size:14px;border:0;background:transparent;resize:vertical;outline:none}
+.chap{margin:34px 0 8px}
+.chap .tag{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.05em}
+table.t{border-collapse:collapse;width:100%;font-size:14px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
+figure{margin:0}
+figcaption{font-size:12px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.help ol{margin:4px 0 0;padding-left:20px}
+@media (max-width:1000px){
+  .wrap{grid-template-columns:1fr} nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+  nav a{display:inline-block} nav .legend{display:none}
+  .blk{grid-template-columns:1fr} .thead.wide{margin-right:0} main{padding:16px}
+  .thead,.trow{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand"><i></i>Autonomous Racing Drone Path — v2 teaching plan</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <a href="../index.html" style="font-size:13px">Course home</a>
+  <a href="reference/references.html" style="font-size:13px">References</a>
+  <button id="connect" class="primary" title="Pick notes.json in this folder once; after that every change is saved to it">Connect notes.json</button>
+  <button id="download" title="Save all notes as a file">Download notes</button>
+  <button id="import" title="Load notes from a file">Load notes</button>
+  <input id="importFile" type="file" accept=".json,application/json" hidden>
+</header>
+<div class="wrap">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<script>
+"use strict";
+/* ---------------- the plan (edit here) ---------------- */
+const PARTS = [
+ {id:"p1", short:"Part I", title:"Flight theory", intro:"Theory only, worked by hand: every section ends with a calculation you do on paper with its formula.", chapters:[
+  {key:"math", round:1, title:"Math toolkit for flight", rows:[
+   ["m.1","Vectors: arrows with a size and a direction","add and split arrows by hand","tip-to-tail figure","your Math Foundations book; JHU Linear Algebra mirror (MA112)"],
+   ["m.2","Trigonometry: sin, cos, tan","split a tilted arrow into up and forward parts","right-triangle figure","new"],
+   ["m.3","Rates: the derivative as speed of change","read speed from a position-time graph","slope figure","new"],
+   ["m.4","Adding small steps: integration","get position from speed, one time step at a time","step staircase figure","new"],
+   ["m.5","Matrices and rotations","rotate a vector with a 2×2 and a 3×3 matrix","rotated-axes figure","JHU Linear Algebra mirror (MA112); MIT 18.06 notes"],
+   ["m.6","Units and conversions","convert km/h, degrees, grams; check every answer by its units","unit table","new"]]},
+  {n:1, title:"The goal and the map", rows:[
+   ["1.1","The loop of a racing drone","name the 5 steps: see, estimate, plan, control, fly","loop diagram","L1 The path"],
+   ["1.2","The path through this course","find where each skill is learned","course map","L1 map + plan pages"],
+   ["1.3","What the job market asks for","match each skill to job ads","skills × ads table","L3 Job ads"],
+   ["1.4","The papers that define the field","place each key paper on the loop","papers on the loop","L2 LSY, L5 Papers by camera, L6 MonoRace"],
+   ["1.5","How we check progress","read a run record and its gates","check workflow","L7 The project so far"],
+   ["1.6","Inside the autopilot: why each chapter","name the 10 parts of a multirotor autopilot and the chapter that teaches each","autopilot loop figure","PX4 d28a642 + Project AirSim c80cff5 (checked 2026-10-20); page reference/autopilot_map.html"],
+   ]},
+  {key:"fly", round:1, title:"How things fly: forces and motion", rows:[
+   ["fly.1","The four forces (two pages: 2.1a one at a time, 2.1b together)","compute lift L = ½·ρ·V²·S·C_L and compare it with the weight m·g","force diagram, plane beside quadrotor","Leishman; MIT 16.00"],
+   ["fly.2","Kinematics: position, velocity, acceleration (four pages: 2.2a on a line, 2.2b in 3-D, laps, falling, fixed wings, simulators, 2.2c jerk, S-curve planner and motion commands, 2.2d thinking problems with wind, payload and turbulence)","compute v = v₀ + a·t and x = x₀ + v₀·t + ½·a·t² for a straight run","x / v / a plots of one lap","Dellaert §7.2.2; NASA GRC"],
+   ["fly.3","Dynamics: Newton's second law","compute the acceleration from the sum of forces (F = m·a)","free-body diagram","MIT 16.00; NASA GRC"],
+   ["fly.4","Attitude: roll, pitch, yaw","name the three axes and the turn about each","3-axis figure","new"],
+   ["fly.5","Tilt to move","compute the tilt for a wanted sideways acceleration (a = g·tan θ, level flight)","tilted thrust vector","Dellaert §7.2.1 (maximum tilt); GMU slide 20"],
+   ["fly.6","Flight phases as force balances","compute the thrust to climb with acceleration a: T = m·(g + a)","phase table + 4 small diagrams","GMU slides 15-17; Dellaert §7.2.1"],
+   ["fly.7","Wings vs rotors","explain lift from forward speed vs thrust from spinning","airfoil beside rotor","Leishman; MIT 16.00"],
+   ["fly.8","Angle of attack and stall","read C_L at a given angle from a lift curve and find the stall angle","C_L vs angle plot","Leishman"],
+   ["fly.fw1","Fixed-wing: wing, tail and balance","find where the lift acts (center of pressure), why the tail keeps the nose steady, and compute the lift-to-drag ratio L/D","side view: wing, tail, center of gravity, center of pressure","Leishman; NASA GRC (not checked)"],
+   ["fly.fw2","Fixed-wing: turns, bank and sideslip","compute the bank angle and the load factor of a level turn (tan φ = V²/(g·R), n = 1/cos φ) and say what the sideslip angle β is","turn seen from above and from behind","Leishman; Beard & McLain (not checked)"],
+   ["fly.fw3","Fixed-wing: glide and spin","compute how far a plane glides from a height (distance = height × L/D) and say how a spin starts and stops","glide triangle","Leishman (not checked)"],
+   ["fly.hud","Flight instruments and the HUD","read airspeed (IAS, TAS), altitude, climb rate, heading and the artificial horizon on a head-up display, and name the sensor behind each; multirotor (FPV on-screen display) and fixed-wing kept apart","HUD drawing with every instrument labelled","FAA Pilot's Handbook of Aeronautical Knowledge, flight instruments chapter; QGroundControl Fly View (both not checked); 2.1b Try it 29a (pitot: IAS, CAS, TAS)"],
+   ["fly.9","Wind: airspeed vs groundspeed","compute groundspeed = airspeed + wind as vectors","vector triangle","city film wind phase"],
+   ["fly.10","Falling: drag and terminal velocity","compute v_t = √(2·m·g / (ρ·C_D·A))","v(t) curve","NASA GRC; Dellaert §7.2.1 (drag, max velocity)"],
+   ["fly.11","Numbers that describe flight","compute thrust-to-weight and the hover thrust per motor","coefficient table","new"],
+   ["fly.ad","Air density: height and heat","compute how lift and drag change when ρ drops (high up, hot day)","ρ vs height plot","NASA Glenn atmosphere pages (not checked)"],
+   ["fly.12","Chapter problem set: 20 problems","solve mixed flight problems by hand: lift, climb thrust, tilt, terminal speed, wind, kinetic energy at landing","problems + full solutions","NASA GRC; MIT 16.00"]],
+   practice:"ch",
+   terms:[
+    ["Lift","Keep, fixed","fly.1","For a quadrotor the rotors' thrust IS the lift; no wings needed."],
+    ["Weight / gravity","Keep","fly.1","m·g, always straight down in the world frame."],
+    ["Thrust","Keep, fixed","fly.1","Plane: forward. Rotor: along the rotor axis; the drone tilts it to move."],
+    ["Drag","Keep","fly.1","Grows about with speed squared."],
+    ["Pitch, roll, yaw","Keep","fly.4","Quadrotor: done by changing the four motor speeds."],
+    ["Climb / descent","Keep, fixed","fly.6","Quadrotor: vertical part of thrust > or < weight (not 'lift > weight' with wings)."],
+    ["Forward flight","Keep, fixed","fly.6","Quadrotor: tilt so thrust has a forward part that beats drag."],
+    ["Hover","Keep","fly.6","Thrust = weight, no tilt."],
+    ["Glide","Keep, fixed-wing","fly.fw3","Wings only; a quadrotor cannot glide. Glide ratio = L/D."],
+    ["Angle of attack","Keep","fly.8","Wings and also each rotor blade."],
+    ["Critical angle of attack","Keep, fixed","fly.8","The angle where lift is greatest; past it the flow separates."],
+    ["Stall + flow separation","Merged","fly.8","One idea: past the critical angle the air leaves the surface and lift falls."],
+    ["Spin","Keep, fixed-wing","fly.fw3","A stalled wing that also yaws; see it coming and stop it."],
+    ["Terminal velocity","Keep","fly.10","Drag = weight; matters for a drone that loses power."],
+    ["Relative wind","Keep","fly.9","Air velocity seen from the moving drone."],
+    ["Airspeed, true airspeed","Merged","fly.9, fly.hud","Speed relative to the air."],
+    ["Indicated airspeed","Keep, fixed-wing","fly.hud","What the pitot tube reads; a fixed-wing PX4 flies on airspeed (2.1b Try it 29a: IAS, CAS, TAS)."],
+    ["Groundspeed","Keep","fly.9","Speed relative to the ground; what GPS sees."],
+    ["Center of gravity","Keep","fly.3","Where weight acts; rotors are placed around it."],
+    ["Center of pressure","Keep, fixed-wing","fly.fw1","Where the lift acts; where it sits against the center of gravity decides whether the plane is stable."],
+    ["Sideslip angle β","Keep, fixed-wing","fly.fw2, fly.hud","A plane flying a little sideways to the air; the slip ball shows it. A quadrotor flies in any direction, so β matters less there."],
+    ["Bank angle, load factor","Added","fly.fw2","How a plane turns; in a level turn the wings carry n = 1/cos φ times the weight."],
+    ["Lift-to-drag ratio L/D","Added","fly.fw1, fly.fw3","How efficient a wing is; it is also the glide ratio."],
+    ["HUD and flight instruments","Added","fly.hud","Airspeed, altitude, climb rate, heading, artificial horizon: the indicators you asked for."],
+    ["Aerodynamic coefficients","Keep","fly.11","C_L, C_D, plus C_T for rotors."],
+    ["Kinematics vs dynamics","Added","fly.2, fly.3","Motion itself vs its causes; you asked for kinematics."],
+    ["Position, velocity, acceleration vectors","Added","fly.2","The language of every flight log."],
+    ["Angular velocity (p, q, r)","Added","fly.4","How fast it turns about each body axis; what the gyro measures."],
+    ["Newton's second law, F = m·a","Added","fly.3","Turns forces into motion."],
+    ["Thrust vector and tilt","Added","fly.5","How a quadrotor moves sideways."],
+    ["Thrust-to-weight ratio","Added","fly.11","Racing drones: often well above 2."],
+    ["Rotor thrust ∝ (spin speed)²","Added","fly.11","T = k·ω², the motor model in every simulator."],
+    ["Ground effect, downwash","Later","Ch 'How a quadrotor flies' + physics chapter","Gap list B06, B07."]]},
+  {n:2, title:"Quadrotor mathematics", rows:[
+   ["q.1","One rotor: thrust and torque","compute T = k_T·ω² and Q = k_Q·ω² for one motor","rotor figure","Ahmed, Drone physics"],
+   ["2.1","Four motors → thrust and three torques","compute total thrust and roll, pitch, yaw torques from 4 motor speeds (the mixer)","mixer diagram","GMU slides 7-10, 21; Dellaert §7.2.5"],
+   ["2.2","Frames: world vs body, NED vs ENU","convert a vector between the world and body frames by hand","axes figure","GMU slides 11-13 (north-east-down)"],
+   ["2.3","Rotations: angles, matrices, quaternions","build R from roll, pitch, yaw by hand and check R·Rᵀ = I","rotation figure","Dellaert §7.1; your Math Foundations book (Lie groups chapter)"],
+   ["q.5","Equations of motion (Newton–Euler)","write m·a = R·(0,0,T) − (0,0,m·g) and I·ω̇ = τ − ω×(I·ω), z up","equation map","Dellaert §7.2.5; Ahmed"],
+   ["q.6","Hover, climb and turn by hand","compute the hover motor speed and the climb thrust of a given drone","worked numbers table","GMU slides 15-18; Dellaert §7.2.1"],
+   ["2.4","The control cascade","trace a command from position to motors","block diagram","new"],
+   ["2.5","PID by hand","compute the P, I and D terms for a step, one time step at a time","step-response plot","M05 A1 PID first"],
+   ["q.i","Moment of inertia by hand","compute I of rods and point masses for a quadrotor frame","mass-layout figure","Dellaert §7.2.5"],
+   ["q.m","Where T = k·ω² comes from: momentum theory","compute induced velocity and the ideal hover power","actuator-disk figure","Leishman (helicopter / VTOL chapters, to check)"],
+   ["q.p","Power and battery","compute hover power, current and flight time from the battery","power-flow diagram","to find"],
+   ["q.9","Chapter problem set: 20 problems","solve by hand: hover motor speed, the mixer, a rotation, one step of the equations of motion","problems + full solutions","Ahmed, Drone physics"]], practice:"ch"}],
+  sources:[
+   ["Dellaert & Hutchinson, Introduction to Robotics and Perception (2023), ch. 7 Autonomous Drones in 3D","https://www.roboticsbook.org/intro.html","§7.1 moving in 3D · §7.2 multi-rotor: hover, forward flight, max tilt, drag, kinematics, forward integration, full rigid-body dynamics","Ch 2, Ch 3","free notebooks + PDF; license not stated; opened ✔ (§7.2 read) — main textbook for Part I"],
+   ["Leishman, Introduction to Aerospace Flight Vehicles (Embry-Riddle)","https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/","four forces, lift, drag, angle of attack, stall, airspeed","Ch 2","free online, CC BY-NC-ND 4.0 (from search; page blocked our checker, chapter numbers to add)"],
+   ["NASA Glenn, Flight equations with drag","https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/","W = m·g, D = ½·C_d·ρ·A·V², terminal velocity, motion with drag","Ch 2","free, opened ✔ (its tangent step has a typo)"],
+   ["MIT 16.00, Theory of Flight (Man-Vehicle Lab, 1997)","https://web.mit.edu/16.00/www/aec/flight.html","four forces, Bernoulli, lift, drag, F = m·a","Ch 2","free, opened ✔"],
+   ["Ibrahim Ahmed, Drone physics (2024)","https://iahmed.me/post/drone-physics/","rotor thrust T = k_T·Ω² and torque, rotation matrices, Newton–Euler, control allocation, PID","Ch 3","free, opened ✔ — best fit for Ch 3"],
+   ["Quadcopter Dynamics, GMU SYST 460 lecture slides (Volgenau School of Engineering, 2017, 21 slides)","https://catsr.vse.gmu.edu/SYST460/QuadcopterDynamics.pdf","maneuvers, NED frames, hover / takeoff / climb thrust, drag, pitch torque; slide 19 = spreadsheet simulator exercise","Ch 3; own simulator","free; read ✔ on the GitHub machine (the site certificate fails in a browser check)"],
+   ["Corke, Robotics, Vision and Control (2023)","G:/My Drive/ebook2/12_Robotics/","quadrotor model in Python; frames and rotations","Ch 3, own simulator","OWNED (RO001)"],
+   ["UPenn, Robotics: Aerial Robotics (Vijay Kumar), Coursera","https://www.coursera.org/learn/robotics-flight","4 weeks: flight mechanics and quadrotor design, kinematics, equations of motion, planar and 3-D models, linear controllers, agile maneuvers; MATLAB assignments (2-D and 3-D quadrotor control)","Ch 3, Part IV","course page found 2026-10-20 ✔; a mirror candidate"],
+   ["Mahony, Kumar & Corke, Multirotor Aerial Vehicles: Modeling, Estimation, and Control of Quadrotor, IEEE Robotics & Automation Magazine 19(3):20-32, 2012","https://researchportalplus.anu.edu.au/en/publications/multirotor-aerial-vehicles-modeling-estimation-and-control-of-qua/","the standard quadrotor model, estimation and control tutorial","Ch 3","record found 2026-10-20 ✔ (ANU portal)"],
+   ["Beard & McLain, Small Unmanned Aircraft: Theory and Practice (Princeton, 2012) + mavsim_public","https://github.com/byu-magicc/mavsim_public","frames, kinematics, rigid-body dynamics, forces and moments, wind, autopilot design; the GitHub repo has chapter slides (PDF/PPT), a Python simulator to build chapter by chapter, and solution videos","Ch 2-3, own simulator; fixed-wing sections","repo found 2026-10-20 ✔; book is paid, not in library"],
+   ["Quan Quan, Introduction to Multicopter Design and Control (Springer, 2017) + Beihang course","https://rfly.buaa.edu.cn/course.html","multicopter DESIGN: airframe, propulsion modeling (propeller, motor, ESC, battery), dynamics, estimation, control; 15 lessons; English slides free at rfly.buaa.edu.cn/resources.html","Ch 2-3, q.m, q.p power and battery","course page found 2026-10-20 ✔; book is paid, not in library"],
+   ["TU Delft, Introduction to Aeronautical Engineering (AE1110x), edX","https://online-learning.tudelft.nl/courses/introduction-aeronautical-engineering","atmosphere model, lift and airfoils, flight mechanics: climb, cruise, descent; high-school math and physics; 7 weeks, self-paced","Ch 2 (forces, atmosphere, fixed-wing)","course page found 2026-10-20 ✔"],
+   ["Anderson, Introduction to Flight (McGraw-Hill)","https://www.mheducation.com/","hundreds of end-of-chapter problems on forces, atmosphere, lift, drag","Part I problem sets","not checked; not in library"],
+   ["Barfoot, State Estimation for Robotics, 2nd ed. (Cambridge University Press, 2024, ISBN 978-1-009-29989-3)","https://asrl.utias.utoronto.ca/~tdb/bib/barfoot_ser24.pdf","Kalman and batch estimation, SO(3) and SE(3); a second-edition section on inertial navigation (per a search, not checked)","not placed in a chapter yet","free author copy, 585 pages; author page fetched 2026-10-20"],
+   ["Solà, Deray & Atchuthan, A micro Lie theory for state estimation in robotics (arXiv:1812.01537, v9, IRI-TR-18-01)","https://arxiv.org/abs/1812.01537","Lie groups for estimation, Jacobians, and the manif library","not placed in a chapter yet","arXiv page fetched 2026-10-20"],
+   ["Deray & Solà, Manif: A micro Lie theory library for state estimation in robotics applications (Journal of Open Source Software, 2020)","reference/references.html#ref-57","the manif library (Lie groups for estimation)","not placed in a chapter yet","Google Scholar listing only; no address given"],
+   ["Vial, Solà, Palomeras & Carreras, On Lie Group IMU and Linear Velocity Preintegration for Autonomous Navigation Considering the Earth Rotation Compensation (IEEE Transactions on Robotics 41:1346-1364, 2025)","https://www.iri.upc.edu/publications/show/2959","IMU preintegration on a Lie group (SEN(3)) with Earth rotation","not placed in a chapter yet","DOI 10.1109/TRO.2024.3521865; IRI record found via search 2026-10-20, not opened"],
+   ["Pérez-Ruiz & Solà, LIMOncello: Iterated Error-State Kalman Filter on the SGal(3) Manifold for Fast LiDAR-Inertial Odometry (arXiv:2512.19567, v2) + code","https://arxiv.org/abs/2512.19567","an iterated error-state Kalman filter on the Galilean group","not placed in a chapter yet","arXiv page fetched 2026-10-20; code at github.com/CPerezRuiz335/LIMOncello"],
+   ["Hager & Bryne, Derivations of Error-State Kalman Filter Kinematics for Globally Applicable Aided Inertial Navigation Systems (arXiv:2607.03211, v1)","https://arxiv.org/abs/2607.03211","standard and invariant error-state Kalman filter forms with Earth curvature and rotation","not placed in a chapter yet","arXiv page fetched 2026-10-20"],
+   ["Fornasier, Ge, van Goor, Mahony & Weiss, Equivariant Symmetries for Inertial Navigation Systems (arXiv:2309.03765, v3)","https://arxiv.org/abs/2309.03765","modern EKF variants for inertial navigation as equivariant filters","not placed in a chapter yet","arXiv page fetched 2026-10-20; submitted to Automatica"],
+   ["Fornasier, Ng, Mahony & Weiss, Equivariant Filter Design for Inertial Navigation Systems with Input Measurement Biases (arXiv:2202.02058, 2022)","https://arxiv.org/abs/2202.02058","an equivariant filter for inertial navigation with input measurement biases (from the title only)","not placed in a chapter yet","search listing only"],
+   ["Mahony, van Goor & Hamel, Observer Design for Nonlinear Systems with Equivariance (Annual Review of Control, Robotics, and Autonomous Systems 5:221-252, 2022)","https://arxiv.org/abs/2108.09387","observer design with equivariance (from the title only)","not placed in a chapter yet","search listing only"],
+   ["Barrau & Bonnabel, Invariant Kalman Filtering (Annual Review of Control, Robotics, and Autonomous Systems 1, 2018)","https://hal.archives-ouvertes.fr/hal-01982804","invariant Kalman filtering (from the title only)","not placed in a chapter yet","DOI 10.1146/annurev-control-060117-105010; search listing only"],
+   ["Santamaria-Navarro, Loianno, Solà, Kumar & Andrade-Cetto, Autonomous navigation of micro aerial vehicles using high-rate and low-cost sensors (Autonomous Robots 42(6), 2018)","reference/references.html#ref-65","navigation of micro aerial vehicles with high-rate, low-cost sensors (from the title only)","not placed in a chapter yet","Google Scholar listing only; no address given"],
+   ["Chamorro, Solà & Andrade-Cetto, Event-IMU fusion strategies for faster-than-IMU estimation throughput (CVPR Workshops, 2023)","reference/references.html#ref-66","event camera and IMU fusion for estimation faster than the IMU rate (from the title only)","not placed in a chapter yet","Google Scholar listing only; no address given"]]},
+ {id:"p2", short:"Part II", title:"Flight software and simulators", intro:"PX4 flies the drone; simulators fly PX4. Use them, stack two of them, customise their modules, and add modules to our own simulator, Kestrel.", chapters:[
+  {key:"own", round:1, title:"Your own simulator from the formulas", rows:[
+   ["own.0","First simulator in a spreadsheet: vertical flight","take off, climb at 5 m/s, hover at 15 m (5 kg, C_D 0.5, S 0.1 m², 1 s steps); land with kinetic energy ½·m·v² < 250 J","thrust / accel / velocity / height vs time","GMU slide 19 (Google Sheets, nothing to install)"],
+   ["own.1","From equations to code","write the state (position, velocity, attitude, rates) and one time step","state diagram","Dellaert §7.2.3; Ahmed"],
+   ["own.2","Stepping in time: Euler and RK4","step the equations and watch the error grow with the time step","error vs time-step plot","Dellaert §7.2.3 (Euler, Rodrigues steps)"],
+   ["own.3","Motors and propellers in code","turn T = k_T·Ω² into a motor model with a delay","motor response curve","multirotor (read only: no license)"],
+   ["own.4","Mixer and PID in code","close the loop: hover, then a step in height","step-response plot","Dellaert §7.2.4 (code); Part I"],
+   ["own.5","Check the code against your paper","get the same numbers as your hand solutions","paper vs code table","Part I problem sets"],
+   ["own.6","Compare with a real simulator","fly the same step in PX4 + Gazebo and compare","overlay plot","Kestrel"]]},
+  {n:3, title:"The flight software: PX4", rows:[
+   ["1.6","Tools refresh","write and run small Python and PyTorch code","code + output","M01 Tools refresh"],
+   ["3.1","PX4's parts","name estimator, controllers, modes, uORB","architecture diagram","new"],
+   ["3.2","MAVLink","send a command from Python","message sequence","Kestrel fly.py"],
+   ["3.3","Offboard mode","fly a route by setpoints","setpoint workflow","Kestrel two laps"],
+   ["3.4","SITL, HITL, real flight","choose the right test stage","3-stage diagram","M18 Real drone page"],
+   ["3.5","Your first offboard flight","run the two-lap job and read its result","run → result workflow","Kestrel run 39204204269"]]},
+  {n:4, title:"What a simulator is made of", rows:[
+   ["4.1","The six modules","say what physics, sensors, renderer, world, clock and API each do","module diagram","M18 setup pages"],
+   ["4.2","Lockstep and the clock","explain why PX4 and the simulator share one clock","timing diagram","M18 Webots + ArduPilot (the clock failure)"],
+   ["4.3","Real-time factor","read RTF and predict run time","RTF plot","our runs (RTF 0.77, 0.99)"],
+   ["4.4","What \"realistic\" means","separate physics realism from picture realism","2-axis chart of simulators","item 23 Project AirSim"]]},
+  {n:5, title:"Choosing a simulator", rows:[
+   ["5.1","The candidates","say what each of the 5 simulators is for","✔ table","L8 Choosing the simulator"],
+   ["5.2","The feature matrix","find a feature and its source","matrix table","feature matrix 2026-10-14"],
+   ["5.3","Your hardware and the cloud","match a simulator to a machine","hardware × simulator table","L4 Simulators and hardware"],
+   ["5.4","The decision","explain the choice PX4 + Gazebo + Project AirSim","decision diagram","M18 opinions page"]]},
+  {n:6, title:"Using existing simulators", rows:[
+   ["6.1","PX4 + Gazebo: two laps","run it and read the lap table","workflow","Kestrel"],
+   ["6.2","Gazebo's window + QGroundControl","open the native UIs in the browser","screen layout","Colab UI notebook"],
+   ["6.3","Project AirSim + PX4","run the gate test","workflow","Project AirSim gate test runs"],
+   ["6.4","Crazyflow for learning","run many drones at once","batch diagram","M18 Crazyflow page"],
+   ["6.5","Running on GitHub and Colab","start a job and fetch its results","job workflow","run folders"]]},
+  {n:7, title:"Stacking simulators: co-simulation", rows:[
+   ["7.1","Why stack","name what each simulator adds","✔ table","this plan"],
+   ["7.2","One master","explain why one clock and one physics","timing diagram","new"],
+   ["7.3","The bridge","trace pose out, picture back","sequence diagram","new"],
+   ["7.4","A C++ Gazebo plugin","write a plugin that sends the pose each step","code + diagram","new"],
+   ["7.5","Project AirSim's C++ client","set a pose and get a picture","code + diagram","new"],
+   ["7.6","Delay and checks","measure the delay and catch drift","delay plot","new"]]},
+  {n:8, title:"Customising simulator modules", rows:[
+   ["8.1","Worlds and tracks","design a track and load it","designer → SDF / JSON workflow","item 29 Track designer"],
+   ["8.2","The camera","set 640x480, noise, blur, glare","before / after pictures","city film"],
+   ["8.3","Weather","add wind, turbulence, rain, night","phase strip","city film phases"],
+   ["8.4","Physics","add motor curves, drag, ground effect","curve plots","gap list B03, B06"],
+   ["8.5","Traffic that obeys roads","keep cars on lanes and roundabouts","road graph","SPEC.md traffic rules"]]},
+  {n:9, title:"Adding modules to our simulator (Kestrel)", rows:[
+   ["9.1","Kestrel's design","find where each part lives","repository map","Kestrel"],
+   ["9.2","A module in C++","build and load one","build workflow","new"],
+   ["9.3","A module in Python","add one with its test","code + test","Kestrel racecourse/"],
+   ["9.4","Testing a module","write a test that can fail","test workflow with a mutant","LapCounter tests"],
+   ["9.5","Automatic tests on GitHub","read a test run","CI workflow","tests.yml"],
+   ["9.6","Closing the gap list","pick the next missing feature","gap table","gap list (23 features)"]]}],
+  sources:[
+   ["Dellaert & Hutchinson, Introduction to Robotics and Perception, §7.2.3-7.2.4","https://www.roboticsbook.org/intro.html","simulation by forward integration, an example in code","own simulator chapter","free; opened ✔. Also §7.4 Visual SLAM → Part III, §7.5 Trajectory Optimization → Part IV"],
+   ["hazrmard/multirotor (Ibrahim Ahmed et al.)","https://github.com/hazrmard/multirotor","Python simulator of motors, propellers and airframe built from the Drone physics equations; gym environment for RL","own simulator chapter","GitHub, checked ✔ (2026-10-19): no license, so read and learn only; cite as Ahmed et al., DASC 2022"]]},
+ {id:"p3", short:"Part III", title:"Seeing with one camera", intro:"One normal camera: what it sees, how it finds the gates, and where the drone is.", chapters:[
+  {n:10, title:"The camera and its picture", rows:[
+   ["10.1","The pinhole model","project a 3D point to a pixel","pinhole figure","M07"],
+   ["10.2","Calibration and distortion","calibrate and undistort","distortion figure","M07"],
+   ["10.3","Exposure, blur, noise","tell each effect apart","picture strip","city film"],
+   ["10.4","Labels and depth as training data","read a label and a depth picture","4-view frame","city film"]]},
+  {n:11, title:"Finding the gates", rows:[
+   ["11.1","Rules first","find a gate by colour and shape","pipeline diagram","M08 Fork B"],
+   ["11.2","A trained network","train a gate detector on simulator labels","training workflow","M08 Fork B"],
+   ["11.3","Gate corners and pose","get the gate pose from 4 corners","PnP figure","new"],
+   ["11.4","How good is it","compute precision, recall, error","confusion table","new"]]},
+  {n:12, title:"Where is the drone?", rows:[
+   ["12.1","The Kalman filter","run predict and update by hand","predict / update diagram","M06; Kalman CO005; probability MA075, MA115; Thrun RO003"],
+   ["12.2","Camera + IMU together","combine a fast IMU and a slow camera","timing diagram","M11; Dellaert §7.3-7.4 (sensing, visual SLAM)"],
+   ["12.3","Depth from one camera","estimate distance from size and motion","geometry figure","M09"],
+   ["12.4","Time to collision","compute TTC from image growth","TTC figure","M10"]]}]},
+ {id:"p4", short:"Part IV", title:"Planning, control and learning", intro:"Plan the lap, learn to fly it, then fly it from the camera.", chapters:[
+  {n:13, title:"Planning through the gates", rows:[
+   ["13.1","Routes and waypoints","place waypoints through gates","top-view figure","Kestrel route.py"],
+   ["13.2","Smooth trajectories: minimum snap","fit a minimum-snap path through the gates","path + speed plot","M04; Dellaert §7.5; Mellinger & Kumar 2011 (not checked)"],
+   ["13.3","Fastest lap","trade speed against safety","speed profile","M04"],
+   ["13.4","Map lap, then race","build the map on lap 1 and race on lap 2","two-lap workflow","M12, M13"]]},
+  {n:14, title:"Learning to fly: reinforcement learning", rows:[
+   ["14.1","RL in one picture","name state, action, reward","agent–environment loop","M05 A2"],
+   ["14.2","PPO","follow one PPO update","algorithm diagram","M05 A2"],
+   ["14.3","Training in Crazyflow","train a policy","training curve","Crazyflow LSY PPO example"],
+   ["14.4","Random worlds for transfer","add randomness that helps transfer","randomisation table","gap list F05, F06"],
+   ["14.5","The papers","compare 4 papers in one table","papers table","items 16-19 (AD092-AD095)"]]},
+  {key:"mpc", round:4, title:"Control beyond PID: LQR and MPC", rows:[
+   ["mpc.1","Linearize around hover","turn the equations of motion into a linear model near hover","linearization figure","new"],
+   ["mpc.2","LQR","compute a feedback gain that trades error against effort","cost-vs-gain plot","new"],
+   ["mpc.3","Model predictive control","plan the next commands over a short horizon, repeat every step","receding-horizon figure","an MPC textbook (to find)"],
+   ["mpc.4","MPC for racing","read how a racing paper uses MPC","paper map","items 16-19: AD095 temporal cascading MPC"]]},
+  {n:15, title:"Camera to control", rows:[
+   ["15.1","The closed loop","trace picture → command","loop diagram","new"],
+   ["15.2","In PX4 + Gazebo","fly a lap from the camera","workflow","agreed plan step 2"],
+   ["15.3","In the co-simulation","fly with photo-real pictures","workflow","the co-simulation chapter"],
+   ["15.4","Measuring the race","compare with the planned-route race","results table","Kestrel result.json"]]}]},
+ {id:"p5", short:"Part V", title:"The real drone and the job", intro:"From simulation to a real small drone, then the demo and the career step.", chapters:[
+  {n:16, title:"A real drone", rows:[
+   ["16.1","Hardware in the loop","run PX4 on the board with the simulator around it","HITL diagram","M18 Real drone page"],
+   ["16.2","A cheap drone with a normal camera","choose parts within a budget","parts table","M14 Fork C"],
+   ["16.3","The first indoor flight","fly safely in a room","checklist","M15"],
+   ["16.4","Safety and the rules","name the failure cases, the fallback, and the flying rules in Canada","risk table","Transport Canada drone rules (not checked)"],
+   ["16.5","System identification: simulator vs real drone","measure the real drone and fix the simulator to match","before / after overlay","gap list B16; to find"]]},
+  {n:17, title:"The demo and the job", rows:[
+   ["17.1","Building the demo","pick what to show","storyboard","M16"],
+   ["17.2","Showing it","make the video, the post, the repository page","workflow","LinkedIn video 2026-10-19"],
+   ["17.3","Researcher or engineer","choose the next step","2x2","M17 Fork D"]]}],
+  sources:[
+   ["Nichols et al., Unmanned Vehicle Systems & Operations on Air, Sea, Land (New Prairie Press, 2020)","https://newprairiepress.org/ebooks/35/","operations and policy of air, sea and land drones","background","free, CC BY-NC-SA (from search)"],
+   ["Nichols et al., Counter Unmanned Aircraft Systems Technologies and Operations (2020)","https://newprairiepress.org/ebooks/31/","counter-drone technology and operations","background","free, CC BY-NC-SA (from search)"],
+   ["Nichols et al., Unmanned Aircraft Systems in the Cyber Domain, 2nd ed. (2019)","https://newprairiepress.org/ebooks/27/","drone cybersecurity, counter-UAS, ethics","16.4 Safety","free, CC BY-NC-SA (from search)"],
+   ["Nichols et al., Disruptive Technologies with Applications in Airline, Marine, Defense Industries","https://newprairiepress.org/ebooks/38/","survey of emerging technologies","background","free (from search; year not confirmed)"],
+   ["Nichols, Drone Delivery of CBNRECy – DEW Weapons, ch. 9","https://kstatelibraries.pressbooks.pub/drone-delivery/chapter/9-kinetic-energy-weapons/","kinetic-energy WEAPONS and damage — not flight physics","background only","free, CC BY-NC-SA (from search)"]]}
+];
+const LESSON = [
+ ["Goal","what you can do after it","1 line"],["Picture","the idea at a glance","diagram"],["Parts","terms and pieces","table"],
+ ["Worked example","one case solved step by step","numbers"],["Practice","problems + full solutions","2 worked + 4 per section"],
+ ["Try it","a small job you run","cloud button"],["Check","3-5 questions","quiz"],["Summary","what to keep","table"]];
+const ROUNDS = [[1,"your current work: simulators, co-simulation; the flight chapter you asked for"],[2,"they feed Kestrel directly"],
+ [3,"foundations: rewrite of Start here, M02, M03"],[4,"as the project reaches them"]];
+const SHORT = {p1:"Flight theory", p2:"Software + simulators", p3:"One camera", p4:"Plan, control, learn", p5:"Real drone and job"};
+const ROUND_OF = n => n>=4&&n<=7?1:(n<=9&&n>=8?2:(n<=3?3:4));
+/* chapter numbers are computed from the order; ids use the stable key (old number or a name),
+   so inserting a chapter never detaches a note */
+{ let no = 0; for (const p of PARTS) for (const c of p.chapters) {
+    c.no = c.key==="math" ? 0 : ++no;   /* the math toolkit is Ch 0 */ c.key = c.key || String(c.n); if (!c.round) c.round = ROUND_OF(c.n); } }
+const CH = key => { for (const p of PARTS) for (const c of p.chapters) if (c.key===key) return c; };
+const NCH = PARTS.reduce((a,p)=>a+p.chapters.length,0);
+const roundText = r => { const cs=[]; for (const p of PARTS) for (const c of p.chapters) if (c.round===r) cs.push(c.no); return "Ch "+cs.join(", "); };
+
+/* ---------------- citations: [n] links into reference/references.html (the numbers come from reference/references.js) ---------------- */
+const REF_HREF = "reference/references.html#ref-";
+const cite = (ns, loc) => "[" + ns.map(n => `<a class="cite" href="${REF_HREF}${n}">${n}</a>`).join(", ") + (loc ? ", " + String(loc).replace(/&/g,"&amp;").replace(/</g,"&lt;") : "") + "]";
+/* [pattern, numbers, index of the group that holds a place inside the source (§7.2.2, slides 7-10, ch. 7)] */
+const CITE_RULES = [
+ [/Dellaert(?: & Hutchinson)?(?: (§[0-9][0-9.\-–]*|ch\. 7))?/, [2], 1],
+ [/GMU (slides? [0-9][0-9, \-]*[0-9])/, [20], 1],
+ [/GMU slides/, [20]],
+ [/Leishman/, [1]],
+ [/MIT 16\.00/, [24]],
+ [/NASA Glenn atmosphere pages/, [23]],
+ [/NASA GRC/, [21]],
+ [/NASA Glenn/, [21]],
+ [/Ahmed blog/, [26]],
+ [/Ahmed(?:, Drone physics)?/, [26]],
+ [/multirotor repo/, [36]],
+ [/multirotor(?= \(read only)/, [36]],
+ [/Beard & McLain/, [3]],
+ [/Mellinger & Kumar/, [14]],
+ [/FAA Pilot's Handbook of Aeronautical Knowledge/, [12]],
+ [/QGroundControl Fly View/, [28]],
+ [/Transport Canada drone rules/, [27]],
+ [/Mahony, Kumar & Corke/, [13]],
+ [/Corke, Robotics, Vision and Control/, [5]],
+ [/UPenn/, [17]],
+ [/Anderson, Introduction to Flight/, [6]],
+ [/PX4 d28a642/, [29]],
+ [/Project AirSim c80cff5/, [30]],
+ [/Project AirSim/, [30]],
+ [/PX4/, [29]],
+ [/Gazebo/, [31]],
+ [/K-State ch\. 9/, [11]],
+ [/the 4 Nichols books/, [7, 8, 9, 10]]];
+/* the number(s) of each row of the sources tables, by its address */
+const SRC_REF = {
+ "https://www.roboticsbook.org/intro.html":[2], "https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/":[1],
+ "https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/":[21], "https://web.mit.edu/16.00/www/aec/flight.html":[24],
+ "https://iahmed.me/post/drone-physics/":[26], "https://catsr.vse.gmu.edu/SYST460/QuadcopterDynamics.pdf":[20], "G:/My Drive/ebook2/12_Robotics/":[5],
+ "https://www.coursera.org/learn/robotics-flight":[17], "https://researchportalplus.anu.edu.au/en/publications/multirotor-aerial-vehicles-modeling-estimation-and-control-of-qua/":[13],
+ "https://github.com/byu-magicc/mavsim_public":[3, 35], "https://rfly.buaa.edu.cn/course.html":[4, 19],
+ "https://online-learning.tudelft.nl/courses/introduction-aeronautical-engineering":[18], "https://www.mheducation.com/":[6],
+ "https://newprairiepress.org/ebooks/35/":[7], "https://newprairiepress.org/ebooks/31/":[8], "https://newprairiepress.org/ebooks/27/":[9], "https://newprairiepress.org/ebooks/38/":[10],
+ "https://kstatelibraries.pressbooks.pub/drone-delivery/chapter/9-kinetic-energy-weapons/":[11], "https://github.com/hazrmard/multirotor":[36],
+ "https://asrl.utias.utoronto.ca/~tdb/bib/barfoot_ser24.pdf":[55], "https://arxiv.org/abs/1812.01537":[56], "reference/references.html#ref-57":[57],
+ "https://www.iri.upc.edu/publications/show/2959":[58], "https://arxiv.org/abs/2512.19567":[59], "https://arxiv.org/abs/2607.03211":[60],
+ "https://arxiv.org/abs/2309.03765":[61], "https://arxiv.org/abs/2202.02058":[62], "https://arxiv.org/abs/2108.09387":[63],
+ "https://hal.archives-ouvertes.fr/hal-01982804":[64], "reference/references.html#ref-65":[65], "reference/references.html#ref-66":[66]};
+function citeHtml(text){            // escape the text and put the [n] after every source it names
+  const e = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  let s = String(text), out = "";
+  while (s) {
+    let best = null;
+    for (const r of CITE_RULES) { const m = r[0].exec(s); if (m && (!best || m.index < best.m.index)) best = {m, r}; }
+    if (!best) { out += e(s); break; }
+    const {m, r} = best, loc = r[2] ? m[r[2]] : "";
+    const shown = loc ? m[0].slice(0, m[0].length - loc.length).trimEnd() : m[0];
+    out += e(s.slice(0, m.index)) + e(shown) + " " + cite(r[1], loc);
+    s = s.slice(m.index + m[0].length);
+  }
+  return out;
+}
+
+/* ---------------- notes state ---------------- */
+const LS = "ardp_v2_plan_notes";
+let state = {version:1, page:"V2_Plan/plan.html", notes:{}};
+let fileHandle = null;
+let labels = {};           // block id -> readable label, stored with each note
+/* ids of chapters, rows and terms no longer carry the part ("p1-ch3" -> "ch3"), so a chapter can move between parts */
+function migrate(st){
+  for (const k of Object.keys(st.notes||{})) { const m = k.match(/^p\d-((?:s|ch|t-).*)$/);
+    if (m && !st.notes[m[1]]) { st.notes[m[1]] = st.notes[k]; delete st.notes[k]; } }
+  return st;
+}
+function partOf(id){
+  const m = id.match(/^(p\d)-/); if (m) return m[1];
+  for (const p of PARTS) for (const c of p.chapters) {
+    if (id==="ch"+c.key || id.startsWith("ch"+c.key+"-") || id.startsWith("t-"+c.key+"-")) return p.id;
+    if (c.rows.some(r=>id==="s"+r[0])) return p.id; }
+  return null;
+}
+try { const s = localStorage.getItem(LS); if (s) state = migrate(Object.assign(state, JSON.parse(s))); } catch(e) {}
+
+const idb = (() => {       // tiny IndexedDB store for the file handle
+  function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return {
+    get: k => open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+    set: (k,v) => open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }))
+  };
+})();
+
+function setStatus(kind, text){ const s=document.getElementById("status"); s.className="pill "+kind; s.textContent=text; }
+let saveTimer = null;
+function save(){
+  state.saved = new Date().toISOString();
+  try { localStorage.setItem(LS, JSON.stringify(state)); } catch(e) {}
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(writeFile, 400);
+  renderNavCounts();
+}
+async function writeFile(){
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    // section pages share notes.json: keep their keys ("2.1:…") from the file, write only this page's keys
+    try { const d = JSON.parse((await (await fileHandle.getFile()).text()) || "{}");
+      for (const k of Object.keys(state.notes)) if (k.includes(":")) delete state.notes[k];
+      for (const [k,v] of Object.entries((d && d.notes) || {})) if (k.includes(":")) state.notes[k] = v;
+    } catch(e) {}
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify(state, null, 1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function readFile(h){
+  const txt = await (await h.getFile()).text();
+  if (txt.trim()) { const d = JSON.parse(txt); if (d && d.notes) state = migrate(Object.assign({version:1}, d)); }
+}
+async function connect(){
+  if (!window.showOpenFilePicker) { alert("This browser cannot write files. Use Chrome or Edge, or use Download notes."); return; }
+  try {
+    const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"})) !== "granted") return;
+    const local = state;
+    await readFile(h);
+    // keep anything typed here that the file does not have yet
+    for (const [k,v] of Object.entries(local.notes||{})) if (!state.notes[k]) state.notes[k]=v;
+    state.proposals = state.proposals || [];
+    for (const pr of (local.proposals||[])) if (!state.proposals.some(x=>x.id===pr.id)) state.proposals.push(pr);
+    fileHandle = h; await idb.set("handle", h).catch(()=>{});
+    save(); render();
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+}
+async function reconnect(){
+  try {
+    const h = await idb.get("handle"); if (!h) return false;
+    const p = await h.queryPermission({mode:"readwrite"});
+    if (p === "granted") { fileHandle = h; await readFile(h); setStatus("ok","Connected to "+h.name); return true; }
+    document.getElementById("connect").textContent = "Reconnect "+h.name;
+    document.getElementById("connect").onclick = async () => {
+      if ((await h.requestPermission({mode:"readwrite"})) === "granted") {
+        fileHandle = h; await readFile(h); document.getElementById("connect").textContent="Connect notes.json";
+        document.getElementById("connect").onclick = connect; setStatus("ok","Connected to "+h.name); render();
+      }
+    };
+  } catch(e) {}
+  return false;
+}
+
+/* ---------------- rendering ---------------- */
+const $ = (t, a={}, ...kids) => { const e=document.createElement(t);
+  for (const [k,v] of Object.entries(a)) { if (k==="class") e.className=v; else if (k==="html") e.innerHTML=v; else if (k.startsWith("on")) e[k]=v; else e.setAttribute(k,v); }
+  for (const k of kids) if (k!=null) e.append(k.nodeType?k:document.createTextNode(k)); return e; };
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+
+function note(id){ return state.notes[id] || (state.notes[id] = {label:labels[id]||id, mark:null, items:[]}); }
+function tidy(id){ const n=state.notes[id]; if (n && !n.mark && !n.items.length) delete state.notes[id]; }
+
+/* a block = content on the left, marks + notes on the right */
+function blk(id, label, content){
+  labels[id] = label;
+  const b = $("div",{class:"blk","data-id":id});
+  const c = $("div",{class:"c"}, content);
+  const m = $("div",{class:"m"});
+  b.append(c, m); paintBlock(b); return b;
+}
+function paintBlock(b){
+  const id = b.dataset.id, n = state.notes[id], m = b.querySelector(".m");
+  b.className = "blk" + (n&&n.mark ? " mk-"+n.mark : "") + (n&&(n.mark||n.items.length) ? " has":"");
+  m.innerHTML = "";
+  const tools = $("div",{class:"tools"});
+  for (const [col,meaning] of COLORS) {
+    const d = $("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+      style:"background:var(--b-"+col+")", onclick:()=>{ const x=note(id); x.label=labels[id]; x.mark = x.mark===col?null:col; tidy(id); save(); paintBlock(b); }});
+    tools.append(d);
+  }
+  tools.append($("button",{title:"Write a note; select words first to quote them", onclick:()=>addNote(b)},"+ Note"));
+  m.append(tools);
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = $("textarea",{placeholder:"Your note…", "aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t = ta.value; it.at = new Date().toISOString(); save(); };
+    const card = $("div",{class:"note"}, it.q ? $("q",{},"“"+it.q+"”") : null, ta,
+      $("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+        $("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(id); save(); paintBlock(b); } }},"delete")));
+    m.append(card);
+  }
+}
+function addNote(b){
+  const id = b.dataset.id, sel = window.getSelection();
+  let q = "";
+  if (sel && sel.rangeCount && b.querySelector(".c").contains(sel.anchorNode)) q = sel.toString().trim().slice(0,300);
+  const n = note(id); n.label = labels[id];
+  n.items.push({q, t:"", at:new Date().toISOString()});
+  save(); paintBlock(b);
+  const tas = b.querySelectorAll("textarea"); tas[tas.length-1].focus();
+}
+
+/* ---------------- figures (SVG) ---------------- */
+function svg(w,h,inner){ return $("div",{html:`<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" style="max-width:${w}px">${inner}</svg>`}); }
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+function flowFigure(items, opts={}){            // boxes left to right with arrows
+  const bw=opts.bw||150, bh=opts.bh||74, gap=34, w=items.length*bw+(items.length-1)*gap+4, h=bh+8;
+  let s=`<defs><marker id="ar${opts.key}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#1C1C1C"/></marker></defs>`;
+  items.forEach((it,i)=>{ const x=2+i*(bw+gap);
+    s+=`<rect x="${x}" y="4" width="${bw}" height="${bh}" rx="8" fill="${it.hi?"#FFF1EE":"#fff"}" stroke="${it.hi?"#E8331C":"#1C1C1C"}" stroke-width="${it.hi?2:1.2}"/>`;
+    s+=`<text x="${x+bw/2}" y="${4+bh/2-8}" text-anchor="middle" font-size="12" fill="#E8331C" font-weight="700">${esc(it.top)}</text>`;
+    s+=`<text x="${x+bw/2}" y="${4+bh/2+10}" text-anchor="middle" font-size="13" font-weight="600" fill="#1C1C1C">${esc(it.mid)}</text>`;
+    if (it.bot) s+=`<text x="${x+bw/2}" y="${4+bh/2+27}" text-anchor="middle" font-size="11" fill="#5B5752">${esc(it.bot)}</text>`;
+    if (i<items.length-1) s+=`<line x1="${x+bw+3}" y1="${4+bh/2}" x2="${x+bw+gap-4}" y2="${4+bh/2}" stroke="#1C1C1C" stroke-width="1.5" marker-end="url(#ar${opts.key})"/>`;
+  });
+  return svg(w,h,s);
+}
+function chevrons(steps){                         // the lesson pattern
+  const cw=128, ch=60, w=steps.length*(cw-8)+12, h=ch+42;
+  let s="";
+  steps.forEach((st,i)=>{ const x=2+i*(cw-8), y=2, p=14;
+    const pts=`${x},${y} ${x+cw-p},${y} ${x+cw},${y+ch/2} ${x+cw-p},${y+ch} ${x},${y+ch} ${i?x+p:x},${y+ch/2}`;
+    s+=`<polygon points="${pts}" fill="${i%2?"#fff":"#FFF1EE"}" stroke="#E8331C" stroke-width="1.3"/>`;
+    s+=`<text x="${x+cw/2+(i?4:-2)}" y="${y+ch/2-4}" text-anchor="middle" font-size="12" font-weight="700" fill="#E8331C">${i+1}</text>`;
+    s+=`<text x="${x+cw/2+(i?4:-2)}" y="${y+ch/2+13}" text-anchor="middle" font-size="13" font-weight="600" fill="#1C1C1C">${esc(st[0])}</text>`;
+    s+=`<text x="${x+cw/2}" y="${ch+20}" text-anchor="middle" font-size="11" fill="#5B5752">${esc(st[2])}</text>`;
+  });
+  return svg(w,h,s);
+}
+
+/* ---------------- pages ---------------- */
+function sectionTable(p, ch){
+  const wrap = $("div");
+  wrap.append($("div",{class:"thead wide"}, $("div",{},"Section"), $("div",{},"You will be able to"), $("div",{},"Picture"), $("div",{},"Reuses")));
+  ch.rows.forEach((r, i) => {
+    const id = `s${r[0]}`, num = `${ch.no}.${i+1}`;
+    wrap.append(blk(id, `Ch ${ch.no} · ${num} ${r[1]}`,
+      $("div",{class:"trow"}, $("div",{class:"n"}, num+" "+r[1], ...(SAMPLES[r[0]]||[]).map(([lab,href]) => $("a",{href, class:"sample"},` → open ${lab}`))), $("div",{}, r[2]), $("div",{class:"pic"}, r[3]), $("div",{class:"re", html:citeHtml(r[4])}))));
+  });
+  if (!ch.practice) {                                 // every other chapter also ends with a problem set
+    const num = `${ch.no}.${ch.rows.length+1}`;
+    wrap.append(blk(`s${ch.key}.ps`, `Ch ${ch.no} · ${num} Chapter problem set`, $("div",{class:"trow"},
+      $("div",{class:"n"}, `${num} Chapter problem set: ${endSet(ch)} problems`), $("div",{}, "solve mixed problems from the whole chapter"),
+      $("div",{class:"pic"}, "problems + full solutions"), $("div",{class:"re"}, "this chapter's sources"))));
+  }
+  for (const pr of (state.proposals||[]).filter(x=>x.kind==="section" && x.chapter===ch.key)) wrap.append(proposalBlock(pr, ch));
+  wrap.append($("div",{class:"addrow"}, $("button",{onclick:()=>propose({kind:"section", part:p.id, chapter:ch.key})},"+ Propose a section in this chapter")));
+  return wrap;
+}
+const DEC = {"Keep":"#2E9E4A","Keep, fixed":"#2F6FD0","Keep, fixed-wing":"#0E7C86","Merged":"#5B5752","Short":"#B07D00","Dropped":"#E8331C","Added":"#7A3FC0","Later":"#5B5752"};
+function termTable(p, ch){
+  const sec = k => { if (k==="—") return "—"; const parts = k.split(",").map(s=>s.trim());
+    return parts.map(s=>{ const i = ch.rows.findIndex(r=>r[0]===s); return i>=0 ? `${ch.no}.${i+1}` : s; }).join(", "); };
+  const wrap = $("div",{class:"terms"});
+  wrap.append(blk(`ch${ch.key}-terms`, `Ch ${ch.no} term list`, $("div",{},
+    $("b",{},"Your term list, sorted"), $("div",{class:"lead"},"Each term: kept, fixed, merged, shortened, dropped, or added. Mark or note any row to change it."))));
+  wrap.append($("div",{class:"thead wide tt"}, $("div",{},"Term"), $("div",{},"Decision"), $("div",{},"Section"), $("div",{},"Why")));
+  for (const t of ch.terms) {
+    const id = `t-${ch.key}-${t[0].toLowerCase().replace(/[^a-z0-9]+/g,"-")}`;
+    wrap.append(blk(id, `Ch ${ch.no} term: ${t[0]}`, $("div",{class:"trow tt"},
+      $("div",{class:"n"}, t[0]), $("div",{style:`color:${DEC[t[1]]||"#1C1C1C"};font-weight:600`}, t[1]),
+      $("div",{class:"pic"}, sec(t[2])), $("div",{class:"re"}, t[3]))));
+  }
+  return wrap;
+}
+/* theory chapters: problems after each section + a problem set at the end */
+const SAMPLES = {"fly.1":[["2.1a","samples/2.1a_The_four_forces_one_at_a_time.html"],
+                          ["2.1b","samples/2.1b_Forces_together_tilt_wind_simulators.html"]],
+  "fly.2":[["2.2a","samples/2.2a_Position_velocity_acceleration_on_a_line.html"],["2.2b","samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html"],["2.2c","samples/2.2c_How_PX4_and_Project_AirSim_plan_motion.html"],["2.2d","samples/2.2d_Real_scenarios_thinking_problems.html"]],
+  "1.6":[["the autopilot map","reference/autopilot_map.html"],["the simulator formulas","reference/sim_physics_formulas.html"]]};   // finished sections, by row key
+/* Claude's review of the plan, 2026-10-19: gaps and what to add (owned = in ebook2; free = open online;
+   "not checked" = from my knowledge, link and details still to verify) */
+const GAPS = [
+ ["Math toolkit before Part I","every Part I formula uses vectors, trig, derivatives, matrices; your linear algebra is rusty","new Ch 0: vectors and trig · rates and derivatives · step-by-step integration · matrices and rotations","your JHU Linear Algebra mirror (MA112), MIT 18.06 notes, Math Foundations book","owned"],
+ ["Where T = k·ω² comes from","Ch 3 starts from the rotor formula; hover power and battery time come from momentum theory","section in Ch 3: momentum theory — thrust, induced velocity, hover power","Leishman (its helicopter/VTOL chapters)","free, chapter to check"],
+ ["Energy, power, battery","a racing drone is limited by power: motor Kv, current, battery, flight time","section or chapter: motors, propellers, batteries, flight time","to find","—"],
+ ["Moment of inertia by hand","the equations of motion need I, and no section computes it","section in Ch 3: inertia of rods and point masses","Dellaert §7.2.5","free"],
+ ["Air density changes","ρ = 1.225 kg/m³ only at sea level, 15 °C; it drops with height and heat","one row in 2.1 and a problem in 2.12","NASA Glenn atmosphere pages","not checked"],
+ ["Control beyond PID","racing papers use MPC (your AD095) and LQR; Part IV has only PID and RL","chapter in Part IV: linearize → LQR → MPC","your AD095 paper; an MPC textbook to find","owned + to find"],
+ ["Minimum-snap trajectories","the standard way to plan a fast smooth lap through gates","name it in 13.2","Mellinger & Kumar, ICRA 2011, \"Minimum snap trajectory generation and control for quadrotors\"","not checked"],
+ ["A course with graded exercises","Part I–IV match a known course: quadrotor dynamics, PD control, minimum snap, MATLAB assignments","mirror it like your other Coursera courses","UPenn \"Robotics: Aerial Robotics\" (Vijay Kumar), Coursera","not checked"],
+ ["The quadrotor reference paper","most drone papers cite it for the model","Ch 3 source","Mahony, Kumar & Corke, IEEE Robotics & Automation Magazine, 2012, \"Multirotor Aerial Vehicles\"","not checked"],
+ ["A book you already own","quadrotor model in Python, frames and rotations","Ch 3 + own simulator source","Corke, Robotics, Vision and Control (2023), RO001","owned"],
+ ["Frames as in the GMU slides","the GMU vehicle-1 / vehicle-2 frames follow this book's convention; full frames, kinematics and dynamics chapters","Ch 2-3 reference","Beard & McLain, Small Unmanned Aircraft: Theory and Practice (Princeton, 2012)","not checked; not in library"],
+ ["A big problem bank","you want many problems; this classic has hundreds on forces, atmosphere, lift, drag","source for the Part I problem sets","Anderson, Introduction to Flight (McGraw-Hill)","not checked; not in library"],
+ ["Probability before Kalman","Ch 12 assumes Gaussians and covariance","point Part III to your courses","your MITx 6.431x (MA075), Bayesian (MA115), Kalman (CO005), Thrun Probabilistic Robotics (RO003)","owned"],
+ ["Rotations done properly","SO(3) and Lie groups are how modern SLAM and control rotate","link from 2.3 Rotations","your Math Foundations book, Lie groups chapter","owned"],
+ ["Rules for a real flight","flying outdoors in Canada has rules (pilot certificate, weight classes)","row in 16.4 Safety","Transport Canada drone rules","not checked"],
+ ["Simulator vs real drone","sim-to-real needs system identification (gap list B16)","section in Ch 16","to find","—"]];
+const GAP_VERDICT = [
+ ["Theory → paper problems → own simulator → PX4 → simulators","the classic order; keep it"],
+ ["Dellaert & Hutchinson ch. 7","excellent: one book from forces to SLAM and trajectory optimization; make it the main text"],
+ ["GMU slides","good for Ch 3 and the spreadsheet simulator; short (21 slides)"],
+ ["Leishman, NASA Glenn, MIT 16.00","good for Ch 2; NASA Glenn and MIT 16.00 are introductory"],
+ ["Ahmed blog + multirotor repo","good bridge from formulas to code; the repo has no license"],
+ ["K-State ch. 9 and the 4 Nichols books","not flight math (weapons, policy, cyber); background only"]];
+const PER_SECTION = {worked:2, practice:4};
+const endSet = ch => ch.practice ? 20 : 10;          // theory chapters (Part I) get the larger set
+const nSections = ch => ch.practice ? ch.rows.length - 1 : ch.rows.length;
+const problemsIn = ch => nSections(ch)*(PER_SECTION.worked+PER_SECTION.practice) + endSet(ch);
+function practiceTable(p, ch){
+  const END_SET = endSet(ch);
+  const n = nSections(ch);                            // theory chapters list their problem set as a row
+  const first = `${ch.no}.1`, last = `${ch.no}.${n}`, end = `${ch.no}.${n+1}`;
+  const total = n*(PER_SECTION.worked+PER_SECTION.practice) + END_SET;
+  const wrap = $("div",{class:"terms"});
+  wrap.append(blk(`ch${ch.key}-practice`, `Ch ${ch.no} problems`, $("div",{},
+    $("b",{},"Problems in this chapter"), $("div",{class:"lead"},
+      `${total} problems, every one with a full step-by-step solution. Every number in a solution is checked by a script on the cloud machine before it is published.`))));
+  wrap.append($("div",{class:"thead wide tt"}, $("div",{},"Where"), $("div",{},"How many"), $("div",{},"Kind"), $("div",{},"Solution")));
+  const rows = [
+    [`After each section, ${first} to ${last}`, `${PER_SECTION.worked} worked`, "solved in the text, step by step, before you try", "shown"],
+    [`After each section, ${first} to ${last}`, `${PER_SECTION.practice} practice`, "same formula, new numbers; one with a trap (units, sign, angle in degrees)", "folded: click to open after you try"],
+    [`End of chapter, ${end}`, `${END_SET} mixed`, "one flight, several formulas: e.g. take off, climb, tilt, land softly", "folded, with the answer first, then the steps"],
+    ["Total", `${total}`, `${n} sections × ${PER_SECTION.worked+PER_SECTION.practice} + ${END_SET}`, ""]];
+  rows.forEach((r,i) => wrap.append(blk(`ch${ch.key}-practice-${i}`, `Ch ${ch.no} problems: ${r[0]} (${r[1]})`,
+    $("div",{class:"trow tt"}, $("div",{class:"n"}, r[0]), $("div",{style:"font-weight:600"}, r[1]), $("div",{class:"re"}, r[2]), $("div",{class:"pic"}, r[3])))));
+  return wrap;
+}
+/* your own chapters and sections: stored in notes.json under "proposals" */
+function propose(o){
+  state.proposals = state.proposals || [];
+  const pr = Object.assign({id:"u"+Date.now().toString(36), title:"", text:"", at:new Date().toISOString()}, o);
+  state.proposals.push(pr); save(); render(true);
+  setTimeout(()=>{ const e=document.querySelector(`[data-id="prop-${pr.id}"] input`); if (e) { e.scrollIntoView({block:"center"}); e.focus(); } }, 50);
+}
+function proposalBlock(pr, ch){
+  const title = $("input",{class:"ptitle", placeholder: pr.kind==="chapter" ? "Chapter title…" : "Section title…", "aria-label":"title"});
+  title.value = pr.title; title.oninput = () => { pr.title = title.value; pr.at = new Date().toISOString(); labels["prop-"+pr.id] = label(); save(); };
+  const body = $("textarea",{class:"pbody", placeholder: pr.kind==="chapter" ? "Sections, one per line…" : "What you will be able to do…", "aria-label":"text"});
+  body.value = pr.text; body.oninput = () => { pr.text = body.value; pr.at = new Date().toISOString(); save(); };
+  const label = () => (pr.kind==="chapter" ? "Your chapter: " : `Your section in Ch ${ch?ch.no:"?"}: `) + (pr.title||"(no title)");
+  const del = $("button",{class:"pdel", onclick:()=>{ if ((!pr.title && !pr.text) || confirm("Delete this proposal?")) {
+    state.proposals = state.proposals.filter(x=>x!==pr); delete state.notes["prop-"+pr.id]; save(); render(true); } }},"delete");
+  return blk("prop-"+pr.id, label(), $("div",{class:"prop"},
+    $("div",{class:"ptag"}, pr.kind==="chapter" ? "YOUR CHAPTER" : "YOUR SECTION", del), title, body));
+}
+function renderPart(p, main){
+  main.append(blk(`${p.id}-title`, `${p.short} title`, $("div",{}, $("h1",{}, `${p.short} — ${p.title}`), $("p",{class:"lead"}, p.intro))));
+  main.append(blk(`${p.id}-fig`, `${p.short} chapter flow`, $("figure",{},
+    flowFigure(p.chapters.map(c=>({top:"Ch "+c.no, mid:c.title.length>22?c.title.slice(0,21)+"…":c.title, bot:c.rows.length+" sections", hi:c.key==="fly"})),{key:p.id, bw:170}),
+    $("figcaption",{},`Figure. The chapters of ${p.short}, in study order.`))));
+  for (const ch of p.chapters) {
+    main.append($("div",{class:"chap"}, blk(`ch${ch.key}`, `Ch ${ch.no} title`,
+      $("div",{}, $("div",{class:"tag"}, `CHAPTER ${ch.no} · REWRITE ROUND ${ch.round}`), $("h2",{}, ch.title)))));
+    main.append(sectionTable(p, ch));
+    main.append(practiceTable(p, ch));
+    if (ch.terms) main.append(termTable(p, ch));
+  }
+  if (p.sources) {
+    main.append($("div",{class:"chap"}, blk(`${p.id}-sources`, `${p.short} sources`, $("div",{},
+      $("div",{class:"tag"}, "SOURCES"), $("h2",{}, `Where ${p.short} is taught from`),
+      $("p",{class:"lead", html:`Checked on 2026-10-19. ✔ = page opened and read; 'from search' = not opened yet. The number [n] in the first column is the number of the source in the <a href="reference/references.html">list of references</a>, where its full entry is.`})))));
+    main.append($("div",{class:"thead wide src"}, $("div",{},"Source"), $("div",{},"Gives"), $("div",{},"Used in"), $("div",{},"Access / check")));
+    p.sources.forEach((s, i) => main.append(blk(`${p.id}-src${i}`, `${p.short} source: ${s[0]}`, $("div",{class:"trow src"},
+      $("div",{class:"n"}, $("a",{href:s[1], target:"_blank", rel:"noopener"}, s[0]), " ", $("span",{class:"srcn", html:cite(SRC_REF[s[1]]||[])})), $("div",{}, s[2]), $("div",{class:"pic"}, s[3]), $("div",{class:"re"}, s[4])))));
+  }
+  for (const pr of (state.proposals||[]).filter(x=>x.kind==="chapter" && x.part===p.id)) main.append($("div",{class:"chap"}, proposalBlock(pr, null)));
+  main.append($("div",{class:"addrow"}, $("button",{class:"primary", onclick:()=>propose({kind:"chapter", part:p.id})},`+ Propose a chapter in ${p.short}`)));
+}
+function renderOverview(main){
+  const total = PARTS.reduce((a,p)=>a+p.chapters.reduce((b,c)=>b+c.rows.length,0),0);
+  main.append(blk("ov-title","Overview title", $("div",{}, $("h1",{},`Teaching plan: ${NCH} chapters, ${PARTS.length} parts`),
+    $("p",{class:"lead"}, `The course is rebuilt to teach: ${total} sections, each in one ${LESSON.length}-step lesson pattern, and ${PARTS.reduce((a,p)=>a+p.chapters.reduce((b,c)=>b+problemsIn(c),0),0)} problems with full solutions (after every section and at the end of every chapter), told in tables and diagrams. Mark or note anything; we discuss one chapter at a time.`))));
+  main.append(blk("ov-help","How to use this page", $("div",{class:"box help"}, $("b",{},"How to use this page"),
+    $("ol",{}, $("li",{},"Click Connect notes.json (top right) once and pick notes.json in this folder."),
+      $("li",{},"Hover a paragraph, figure or table row: click a colour to mark it."),
+      $("li",{},"Select words, then click + Note: the note quotes them. Notes save by themselves."),
+      $("li",{},"Next chat: I read notes.json and answer or change the page.")))));
+  main.append(blk("ov-fig-parts","Figure: the five parts", $("figure",{},
+    flowFigure(PARTS.map(p=>({top:p.short, mid:SHORT[p.id], bot:"Ch "+p.chapters[0].no+"–"+p.chapters[p.chapters.length-1].no, hi:p.id==="p2"})),{key:"ov", bw:180}),
+    $("figcaption",{},"Figure 1. The five parts in study order. Part II (highlighted) is rewritten first."))));
+  main.append(blk("ov-fig-sim","Figure: inside Part II", $("figure",{},
+    flowFigure([["own","Own simulator","from the formulas"],["3","PX4"],["4","How it is made"],["5","Choose"],["6","Use"],["7","Stack","co-simulation, C++"],["8","Customise"],["9","Add to Kestrel"]]
+      .map(([k,mid,bot])=>({top:"Ch "+CH(k).no, mid, bot, hi:k==="7"})),{key:"sim", bw:132}),
+    $("figcaption",{},"Figure 2. Part II: from what a simulator is made of to our own simulator."))));
+  main.append(blk("ov-fig-stack","Figure: the co-simulation stack", $("figure",{}, svg(760,200,
+    `<defs><marker id="arS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#1C1C1C"/></marker></defs>
+     <rect x="2" y="50" width="170" height="80" rx="8" fill="#fff" stroke="#1C1C1C"/><text x="87" y="84" text-anchor="middle" font-size="14" font-weight="700">PX4</text><text x="87" y="104" text-anchor="middle" font-size="12" fill="#5B5752">flies the drone</text>
+     <rect x="290" y="50" width="190" height="80" rx="8" fill="#FFF1EE" stroke="#E8331C" stroke-width="2"/><text x="385" y="80" text-anchor="middle" font-size="14" font-weight="700">Gazebo</text><text x="385" y="100" text-anchor="middle" font-size="12" fill="#5B5752">physics + clock (master)</text><text x="385" y="118" text-anchor="middle" font-size="11" fill="#E8331C">C++ plugin: pose out</text>
+     <rect x="580" y="50" width="176" height="80" rx="8" fill="#fff" stroke="#1C1C1C"/><text x="668" y="80" text-anchor="middle" font-size="14" font-weight="700">Project AirSim</text><text x="668" y="100" text-anchor="middle" font-size="12" fill="#5B5752">draws the camera picture</text><text x="668" y="118" text-anchor="middle" font-size="11" fill="#5B5752">Unreal, photo-real</text>
+     <line x1="174" y1="75" x2="286" y2="75" stroke="#1C1C1C" stroke-width="1.5" marker-end="url(#arS)"/><text x="230" y="68" text-anchor="middle" font-size="11">motor commands</text>
+     <line x1="288" y1="108" x2="176" y2="108" stroke="#1C1C1C" stroke-width="1.5" marker-end="url(#arS)"/><text x="230" y="124" text-anchor="middle" font-size="11">sensors (IMU, GPS)</text>
+     <line x1="482" y1="75" x2="576" y2="75" stroke="#1C1C1C" stroke-width="1.5" marker-end="url(#arS)"/><text x="529" y="68" text-anchor="middle" font-size="11">pose each step</text>
+     <path d="M668,132 C668,180 87,180 87,134" fill="none" stroke="#1C1C1C" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arS)"/><text x="378" y="192" text-anchor="middle" font-size="11">picture → vision → PX4 (camera to control, Ch ${CH("15").no})</text>`),
+    $("figcaption",{},`Figure 3. Co-simulation, your choice: Gazebo is the master, Project AirSim only draws. Taught in Ch ${CH("7").no}.`))));
+  main.append(blk("ov-lesson","The lesson pattern", $("figure",{}, chevrons(LESSON),
+    $("figcaption",{},`Figure 4. Every section follows these ${LESSON.length} steps; the grey line under each step is its form. Part I (theory) skips Try it: its practice is on paper.`))));
+  const t = $("table",{class:"t"}, $("tr",{}, ...["Ch","Title","Part","Sections","Problems","Round"].map(h=>$("th",{},h))));
+  for (const p of PARTS) for (const c of p.chapters) t.append($("tr",{}, $("td",{},c.no), $("td",{},c.title+(c.key==="fly"?"  (new, your request)":"")), $("td",{},p.short), $("td",{},nSections(c)), $("td",{},problemsIn(c)), $("td",{},c.round)));
+  main.append(blk("ov-chapters","Table: all chapters", t));
+  const r = $("table",{class:"t"}, $("tr",{}, ...["Round","Chapters","Why"].map(h=>$("th",{},h))));
+  for (const [rd,why] of ROUNDS) r.append($("tr",{}, $("td",{},rd), $("td",{},roundText(rd)), $("td",{},why)));
+  main.append(blk("ov-rounds","Table: rewrite order", r));
+  main.append($("div",{class:"chap"}, blk("ov-review","Review of your suggestions", $("div",{},
+    $("div",{class:"tag"},"REVIEW · 2026-10-19"), $("h2",{},"Your suggestions, judged"))))) ;
+  const vt = $("table",{class:"t"}, $("tr",{}, $("th",{},"Suggestion"), $("th",{},"Verdict")));
+  for (const v of GAP_VERDICT) vt.append($("tr",{}, $("td",{html:citeHtml(v[0])}), $("td",{html:citeHtml(v[1])})));
+  main.append(blk("ov-verdict","Table: verdict on suggestions", vt));
+  main.append($("div",{class:"chap"}, blk("ov-gaps","Gaps", $("div",{},
+    $("div",{class:"tag"},"GAPS · YOU AGREED 2026-10-20 · ALL 16 ARE NOW IN THE CHAPTERS"), $("h2",{},`${GAPS.length} gaps I found, and what to add`))))) ;
+  main.append($("div",{class:"thead wide gp"}, $("div",{},"Gap"), $("div",{},"Why it matters"), $("div",{},"What to add"), $("div",{},"Resource"), $("div",{},"Status")));
+  GAPS.forEach((g,i) => main.append(blk(`gap-${i+1}`, `Gap ${i+1}: ${g[0]}`, $("div",{class:"trow gp"},
+    $("div",{class:"n"}, `${i+1}. ${g[0]}`), $("div",{class:"re"}, g[1]), $("div",{}, g[2]), $("div",{class:"pic", html:citeHtml(g[3])}),
+    $("div",{style:`font-weight:600;color:${g[4].startsWith("owned")?"#2E9E4A":g[4].startsWith("free")?"#2F6FD0":"#8A5A00"}`}, g[4])))));
+  main.append(blk("ov-q1","Open decision 1", $("div",{}, $("b",{},"Open decision 1. "),"Approve the chapters and the round order, or change them here with marks and notes.")));
+  main.append(blk("ov-q2","Open decision 2", $("div",{}, $("b",{},"Open decision 2. "),"May the course pages be built on your PC? Until then pages are edited by hand.")));
+}
+const PAGES = [{id:"ov", short:"Overview", title:"The plan at a glance"}, ...PARTS];
+function renderNav(cur){
+  const nav = document.getElementById("nav"); nav.innerHTML="";
+  for (const p of PAGES) nav.append($("a",{href:"#"+p.id, class:p.id===cur?"on":"", "data-p":p.id},
+    $("span",{class:"count"}), p.short, $("small",{}, p.title)));
+  const lg = $("div",{class:"legend"}, $("b",{style:"display:none"}), "Marks");
+  for (const [c,m] of COLORS) lg.append($("div",{}, $("b",{style:"background:var(--b-"+c+")"}), m));
+  nav.append(lg); renderNavCounts();
+}
+function renderNavCounts(){
+  for (const a of document.querySelectorAll("nav a")) {
+    const pid = a.dataset.p; let k=0;
+    for (const [id,n] of Object.entries(state.notes)) if (partOf(id)===pid && (n.mark||n.items.some(it=>it.t||it.q))) k++;
+    k += (state.proposals||[]).filter(x=>x.part===pid).length;
+    a.querySelector(".count").textContent = k ? k : "";
+  }
+}
+function render(keepScroll){
+  const cur = (location.hash||"#ov").slice(1), main = document.getElementById("main"), y = window.scrollY;
+  main.innerHTML=""; renderNav(cur);
+  const p = PARTS.find(x=>x.id===cur);
+  if (p) renderPart(p, main); else renderOverview(main);
+  window.scrollTo(0, keepScroll===true ? y : 0);
+}
+window.addEventListener("hashchange", () => render());
+document.getElementById("connect").onclick = connect;
+document.getElementById("download").onclick = () => {
+  const a = $("a",{href:URL.createObjectURL(new Blob([JSON.stringify(state,null,1)],{type:"application/json"})), download:"notes.json"});
+  document.body.append(a); a.click(); a.remove();
+};
+document.getElementById("import").onclick = () => document.getElementById("importFile").click();
+document.getElementById("importFile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const d = JSON.parse(await f.text()); if (d.notes) { state = migrate(Object.assign({version:1}, d)); save(); render(); } }
+  catch(err) { alert("Not a notes file: "+err.message); }
+};
+setStatus("warn","Saved in this browser only — connect notes.json");
+reconnect().then(render);
+</script>
+</body>
+</html>

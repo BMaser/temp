@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.2a Position, velocity and acceleration on a straight line</title>
+<!-- Section 2.2 of the v2 course (Part I, Ch 2), page 2.2a. Source of truth: github
+     coursera_mirror\mirrors\Autonomous_Racing_Drone_Path\runs\2026-10-19_v2_plan_page\draft_2.2\ (draft); numbers are checked by check_2_2.py.
+     Marks and notes go to ..\notes.json under keys "2.2a:<block>" and "2.2a:<block>#t<n>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px;display:flex;align-items:center;gap:10px}
+h2 .step{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 9px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:17px;white-space:nowrap}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prob{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:6px;padding:10px 14px}
+.prob .tag{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--accent)}
+.prob ol{margin:6px 0 0;padding-left:22px}.prob li{margin:3px 0}
+details{margin-top:8px}summary{cursor:pointer;font-weight:600;color:var(--cL)}
+.ans{font-weight:700;background:#EAF7ED;border-radius:4px;padding:1px 6px}
+.trap{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:6px 10px;margin-top:6px}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+h2.sub{font-size:21px;margin:34px 0 10px;padding-top:10px;border-top:2px solid var(--ink)}
+h2.sub .no{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 10px}
+h3.sub3{font-size:17px;margin:22px 0 8px 12px}
+.big{font-size:21px;text-align:center;margin:10px 0}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+pre.code{background:#F6F4F0;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;overflow-x:auto;white-space:pre;margin:6px 0}
+.src{font-size:12px;color:var(--ink2)}
+.prob.think{border-left-color:#7A3FC0;background:#FBF9FE}.prob.think .tag{color:#7A3FC0}
+.prob.think p{margin:8px 0}.prob.think .steps{margin:6px 0 0;padding-left:22px}.prob.think .steps li{margin:9px 0}
+.blk[data-b*="try"] .prob:not(.lv) .tag::after{content:" · WARM-UP";font-weight:400;color:var(--ink2)}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I — Flight theory</a> › Ch 2 How things fly › <b>2.2a Position, velocity and acceleration on a straight line</b> (draft)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>2.2a Position, velocity and acceleration on a straight line</h1>
+<p class="lead">Part I · Chapter 2 · section 2, page 1 of 4 · about 1.5 hours · paper and a calculator · page before: <a href="2.1b_Forces_together_tilt_wind_simulators.html">2.1b The forces together: tilt, wind and the simulators</a> · page after: <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b Three dimensions, laps, falling, fixed wings and the simulators</a></p>
+<p class="lead">Page 2.2a: 2.2.1-2.2.6, Try it 1-23 (with the extra levels 2a, 2b, 5a and 5b in sections 2.2.1 and 2.2.2), Think 1-4. Page 2.2b: 2.2.7-2.2.12, Try it 24-40, Problems 1-6, Think 5-10. Page 2.2c: 2.2.13-2.2.19, Try it 41-58, Think 11-14. Page 2.2d: 2.2.20-2.2.25, Think 15-25. Section, Try-it and Think numbers run on across the four pages. Figures are numbered on each page from 1; a figure on the other page is always named with its page and its subject, for example "the lap figure on page 2.2b".</p></div>
+
+<div data-b="goal"><div class="box"><b>Goal.</b> After this page you can tell position, displacement and distance apart; compute an average and an instantaneous velocity; read the slope and the area of an x(t), v(t) or a(t) graph; use the four equations for constant acceleration and know when they fail; and plan a straight run between two gates: accelerate, cruise, brake.</div></div>
+<div data-b="why"><p><b>Why you learn this.</b> A flight stack is a chain of parts that pass numbers to each other. Three parts of that chain are built from the ideas of section 2.2. The <a href="../reference/autopilot_map.html">autopilot map</a> numbers the parts; this table shows the three rows that need this section.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each part of the autopilot. Read a row from left to right: the part and its row in the autopilot map (the link opens that row), what this section gives to the part, and where the part is in real code. Here is every symbol. <span class="f">x(t)</span>, <span class="f">v(t)</span> and <span class="f">a(t)</span> are the position, the velocity and the acceleration at the clock reading t; their units are m, m/s and m/s². <span class="f">Δt</span> is the length of one time step, in seconds; a simulator or an estimator repeats its rule once per time step. The arrow <span class="f">←</span> means "is replaced by": <span class="f">v ← v + a·Δt</span> says that the new v is the old v plus a·Δt. "@ d28a642" and "@ c80cff5" are the version of the code (a GitHub commit); the file and the line numbers are valid for that version only. Figure 1 draws the loop and marks the three rows.</p>
+<table class="t"><tr><th>Autopilot part (map row)</th><th>What this section gives it</th><th>Where in PX4 (the PX4-Autopilot source code [<a class="cite" href="../reference/references.html#ref-29">29</a>]) / Project AirSim (the Project AirSim source code [<a class="cite" href="../reference/references.html#ref-30">30</a>])</th></tr>
+<tr><td><a href="../reference/autopilot_map.html#row-1"><b>Row 1 · Planner</b></a></td><td>It makes a smooth x(t), v(t) and a(t). You need the slope and area rules (2.2.4) and the limits on a (2.2.6). PX4's planner [<a class="cite" href="../reference/references.html#ref-47">47</a>] also limits the jerk, the rate at which a changes, and builds an S-curve from three parts. This is the new part of <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html">page 2.2c</a> (2.2.13 and 2.2.14).</td><td>PX4 <code>src/modules/flight_mode_manager/tasks/Auto/FlightTaskAuto.cpp:73</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]: the position smoothing is reset with the previous acceleration, velocity and position. The S-curve is in <code>src/lib/motion_planning/VelocitySmoothing.cpp:240-264</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>].</td></tr>
+<tr><td><a href="../reference/autopilot_map.html#row-8"><b>Row 8 · Physics / simulator</b></a></td><td>The rule that turns a into v and v into x at every time step (2.2.11).</td><td>PX4 SIH [<a class="cite" href="../reference/references.html#ref-39">39</a>] <code>src/modules/simulation/simulator_sih/sih.cpp:696-700</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]; Project AirSim <code>physics/src/fast_physics.cpp:541-543</code> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>].</td></tr>
+<tr><td><a href="../reference/autopilot_map.html#row-10"><b>Row 10 · Estimator</b></a></td><td>The prediction between two measurements: a new velocity from the acceleration, and a new position from the average of the old and the new velocity (the trapezoid, 2.2.5 and 2.2.11).</td><td>PX4 EKF2 [<a class="cite" href="../reference/references.html#ref-40">40</a>] <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/ekf2/EKF/ekf.cpp#L264-L276"><code>src/modules/ekf2/EKF/ekf.cpp:264-276</code></a> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>].</td></tr></table>
+<figure><svg id="f0" viewBox="0 0 860 250" width="100%" style="max-width:860px" role="img" aria-label="A simplified autopilot loop of five boxes: planner, controller and mixer, physics or simulator, sensors, estimator. The planner, the physics box and the estimator are highlighted as rows 1, 8 and 10 of the map"></svg>
+<figcaption>Figure 1. A simplified autopilot loop (the boxes are a simplification; the full numbered list is on the autopilot map). The three highlighted boxes are the rows of the table. The planner asks for a motion, the controller and mixer turn the request into motor commands, the physics (in a simulator) or the real drone moves, the sensors measure, and the estimator predicts and corrects the state for the planner and the controller. Every arrow carries numbers of the kind defined on this page.</figcaption></figure>
+<p><b>Without this page, rows 1, 8 and 10 cannot be built:</b> the planner would have no x(t), v(t) and a(t) to make smooth, the simulator would have no rule to turn a into v and v into x, and the estimator would have no rule to predict where the drone is between two measurements.</p></div>
+<div data-b="howto"><div class="box howto"><b>How this page works.</b> Each idea has three parts: a short explanation → a picture or table → <b>Try it</b> exercises with a solution you open after you try. Page 2.2b joins the ideas in problems at its end. <b>Warm-up, medium, hard and Think.</b> Most Try it exercises are warm-ups: one formula and new numbers. In sections 2.2.1 and 2.2.2 every exercise shows its level in the tag line: WARM-UP, MEDIUM or HARD. A medium exercise needs more than one formula: you chain two steps, choose a method, avoid a trap, read a graph or a log, or decide whether something is possible. A hard exercise has the format of a Think problem. The purple <b>Think</b> problems ask for more. You choose the idea, watch for a trap, test whether a plan is possible, or work backward from a measurement. A Think problem has a situation with a figure, questions to think about first, a hint, a solution in which every step starts with the reason for it, a check of the answer, and a twist called "What if". Try the problem on paper before you open the solution. Page 2.2d collects larger scenarios with wind, payloads and turbulence. <b>Motion only.</b> This section describes how things move. It does not ask what makes them move: forces and Newton's second law are section 2.3, and the forces themselves are on <a href="2.1a_The_four_forces_one_at_a_time.html">page 2.1a</a> and <a href="2.1b_Forces_together_tilt_wind_simulators.html">page 2.1b</a>. <b>Gravity:</b> no exercise on this page uses g. On page 2.2b every exercise uses version 4 of 2.1.2 at the place it names: the home field (φ = 45°, h = 0 m, g = 9.8062 m/s²) unless it says Denver (φ = 39.74°, h = 1 600 m, g = 9.7965 m/s²). <b>Source code:</b> the formulas that the simulators use are collected on the <a href="../reference/sim_physics_formulas.html">reference page of simulator formulas</a>; page 2.2b reads the ones about motion.</div></div>
+
+<h2 class="sub" id="s2.2.1"><span class="no">2.2.1</span> Position, displacement and distance</h2>
+<div data-b="pos-explain"><p>Think of the straight run between two gates as a line. Choose one point on the line and call it the <b>origin</b> O. Choose one direction along the line and call it plus (+). Usually + points forward.</p>
+<p><b>Position</b> <span class="f">x</span> tells where the drone is. It is the distance from O, measured with a sign: + if the drone is on the plus side of O, − if it is on the other side. The unit is the meter (m). Position gets bigger when the drone moves in the plus direction. <b>Time</b> <span class="f">t</span> is the clock reading in seconds (s); it gets bigger as the flight goes on.</p>
+<p>Three words sound alike and mean different things. The example for all of them: gate A is at <span class="f">x<sub>1</sub> = 10 m</span>. The drone flies forward to a camera pole at 70 m, turns around, and stops at gate B at <span class="f">x<sub>2</sub> = 40 m</span>.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each quantity. Read a row from left to right: the name, the formula, the numbers of the example, and whether the quantity can be negative. It matters for flying because a flight log stores positions, and every other quantity of this page is built from differences of positions. Here is every symbol. <span class="f">x<sub>1</sub></span> is the position where the drone starts and <span class="f">x<sub>2</sub></span> the position where it ends, both in m. <span class="f">Δx</span> (delta x) is the <b>displacement</b>: the change of position, end minus start, in m. It is + when the drone ends further forward than it started and − when it ends further back. <span class="f">d</span> is the <b>distance</b>: the total length of the path the drone flew, in m. The distance adds up the length of every leg of the flight, so it never gets smaller as the flight goes on. <span class="f">x<sub>turn</sub></span> is the position where the drone turns around, 70 m in the example. The bars in <span class="f">|x<sub>2</sub> − x<sub>1</sub>|</span> mean "the size without the sign": 3 and −3 both become 3. Figure 2 draws the three rows, one below the other.</p>
+<table class="t"><tr><th>Quantity</th><th>Formula</th><th>Example</th><th>Can it be negative?</th></tr>
+<tr><td><b>position</b> x<sub>1</sub>, x<sub>2</sub></td><td>read it on the number line</td><td class="f">x<sub>1</sub> = 10 m, x<sub>2</sub> = 40 m</td><td>yes: behind the origin</td></tr>
+<tr><td><b>displacement</b> Δx</td><td class="f">Δx = x<sub>2</sub> − x<sub>1</sub></td><td class="f">Δx = 40 − 10 = +30 m</td><td>yes: it has a direction</td></tr>
+<tr><td><b>distance</b> d</td><td>add the sizes of all legs: <span class="f">d = |x<sub>turn</sub> − x<sub>1</sub>| + |x<sub>2</sub> − x<sub>turn</sub>|</span></td><td class="f">d = |70 − 10| + |40 − 70| = 60 + 30 = 90 m</td><td>no: it only grows</td></tr></table>
+<figure><svg id="f1" viewBox="0 0 860 345" width="100%" style="max-width:860px" role="img" aria-label="Three number lines. Top: the positions 10 m, 70 m and 40 m. Middle: the displacement arrow from 10 m to 40 m, plus 30 m. Bottom: the path of 60 m forward and 30 m back, a distance of 90 m"></svg>
+<figcaption>Figure 2. The three rows of the table, one number line each. Row 1: the drone starts at x<sub>1</sub> = 10 m, turns at 70 m and ends at x<sub>2</sub> = 40 m. Row 2: the displacement is one arrow from the start to the end, +30 m; it does not care about the turn. Row 3: the distance adds both legs, 60 m forward and 30 m back, 90 m.</figcaption></figure>
+<p><b>Watch out.</b> A drone that flies one full lap and lands where it started has a displacement of 0 m, but its distance is the whole lap. Use displacement when you want "where am I compared with where I started", and distance when you want "how far did the motors carry me" (for example, for a battery estimate).</p></div>
+<div data-b="pos-try1"><div class="prob lv"><div class="tag">TRY IT 1 · WARM-UP · DISPLACEMENT WITH A NEGATIVE POSITION</div>
+A drone starts at <span class="f">x<sub>1</sub> = −15 m</span> (behind the origin) and flies straight to <span class="f">x<sub>2</sub> = +25 m</span>. Find the displacement and the distance.
+<details><summary>Show solution</summary><ol><li><span class="f">Δx = x<sub>2</sub> − x<sub>1</sub> = 25 − (−15) = <span class="ans">+40 m</span></span>.</li><li>It flew in one direction only, so the distance equals the size of the displacement: <span class="f">d = |Δx| = <span class="ans">40 m</span></span>.</li></ol></details></div></div>
+<div data-b="pos-try2"><div class="prob lv"><div class="tag">TRY IT 2 · MEDIUM · A FLIGHT LOG WITH A HIDDEN TURN</div>
+<p>A drone flies along the straight run for 10 s. Its speed meter shows a steady 10 m/s for the whole time. A logger writes the position of the drone every 2 s. The table is the log. <b>Questions.</b> (a) Find the displacement from the log. (b) Find the distance from the log by adding the size of each step between two log entries. (c) The speed meter also gives a distance. How long is it, and what does it tell you about the log? (d) In which 2 s step did the drone turn around, and at which position?</p>
+<p><b>How to read this table.</b> The table has six rows, one for each log entry. Read a row from left to right: the clock reading t in s, then the position x in m. A minus sign means that the drone is behind the origin. Figure 3 draws every row as a dot; you find it in the solution.</p>
+<table class="t"><tr><th>t (s)</th><th>x (m)</th></tr>
+<tr><td class="f">0</td><td class="f">20</td></tr><tr><td class="f">2</td><td class="f">0</td></tr><tr><td class="f">4</td><td class="f">−20</td></tr><tr><td class="f">6</td><td class="f">−10</td></tr><tr><td class="f">8</td><td class="f">10</td></tr><tr><td class="f">10</td><td class="f">30</td></tr></table>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the displacement needs only the first and the last position of the log. <span class="f">Δx = x<sub>2</sub> − x<sub>1</sub> = 30 − 20 = <span class="ans">+10 m</span></span>.</li>
+<li><i>Why this step:</i> the log holds positions only, so the distance from the log is the sum of the sizes of the five steps. <span class="f">d<sub>log</sub> = |0 − 20| + |−20 − 0| + |−10 − (−20)| + |10 − (−10)| + |30 − 10| = 20 + 20 + 10 + 20 + 20 = <span class="ans">90 m</span></span>.</li>
+<li><i>Why this step:</i> the speed meter measures the path itself, so it gives the true distance, whatever the turns. <span class="f">d = v·t = 10 × 10 = <span class="ans">100 m</span></span>.</li>
+<li><i>Why this step:</i> compare the two distances. The true distance is longer than the log distance by <span class="f">100 − 90 = 10 m</span>. At 10 m/s, every 2 s step must show <span class="f">10 × 2 = 20 m</span> if the drone flies in one direction. Four steps show 20 m. Only the step from 4 s to 6 s shows 10 m, so the drone turned around inside that step.</li>
+<li><i>Why this step:</i> find the turn. Let b be the distance that the drone flew backward before it turned. It then flew forward b + 10 m, because the log says that it ended 10 m ahead of where it was at 4 s. The whole step is 20 m: <span class="f">b + (b + 10) = 20, so b = <span class="ans">5 m</span></span>. The turn is at <span class="f">−20 − 5 = <span class="ans">−25 m</span></span>, after <span class="f">5 / 10 = 0.5 s</span>, so at t = 4.5 s.</li></ol>
+<figure><svg id="l2" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Position against time: six log dots joined by straight lines, and a dashed path between 4 and 6 seconds that dips to minus 25 meters at 4.5 seconds before it goes on"></svg>
+<figcaption>Figure 3. The log of Try it 2. The six dots are the log entries. The solid line joins them with straight lines, which is all that the log can show. The red dashed path is what the drone really did between 4 s and 6 s: 5 m backward to −25 m at 4.5 s, then 15 m forward to −10 m.</figcaption></figure>
+<p><b>Check your answer.</b> The hidden detour is 5 m back and 5 m forward again, so it adds <span class="f">2 × 5 = 10 m</span> that the log does not show. The step is <span class="f">5 + 15 = 20 m</span> long in truth, and <span class="f">90 + 10 = 100 m</span> agrees with the speed meter.</p>
+<div class="trap">Trap: a distance computed from a log is only a lower bound. A turn between two log entries is invisible, so the true distance is at least the log distance. A faster logger shrinks the gap, but it can still miss a short turn.</div></details></div></div>
+<div data-b="pos-try2a"><div class="prob lv"><div class="tag">TRY IT 2a · MEDIUM · THE SAME FLIGHT FROM TWO ORIGINS</div>
+<p>Gate A and gate B are 60 m apart on a straight run. A drone starts 10 m from gate A toward gate B and flies toward gate B until it is 50 m from gate A. It turns around and stops 35 m from gate A. <b>Operator 1</b> puts the origin at gate A and the plus direction toward gate B. <b>Operator 2</b> puts the origin at gate B and the plus direction toward gate A. Figure 4 draws both. Each operator writes the start position x<sub>1</sub>, the end position x<sub>2</sub>, the displacement Δx and the distance d. Which of these four numbers differ between the two operators? Does one operator describe a different flight?</p>
+<figure><svg id="l2a" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Two number lines for the same 60 meter run. Top: origin at gate A, plus toward gate B. Bottom: origin at gate B, plus toward gate A. The start, the turn and the end of the flight are marked on both with their positions"></svg>
+<figcaption>Figure 4. One flight, two descriptions. The green dot is the start, the red dot is the turn and the blue dot is the end. The top line measures from gate A, the bottom line from gate B. The flight is the same; only the numbers on the line change. The arrows in the middle show the two legs: 40 m toward gate B and 15 m back.</figcaption></figure>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> operator 1 reads the positions straight from the distance to gate A. <span class="f">x<sub>1</sub> = 10 m</span> and <span class="f">x<sub>2</sub> = 35 m</span>, so <span class="f">Δx = x<sub>2</sub> − x<sub>1</sub> = 35 − 10 = <span class="ans">+25 m</span></span>. The legs have the sizes <span class="f">|50 − 10| = 40 m</span> and <span class="f">|35 − 50| = 15 m</span>, so <span class="f">d = 40 + 15 = <span class="ans">55 m</span></span>.</li>
+<li><i>Why this step:</i> operator 2 measures from gate B, with the plus direction reversed. A point that is x from gate A is 60 − x from gate B, so <span class="f">x′ = 60 − x</span>. The start is <span class="f">x′<sub>1</sub> = 60 − 10 = <span class="ans">50 m</span></span> and the end is <span class="f">x′<sub>2</sub> = 60 − 35 = <span class="ans">25 m</span></span>.</li>
+<li><i>Why this step:</i> the displacement follows from the new positions. <span class="f">Δx′ = x′<sub>2</sub> − x′<sub>1</sub> = 25 − 50 = <span class="ans">−25 m</span></span>. The turn is at <span class="f">60 − 50 = 10 m</span> in this frame, so the legs have the sizes <span class="f">|10 − 50| = 40 m</span> and <span class="f">|25 − 10| = 15 m</span>, and <span class="f">d′ = 40 + 15 = <span class="ans">55 m</span></span>.</li>
+<li><i>Why this step:</i> compare the two descriptions. The positions differ, because the origin moved. The displacement has the opposite sign, because the plus direction is reversed: <span class="f">−25 = −(+25)</span>. The distance is the same, 55 m, because the legs have the same lengths in any frame. It is one flight, described twice.</li></ol>
+<p><b>Check your answer.</b> A point has the two coordinates x and x′ that add up to the gate distance: <span class="f">10 + 50 = 60 m</span> for the start and <span class="f">35 + 25 = 60 m</span> for the end.</p>
+<p><b>What if …</b> operator 3 keeps the origin at gate A but points the plus direction away from gate B?</p>
+<details><summary>Show the answer</summary>Now the whole flight is on the minus side: <span class="f">x<sub>1</sub> = −10 m</span> and <span class="f">x<sub>2</sub> = −35 m</span>, so <span class="f">Δx = −35 − (−10) = <span class="ans">−25 m</span></span>. The sign of Δx follows the plus direction, not the origin, and d is still 55 m.</details>
+<div class="trap">Trap: a negative displacement does not mean "the drone went the wrong way". It means that the plus direction of that operator points the other way.</div></details></div></div>
+<div data-b="pos-try2b"><div class="prob think lv"><div class="tag">TRY IT 2b · HARD · WHERE DID THE DRONE TURN?</div>
+<p><b>Situation.</b> A flight computer stores only three numbers for a straight run: the first position <span class="f">x<sub>1</sub> = 10 m</span>, the last position <span class="f">x<sub>2</sub> = 40 m</span>, and the odometer reading <span class="f">d = 130 m</span>, the whole length of the path. The drone turned around exactly once, and its first leg went forward. The log does not say where the turn was. Figure 5, in the solution, draws the answer.</p>
+<p><b>Questions.</b> (a) Where did the drone turn? (b) Could the same three numbers come from a flight with two turns? (c) Could the odometer have read 25 m? (d) When is the distance equal to the size of the displacement?</p>
+<p><b>Think first.</b></p>
+<ol><li>The drone flew forward and then back. Which of the two legs is longer?</li>
+<li>Call the position of the turn x<sub>turn</sub>. How do you write the two legs with it?</li>
+<li>The distance adds sizes; the displacement adds signed steps. Which one can be smaller?</li></ol>
+<details><summary>Hint</summary>The forward leg runs from x<sub>1</sub> to x<sub>turn</sub>, and the back leg runs from x<sub>turn</sub> to x<sub>2</sub>. Add their lengths and set the sum equal to 130 m.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> with one turn and a forward first leg, the distance is the forward leg plus the back leg. <span class="f">d = (x<sub>turn</sub> − x<sub>1</sub>) + (x<sub>turn</sub> − x<sub>2</sub>) = 2·x<sub>turn</sub> − 10 − 40 = 130</span>.</li>
+<li><i>Why this step:</i> solve for the one unknown. <span class="f">2·x<sub>turn</sub> = 130 + 50 = 180, so x<sub>turn</sub> = <span class="ans">90 m</span></span>.</li>
+<li><i>Why this step:</i> for (b), notice what the extra distance is. The displacement is <span class="f">Δx = 40 − 10 = +30 m</span>. Every meter that the drone flies against the net direction must be flown forward again. So <span class="f">d = Δx + 2 × (distance flown backward)</span>, and <span class="f">130 = 30 + 2 × 50</span>. The drone flew 50 m backward, however many turns it made. A flight with two turns can do this: 10 m → 75 m → 25 m → 40 m. Forward 65 m, back 50 m, forward 15 m: <span class="f">65 + 50 + 15 = <span class="ans">130 m</span></span> and <span class="f">65 − 50 + 15 = +30 m</span>. So <span class="ans">yes</span>: the three numbers cannot tell one turn from two.</li>
+<li><i>Why this step:</i> for (c), compare d with the size of Δx. The distance adds the sizes of the legs. The displacement adds the same legs with their signs. A sum of signed numbers is never larger in size than the sum of their sizes, so <span class="f">d ≥ |Δx|</span>. With <span class="f">|Δx| = 30 m</span>, a reading of 25 m is <span class="ans">impossible</span>.</li>
+<li><i>Why this step:</i> for (d), the two are equal only when no leg cancels another leg. That is the case when all legs point the same way, that is, when the drone never turns back. Then <span class="f">d = |Δx|</span>.</li></ol>
+<figure><svg id="l2b" viewBox="0 0 860 360" width="100%" style="max-width:860px" role="img" aria-label="Two number lines from minus 50 to 100 meters. Top: one turn at 90 meters, 80 meters forward and 50 meters back. Bottom: two turns at 75 and at 25 meters, 65 forward, 50 back and 15 forward. Both start at 10 and end at 40 meters"></svg>
+<figcaption>Figure 5. Two flights with the same x<sub>1</sub> = 10 m, x<sub>2</sub> = 40 m and d = 130 m. Blue arrows are forward legs, orange arrows are back legs. Top: one turn at 90 m. Bottom: two turns, at 75 m and at 25 m. Both flights go 50 m backward in total.</figcaption></figure>
+<p><b>Check your answer.</b> Legs of the one-turn flight: forward <span class="f">90 − 10 = 80 m</span>, back <span class="f">90 − 40 = 50 m</span>, and <span class="f">80 + 50 = 130 m</span>, as the odometer says. The end is <span class="f">10 + 80 − 50 = 40 m</span>, as the log says.</p>
+<p><b>What if …</b> the first leg went backward, with one turn?</p>
+<details><summary>Show the answer</summary>The legs are <span class="f">(10 − x<sub>turn</sub>)</span> back and <span class="f">(40 − x<sub>turn</sub>)</span> forward, so <span class="f">50 − 2·x<sub>turn</sub> = 130, and x<sub>turn</sub> = <span class="ans">−40 m</span></span>. The drone turned 40 m behind the origin. Check: <span class="f">(10 − (−40)) + (40 − (−40)) = 50 + 80 = 130 m</span>.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.2"><span class="no">2.2.2</span> Velocity and speed: average and instantaneous</h2>
+<div data-b="vel-explain"><p><b>Velocity</b> <span class="f">v</span> tells how fast the position changes and in which direction. The unit is meters per second (m/s). A plus sign means "moving forward", a minus sign "moving backward". <b>Speed</b> is the size of the velocity, <span class="f">|v|</span>, with no sign. A drone that flies backward at 5 m/s has the velocity <span class="f">v = −5 m/s</span> and the speed 5 m/s. (Dellaert &amp; Hutchinson, <i>Introduction to Robotics and Perception</i> [<a class="cite" href="../reference/references.html#ref-2">2</a>, §7.2.2.1] (section 7.2.2.1 is called "Positional Kinematics"), write the same link between the two in their drone chapter: the time derivative of the position is the linear velocity, <a href="https://www.roboticsbook.org/S72_drone_actions.html">roboticsbook.org/S72_drone_actions.html</a>.)</p>
+<p>The <b>average velocity</b> over a time span uses only the start and the end: <span class="f">v<sub>avg</sub> = Δx / Δt</span>, where <span class="f">Δt = t<sub>2</sub> − t<sub>1</sub></span> is the length of the time span in seconds. The <b>average speed</b> uses the distance instead: <span class="f">d / Δt</span>.</p>
+<p>The example continues. The drone flew from 10 m to 70 m in the first 6 s (leg 1), then from 70 m back to 40 m in the next 6 s (leg 2). Figure 6 is the graph of its position against time.</p>
+<p><b>How to read this table.</b> The table has five rows. Each row is one velocity or speed of the 12 s trip. Read a row from left to right: what is measured, the formula, the numbers, and the sign. It matters for flying because a flight log gives positions at the clock times, and you must choose whether you want the average over a long span or the value at one moment. Here is every symbol. <span class="f">v<sub>avg</sub></span> is the average velocity in m/s; it is bigger when the displacement is bigger or the time is shorter. <span class="f">Δx</span> is the displacement in m and <span class="f">Δt</span> the time span in s. <span class="f">d</span> is the distance in m. <span class="f">v</span> alone means the velocity at one moment, in m/s. The <b>slope</b> of a graph is the rise divided by the run, that is, the change of the up-down value divided by the change of the left-right value; on a graph of x against t the slope has the unit m/s. <span class="f">|v|</span> is the size of v, the speed. Figure 6 draws the five rows on the graph x(t): the dashed line is row 1, the two solid lines are rows 3 and 4.</p>
+<table class="t"><tr><th>What is measured</th><th>Formula</th><th>Numbers of the 12 s trip</th><th>Sign</th></tr>
+<tr><td>average velocity, whole trip</td><td class="f">v<sub>avg</sub> = Δx / Δt</td><td class="f">v<sub>avg</sub> = (40 − 10) / 12 = 30 / 12 = 2.5 m/s</td><td>+ (it ended further forward)</td></tr>
+<tr><td>average speed, whole trip</td><td class="f">d / Δt</td><td class="f">d / Δt = 90 / 12 = 7.5 m/s</td><td>never negative</td></tr>
+<tr><td>velocity during leg 1</td><td>slope of x(t)</td><td class="f">v = (70 − 10) / 6 = 10 m/s</td><td>+ (forward)</td></tr>
+<tr><td>velocity during leg 2</td><td>slope of x(t)</td><td class="f">v = (40 − 70) / 6 = −5 m/s</td><td>− (backward)</td></tr>
+<tr><td>speed during leg 2</td><td class="f">|v|</td><td class="f">|−5| = 5 m/s</td><td>never negative</td></tr></table>
+<figure><svg id="f2" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Graph of position against time for the 12 second trip: a rising line to 70 m at 6 s, then a falling line to 40 m at 12 s, with a dashed line from start to end for the average velocity"></svg>
+<figcaption>Figure 6. Position against time for the 12 s trip. Row 1: the dashed line joins the start and the end of the whole trip; its slope is the average velocity, 2.5 m/s. Rows 3 and 4: the slope of the solid line is the velocity in each leg, +10 m/s in leg 1 and −5 m/s in leg 2. Row 2 needs the distance, which a graph of x does not show directly: it shows only the position. Row 5 is the size of the slope of leg 2, 5 m/s.</figcaption></figure>
+<p><b>Why the average hides the turn.</b> The average velocity, 2.5 m/s, is smaller than both the speed of leg 1 (10 m/s) and the size of the velocity of leg 2 (5 m/s). It uses only the start and the end. The average speed, 7.5 m/s, uses the whole path and is the one that tells how hard the motors worked.</p></div>
+<div data-b="vel-inst"><p><b>Instantaneous velocity</b> is the velocity at one moment. To find it, take an average velocity over a shorter and shorter time span that starts at that moment. The averages come closer and closer to one number, and that number is the instantaneous velocity. On the graph, it is the slope of the <b>tangent</b>: the straight line that just touches the curve at that moment.</p>
+<p>Example: a drone starts from rest at x = 0 and its position follows <span class="f">x = t²</span>, with x in meters and t in seconds. We look at the moment <span class="f">t = 2 s</span>, where <span class="f">x = 4 m</span>.</p>
+<p><b>How to read this table.</b> Each of the first four rows is one time span that starts at t = 2 s and gets shorter from row to row. The last row is the moment itself. Read a row from left to right: the end time of the span, the displacement in it, the length of the span, and the average velocity. It matters for flying because a flight controller never sees "one moment": it sees positions at small time steps and takes the shortest span it has. Here is every symbol. <span class="f">t<sub>end</sub></span> is the clock reading where the span stops, in s. <span class="f">x(t<sub>end</sub>) = t<sub>end</sub>²</span> is the position there, in m. <span class="f">Δx = x(t<sub>end</sub>) − 4</span> is the displacement in the span, in m. <span class="f">Δt = t<sub>end</sub> − 2</span> is the length of the span, in s; it gets smaller down the table. <span class="f">v<sub>avg</sub> = Δx / Δt</span> is the average velocity of the span, in m/s. <span class="f">v(2)</span> is the instantaneous velocity at t = 2 s. Figure 7 draws each row as a line (a secant) from the point at t = 2 s to the point at t<sub>end</sub>, and the tangent as the last row.</p>
+<table class="t"><tr><th>t<sub>end</sub> (s)</th><th>x(t<sub>end</sub>) (m)</th><th>Δx (m)</th><th>Δt (s)</th><th>v<sub>avg</sub> = Δx / Δt (m/s)</th></tr>
+<tr><td class="f">4</td><td class="f">16</td><td class="f">16 − 4 = 12</td><td class="f">2</td><td class="f">12 / 2 = 6</td></tr>
+<tr><td class="f">3</td><td class="f">9</td><td class="f">9 − 4 = 5</td><td class="f">1</td><td class="f">5 / 1 = 5</td></tr>
+<tr><td class="f">2.5</td><td class="f">6.25</td><td class="f">6.25 − 4 = 2.25</td><td class="f">0.5</td><td class="f">2.25 / 0.5 = 4.5</td></tr>
+<tr><td class="f">2.1</td><td class="f">4.41</td><td class="f">4.41 − 4 = 0.41</td><td class="f">0.1</td><td class="f">0.41 / 0.1 = 4.1</td></tr>
+<tr><td class="f">2 (the moment itself)</td><td class="f">4</td><td colspan="2">span of length 0: use the tangent</td><td class="f">v(2) = 4 m/s</td></tr></table>
+<figure><svg id="f3" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="The curve x equals t squared with four secant lines starting at t equals 2 seconds that get steeper than the tangent less and less, and the tangent line with slope 4 meters per second"></svg>
+<figcaption>Figure 7. The curve x = t². The four coloured lines start at the point (2 s, 4 m) and end at t<sub>end</sub> = 4, 3, 2.5 and 2.1 s; their slopes are the averages of the first four rows, 6, 5, 4.5 and 4.1 m/s. The black dashed line only touches the curve at t = 2 s; its slope, 4 m/s, is the instantaneous velocity (last row). The shorter the span, the closer the secant is to the tangent.</figcaption></figure>
+<p><b>Watch out.</b> The averages come close to 4 m/s but the table never reaches it by dividing: with Δt = 0 you would divide 0 by 0. The tangent is the limit of the averages, and section 2.2.5 gives a direct formula for it.</p></div>
+<div data-b="vel-try3"><div class="prob lv"><div class="tag">TRY IT 3 · WARM-UP · AVERAGE VELOCITY</div>
+A drone flies a straight leg. Its position is 20 m at the start and 80 m 4 s later. Find the average velocity.
+<details><summary>Show solution</summary><span class="f">v<sub>avg</sub> = Δx / Δt = (x<sub>2</sub> − x<sub>1</sub>) / Δt = (80 − 20) / 4 = <span class="ans">15 m/s</span></span>.</details></div></div>
+<div data-b="vel-try4"><div class="prob lv"><div class="tag">TRY IT 4 · MEDIUM · A SHUTTLE READ FROM A GRAPH</div>
+<p>Figure 8 is the graph of x against t for a drone that shuttles along the straight run for 10 s. The line has three straight parts, and its corners lie on the grid lines. <b>Questions.</b> (a) Read the velocity in each part. (b) Find the average velocity and the average speed of the whole 10 s. (c) A pilot adds the three velocities and divides by 3, and calls the result the average velocity. Is that right? (d) Where is the drone at t = 4 s?</p>
+<figure><svg id="l4" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Position against time for a shuttle: a line with three straight parts through the corners 0 seconds 20 meters, 2 seconds 50 meters, 6 seconds 20 meters and 10 seconds 40 meters"></svg>
+<figcaption>Figure 8. Position against time for the shuttle of Try it 4. Read the corners from the grid: the line has three straight parts, and each part has its own slope.</figcaption></figure>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> on a graph of x against t, the velocity of a straight part is its slope: the rise divided by the run, read between two corners. The corners are (0 s, 20 m), (2 s, 50 m), (6 s, 20 m) and (10 s, 40 m). Part 1: <span class="f">v = (50 − 20) / (2 − 0) = <span class="ans">+15 m/s</span></span>. Part 2: <span class="f">v = (20 − 50) / (6 − 2) = <span class="ans">−7.5 m/s</span></span>. Part 3: <span class="f">v = (40 − 20) / (10 − 6) = <span class="ans">+5 m/s</span></span>.</li>
+<li><i>Why this step:</i> the average velocity uses only the first and the last point. <span class="f">v<sub>avg</sub> = Δx / Δt = (40 − 20) / 10 = <span class="ans">+2.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> the average speed needs the distance, so add the size of every part. <span class="f">d = |50 − 20| + |20 − 50| + |40 − 20| = 30 + 30 + 20 = 80 m</span>, and <span class="f">d / Δt = 80 / 10 = <span class="ans">8.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> the pilot gives every part the same weight, but the parts last 2 s, 4 s and 4 s. The plain mean is <span class="f">(15 − 7.5 + 5) / 3 = 12.5 / 3 = <span class="ans">4.17 m/s</span></span>, which is wrong. A mean that weights each velocity by its time gives the right value: <span class="f">(15 × 2 − 7.5 × 4 + 5 × 4) / 10 = (30 − 30 + 20) / 10 = <span class="ans">2.0 m/s</span></span>, the same as step 2.</li>
+<li><i>Why this step:</i> t = 4 s lies in part 2, which starts at 50 m at t = 2 s and moves at −7.5 m/s. <span class="f">x = 50 + (−7.5) × (4 − 2) = 50 − 15 = <span class="ans">35 m</span></span>.</li></ol>
+<div class="trap">Trap: the mean of the velocities of the parts is not the average velocity, unless the parts last equally long. The average velocity is always the displacement divided by the whole time.</div></details></div></div>
+<div data-b="vel-try5"><div class="prob lv"><div class="tag">TRY IT 5 · WARM-UP · A SHORTER SPAN</div>
+For the curve <span class="f">x = t²</span> of this section, find the average velocity from <span class="f">t = 2 s</span> to <span class="f">t = 2.01 s</span>. Is it closer to 4 m/s than the last row of the table?
+<details><summary>Show solution</summary><ol><li><span class="f">x(2.01) = 2.01² = 4.0401 m</span>, so <span class="f">Δx = 4.0401 − 4 = 0.0401 m</span>.</li><li><span class="f">v<sub>avg</sub> = Δx / Δt = 0.0401 / 0.01 = <span class="ans">4.01 m/s</span></span>.</li><li>Yes: 4.01 is closer to 4 than 4.1.</li></ol></details></div></div>
+<div data-b="vel-try5a"><div class="prob lv"><div class="tag">TRY IT 5a · MEDIUM · READING A CURVED POSITION GRAPH</div>
+<p>Figure 9 shows the position of a drone on the straight run for 8 s. The curve is <span class="f">x(t) = (t³ − 12·t² + 36·t) / 2</span>, with x in m and t in s. Five moments are marked: A at 1 s, B at 3 s, E at 4 s, C at 5.5 s and D at 7.5 s. A dashed tangent touches the curve at E. It passes through the two hollow dots (3.5 s, 11 m) and (4.5 s, 5 m). <b>Questions.</b> (a) Without any calculation, rank A, B, C and D by their velocity, from the largest to the smallest. (b) At which times is the velocity zero? (c) During which time span is the velocity negative? (d) Estimate the velocity at E from the tangent. (e) The average velocity from 0 s to 6 s is 0 m/s. Did the drone stand still?</p>
+<figure><svg id="l5a" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Position against time: a curve that rises to a top at 2 seconds, falls to a bottom at 6 seconds and rises again; five marked moments A, B, E, C and D, and a dashed tangent at E through two hollow dots"></svg>
+<figcaption>Figure 9. The curve x(t) of Try it 5a with the moments A, B, E, C and D. The velocity at a moment is the slope of the tangent there. The dashed line touches the curve at E and passes through the two hollow dots.</figcaption></figure>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the velocity at a moment is the slope of the tangent (Figure 7 above). Order the slopes: steep up, mild up, flat, mild down, steep down. D and A lie on rising parts, and the curve is steeper at D than at A. C and B lie on the falling part, and the curve is steeper at B than at C, so C is closer to flat. The ranking is <span class="ans">D, A, C, B</span>.</li>
+<li><i>Why this step:</i> the velocity is zero where the tangent is flat: at the top and at the bottom of the curve. The top is at <span class="f">t = <span class="ans">2 s</span></span> and the bottom at <span class="f">t = <span class="ans">6 s</span></span>. Check the heights with the formula: <span class="f">x(2) = (2³ − 12 × 2² + 36 × 2) / 2 = (8 − 48 + 72) / 2 = 16 m</span> and <span class="f">x(6) = (6³ − 12 × 6² + 36 × 6) / 2 = (216 − 432 + 216) / 2 = 0 m</span>.</li>
+<li><i>Why this step:</i> the velocity is negative where the position falls. The curve falls from the top to the bottom, so the velocity is negative <span class="ans">between 2 s and 6 s</span>.</li>
+<li><i>Why this step:</i> the slope of the dashed line is the velocity at E. <span class="f">v ≈ (x<sub>2</sub> − x<sub>1</sub>) / (t<sub>2</sub> − t<sub>1</sub>) = (5 − 11) / (4.5 − 3.5) = <span class="ans">−6 m/s</span></span>. The minus sign says that the drone moves backward at E.</li>
+<li><i>Why this step:</i> the average velocity uses only the two ends of the span. <span class="f">v<sub>avg</sub> = (x(6) − x(0)) / 6 = (0 − 0) / 6 = 0 m/s</span>. The drone moved: it went up to 16 m and back, so it flew <span class="f">16 + 16 = <span class="ans">32 m</span></span>. A zero average velocity says only that it ended where it started.</li></ol>
+<p><b>Check your answer.</b> Use the method of Try it 5: the average velocity over the next 0.01 s after each moment. It gives A <span class="f">7.5 m/s</span>, B <span class="f">−4.5 m/s</span>, C <span class="f">−2.6 m/s</span>, D <span class="f">12.4 m/s</span> and E <span class="f">−6.0 m/s</span> (rounded to 0.1). The order D, A, C, B holds, and E agrees with the tangent.</p>
+<div class="trap">Trap: a flat tangent (v = 0) is not the same as a zero average velocity. The first is one moment; the second is a whole span.</div></details></div></div>
+<div data-b="vel-try5b"><div class="prob think lv"><div class="tag">TRY IT 5b · HARD · VELOCITY FROM A NOISY POSITION LOG</div>
+<p><b>Situation.</b> A flight computer logs the position of a drone 50 times per second, so two log entries are 0.02 s apart. Each logged position is wrong by at most <span class="f">σ = 0.02 m</span>. The drone speeds up with a constant acceleration <span class="f">a = 4 m/s²</span>. The computer estimates the velocity at the time t from two logged positions: <span class="f">v<sub>est</sub> = (x(t + Δt) − x(t)) / Δt</span>. It chooses Δt as a whole number of log steps: 1 step is 0.02 s, 7 steps are 0.14 s, 50 steps are 1.00 s. Figure 10, in the solution, draws the error against Δt.</p>
+<p><b>Questions.</b> (a) With perfect readings, by how much is v<sub>est</sub> wrong? (b) With readings that are off by at most σ, how large can the extra error be? (c) Add the two errors. Which number of steps gives the smallest bound, and how large is it? (d) Compare 1 step and 50 steps.</p>
+<p><b>Think first.</b></p>
+<ol><li>A very short Δt makes the division by Δt large. What does that do to a reading error?</li>
+<li>A very long Δt covers a stretch in which the velocity changes. What does that do to the estimate?</li>
+<li>One error falls and the other grows as Δt grows. What does that suggest for the best Δt?</li></ol>
+<details><summary>Hint</summary>For a constant a, write <span class="f">x(t) = x<sub>0</sub> + v<sub>0</sub>·t + ½·a·t²</span>, and subtract x(t) from x(t + Δt).</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> for (a), the difference of two perfect positions is a known expression. <span class="f">x(t + Δt) − x(t) = v<sub>0</sub>·Δt + ½·a·(2·t·Δt + Δt²) = (v<sub>0</sub> + a·t)·Δt + ½·a·Δt²</span>. The velocity at t is <span class="f">v = v<sub>0</sub> + a·t</span>, so dividing by Δt gives <span class="f">v<sub>est</sub> = v + ½·a·Δt</span>. The estimate is too large by exactly <span class="f">a·Δt / 2</span>. For Δt = 0.14 s this is <span class="f">4 × 0.14 / 2 = <span class="ans">0.28 m/s</span></span>.</li>
+<li><i>Why this step:</i> for (b), each reading is off by at most σ. In the worst case one reading is σ too high and the other σ too low, so the difference is off by at most 2σ. After the division by Δt, the extra error is at most <span class="f">2σ / Δt</span>. For Δt = 0.14 s this is <span class="f">2 × 0.02 / 0.14 = <span class="ans">0.286 m/s</span></span>.</li>
+<li><i>Why this step:</i> for (c), the worst case adds the two errors: <span class="f">E(Δt) = 2σ / Δt + a·Δt / 2</span>. One step: <span class="f">E = 2 × 0.02 / 0.02 + 4 × 0.02 / 2 = 2.00 + 0.04 = <span class="ans">2.04 m/s</span></span>. Fifty steps: <span class="f">E = 2 × 0.02 / 1.00 + 4 × 1.00 / 2 = 0.04 + 2.00 = <span class="ans">2.04 m/s</span></span>. Both ends of the range are bad, for opposite reasons.</li>
+<li><i>Why this step:</i> the sum of a falling term p/Δt and a growing term q·Δt is smallest where the two terms are equal. The reason is the square <span class="f">(√(p/Δt) − √(q·Δt))² ≥ 0</span>, which gives <span class="f">p/Δt + q·Δt ≥ 2·√(p·q)</span>, with equality when <span class="f">p/Δt = q·Δt</span>. Here <span class="f">p = 2σ = 0.04</span> and <span class="f">q = a/2 = 2</span>. Equal terms mean <span class="f">Δt² = 4σ / a = 4 × 0.02 / 4 = 0.02, so Δt = <span class="ans">0.141 s</span></span>. The smallest bound is <span class="f">2 × √(0.04 × 2) = 2 × √0.08 = <span class="ans">0.566 m/s</span></span>.</li>
+<li><i>Why this step:</i> the log allows only whole steps, and <span class="f">0.141 / 0.02 = 7.05</span>, so compare 6, 7 and 8 steps. Six steps: <span class="f">2 × 0.02 / 0.12 + 4 × 0.12 / 2 = 0.333 + 0.240 = 0.573 m/s</span>. Seven steps: <span class="f">2 × 0.02 / 0.14 + 4 × 0.14 / 2 = 0.286 + 0.280 = <span class="ans">0.566 m/s</span></span>. Eight steps: <span class="f">2 × 0.02 / 0.16 + 4 × 0.16 / 2 = 0.250 + 0.320 = 0.570 m/s</span>. The best choice is <span class="ans">7 steps</span>.</li></ol>
+<figure><svg id="l5b" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Error bound in meters per second against the time span between the two readings: a falling red curve for the reading error, a rising orange line for the bias, and the black sum with a minimum of 0.566 at 0.14 seconds"></svg>
+<figcaption>Figure 10. The error bound E(Δt) of Try it 5b. The red curve is the reading error 2σ/Δt, the orange line is the bias a·Δt/2, and the black curve is their sum. The sum is 2.04 m/s at 1 step (0.02 s) and at 50 steps (1.00 s), and 0.566 m/s at 7 steps (0.14 s).</figcaption></figure>
+<p><b>Check your answer.</b> At the best Δt the two terms are about equal: <span class="f">2 × 0.02 / 0.141 = 0.284 m/s</span> and <span class="f">4 × 0.141 / 2 = 0.282 m/s</span>. Seven steps cut the bound by <span class="f">2.04 / 0.566 = 3.6</span> times compared with one step. The bound is a worst case; a typical error is smaller.</p>
+<p><b>What if …</b> the computer uses the central difference <span class="f">(x(t + Δt) − x(t − Δt)) / (2·Δt)</span> instead?</p>
+<details><summary>Show the answer</summary>For a constant a, <span class="f">x(t + Δt) − x(t − Δt) = 2·v<sub>0</sub>·Δt + ½·a·4·t·Δt = 2·Δt·(v<sub>0</sub> + a·t)</span>, so the bias term vanishes and the estimate is exactly v. Only the reading error remains: the difference is off by at most 2σ, and the division is by 2·Δt, so the bound is <span class="f">σ / Δt</span>. For Δt = 0.14 s this is <span class="f">0.02 / 0.14 = <span class="ans">0.143 m/s</span></span>, and for Δt = 1.00 s it is <span class="f">0.02 / 1.00 = <span class="ans">0.020 m/s</span></span>. This holds only while a is constant. When a changes during the span, a bias returns.
+<p><b>Link to real flight software.</b> One real stack does not rely on differencing position readings alone. The PX4 documentation for its EKF2 filter [<a class="cite" href="../reference/references.html#ref-40">40</a>] says that GPS measurements are used for position and velocity, and its setting <code>EKF2_GPS_CTRL</code> lists "Lon/lat/alt/vel" as the outdoor default. That page does not say how the GPS receiver produces the velocity, so this exercise does not claim it.</p></details>
+</details></div></div>
+<div data-b="vel-try6"><div class="prob lv"><div class="tag">TRY IT 6 · MEDIUM · IS THE DRONE SLOWER THAN ITS SPEC SHEET?</div>
+<p>The spec sheet of a racing drone says: top speed 108 km/h. Two timing gates 45 m apart on a straight run clock the drone at 1.62 s between them. <b>Questions.</b> (a) What is 108 km/h in m/s? (b) Is the drone slower than the spec sheet says? (c) Could it still have flown at 108 km/h at some moment between the gates? (d) Could it have flown at 108 km/h all the way between the gates?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> compare numbers only in one unit. One km/h is 1000 m per 3600 s, so <span class="f">v[m/s] = v[km/h] / 3.6 = 108 / 3.6 = <span class="ans">30 m/s</span></span>.</li>
+<li><i>Why this step:</i> the gates measure an average over 45 m. <span class="f">v<sub>avg</sub> = Δx / Δt = 45 / 1.62 = <span class="ans">27.78 m/s</span></span>, which is <span class="f">27.78 × 3.6 = 100.0 km/h</span>. The average is below the top speed by <span class="f">(30 − 27.78) / 30 = 0.074</span>, that is 7.4 %. But a top speed and an average are different numbers. An average below the top speed does not show that the drone is slow.</li>
+<li><i>Why this step:</i> for (d), find the time that a steady 30 m/s needs for the 45 m. <span class="f">t = Δx / v = 45 / 30 = 1.50 s</span>. The clock says 1.62 s, which is <span class="f">1.62 − 1.50 = 0.12 s</span> longer. So the drone was <span class="ans">not</span> at 108 km/h all the way; it was slower for part of the time.</li>
+<li><i>Why this step:</i> for (c), build one possible flight. Suppose the drone flies at 30 m/s for 1.20 s and then slower. In 1.20 s it covers <span class="f">30 × 1.20 = 36 m</span>. Then 9 m are left (<span class="f">45 − 36 = 9 m</span>) for the time <span class="f">1.62 − 1.20 = 0.42 s</span>, which needs <span class="f">9 / 0.42 = 21.43 m/s</span>. This flight takes <span class="f">1.20 + 0.42 = 1.62 s</span> and covers <span class="f">36 + 9 = 45 m</span>, so it matches the gates. The answer to (c) is <span class="ans">yes</span>.</li></ol>
+<figure><svg id="l6" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Position against time for the 45 meter gate pair: a spec line reaching 45 meters at 1.5 seconds, the measured average line reaching 45 meters at 1.62 seconds, and a possible flight at 30 meters per second for 1.2 seconds and then slower"></svg>
+<figcaption>Figure 11. The gate pair of Try it 6. Purple dashed: a steady 30 m/s would reach gate B at 1.50 s. Green: the measured average, 27.78 m/s, reaches gate B at 1.62 s. Blue: one possible flight with 30 m/s for 1.20 s, then 21.43 m/s; it also arrives at 1.62 s.</figcaption></figure>
+<p><b>Check your answer.</b> The possible flight has the same average as the gates: <span class="f">45 / 1.62 = 27.78 m/s</span>. Many different flights share one average, so two gates cannot tell you the top speed. A shorter span gets closer to the speed at one moment, as the table of Figure 7 shows.</p></details></div></div>
+<div data-b="more-221"><p class="src"><b>More practice (links only; we did not read these pages).</b> OpenStax <i>University Physics Volume 1</i> [<a class="cite" href="../reference/references.html#ref-67">67</a>], chapter 3, sections 3.1 and 3.2 (position, displacement, average and instantaneous velocity), and MIT OpenCourseWare 8.01SC [<a class="cite" href="../reference/references.html#ref-68">68</a>], week 1, Problem Set 1: <a href="https://openstax.org/books/university-physics-volume-1/">openstax.org/books/university-physics-volume-1</a> · <a href="https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/pages/week-1-kinematics/problem-set-1/">ocw.mit.edu 8.01SC week 1 Problem Set 1</a>. None of the exercises above is adapted from them.</p></div>
+
+<div data-b="think-1"><div class="prob think"><div class="tag">THINK 1 · HARD · TWO LEGS, TWO SPEEDS</div>
+<p><b>Situation.</b> A drone flies 120 m from gate A to gate B along a straight line at a steady 8.0 m/s, because it films the gate. It turns around at B without losing any time. It then flies back to A at a steady 24.0 m/s. Figure 12 draws the position against the time.</p>
+<figure><svg id="t1" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Position against time: a line rising from 0 to 120 meters in 15 seconds and a steeper line falling back to 0 in 5 more seconds"></svg>
+<figcaption>Figure 12. The trip of Think 1. The drone climbs the position axis slowly in 15.0 s (slope 8.0 m/s) and returns fast in 5.0 s (slope −24.0 m/s). The whole trip lasts 20.0 s and ends where it began.</figcaption></figure>
+<p><b>Questions.</b> (a) How long does the whole trip take? (b) What is the average speed of the whole trip? (c) What is the average velocity of the whole trip? (d) Can the drone reach an average speed of 16.0 m/s with this outward leg, whatever its return speed?</p>
+<p><b>Think first.</b></p>
+<ol><li>The words "speed" and "velocity" both appear. Which of the two needs the distance, and which needs the displacement?</li>
+<li>Is the answer simply the mean of 8.0 and 24.0? What does that mean forget?</li>
+<li>Which leg takes more time, and what does that do to the average?</li></ol>
+<details><summary>Hint</summary>The average speed is the whole distance divided by the whole time. Find the time of each leg first.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> an average over a whole trip needs the whole time, so the time of each leg comes first. Out: <span class="f">t = d / v = 120 / 8.0 = <span class="ans">15.0 s</span></span>. Back: <span class="f">t = d / v = 120 / 24.0 = <span class="ans">5.0 s</span></span>.</li>
+<li><i>Why this step:</i> the total time is the sum of the two times. It is not an average of the two speeds. <span class="f">T = 15.0 + 5.0 = <span class="ans">20.0 s</span></span>.</li>
+<li><i>Why this step:</i> the average speed uses the distance, and the distance counts both legs: 120 m out and 120 m back. <span class="f">d / T = 240 / 20.0 = <span class="ans">12.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> the average velocity uses the displacement. The drone ends where it started, so the displacement is 0. <span class="f">Δx / T = 0 / 20.0 = <span class="ans">0 m/s</span></span>.</li>
+<li><i>Why this step:</i> for an average speed of 16.0 m/s, the time for 240 m would have to be <span class="f">240 / 16.0 = 15.0 s</span>. The outward leg alone already took 15.0 s. The time left for the return is <span class="f">15.0 − 15.0 = 0.0 s</span>. No finite speed covers 120 m in no time, so <span class="ans">the answer to (d) is no</span>.</li></ol>
+<p><b>Check your answer.</b> The average speed 12.0 m/s lies between 8.0 and 24.0, as it must. It is close to 8.0 because the drone spends <span class="f">15.0 / 20.0 = 75 %</span> of the time at 8.0 m/s. If both speeds were equal, the same steps would give that speed again.</p>
+<p><b>What if …</b> the outward speed were 12.0 m/s and the return speed still 24.0 m/s?</p>
+<details><summary>Show the answer</summary>The times are <span class="f">120 / 12.0 = 10.0 s</span> and 5.0 s, so <span class="f">T = 15.0 s</span> and the average speed is <span class="f">240 / 15.0 = <span class="ans">16.0 m/s</span></span>. The target of (d) is reached, and it is not the mean of the speeds (18.0 m/s).</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.3"><span class="no">2.2.3</span> Acceleration</h2>
+<div data-b="acc-explain"><p><b>Acceleration</b> <span class="f">a</span> tells how fast the velocity changes. The unit is meters per second squared (m/s²), which you can read as "meters per second, per second". The <b>average acceleration</b> over a time span is <span class="f">a<sub>avg</sub> = Δv / Δt</span>, where <span class="f">Δv = v<sub>2</sub> − v<sub>1</sub></span> is the change of velocity in m/s. The <b>instantaneous acceleration</b> is the slope of the graph of v against t, in the same way that the instantaneous velocity is the slope of the graph of x against t.</p>
+<p>The sign of a is easy to misread. A plus sign does not mean "speeding up", and a minus sign does not mean "slowing down". What matters is whether a and v have the same sign.</p>
+<p><b>How to read this table.</b> The table has four rows, one for each combination of the signs of v and a. Read a row from left to right: the sign of v, the sign of a, what the drone does, and a numeric example. It matters for flying because braking before a gate is an acceleration with the opposite sign of the velocity, and a log shows it as a negative a. Here is every symbol. <span class="f">v<sub>1</sub></span> is the velocity at the start of the span and <span class="f">v<sub>2</sub></span> the velocity at its end, both in m/s. <span class="f">Δt</span> is the length of the span in s. <span class="f">a = (v<sub>2</sub> − v<sub>1</sub>) / Δt</span> is the average acceleration in m/s²; a bigger velocity change in the same time gives a bigger a. "Speeds up" means that the speed |v| gets bigger; "slows down" means that it gets smaller. Figure 13 draws each row: the blue arrows are the velocity at the start and at the end of the span, and the orange arrow is the acceleration.</p>
+<table class="t"><tr><th>v</th><th>a</th><th>What the drone does</th><th>Example</th></tr>
+<tr><td>+ (forward)</td><td>+</td><td>speeds up, forward</td><td class="f">v: 2 → 6 m/s in 2 s: a = (6 − 2) / 2 = +2.0 m/s²</td></tr>
+<tr><td>+ (forward)</td><td>−</td><td>slows down: braking</td><td class="f">v: 10 → 4 m/s in 3 s: a = (4 − 10) / 3 = −2.0 m/s²</td></tr>
+<tr><td>− (backward)</td><td>−</td><td>speeds up, backward</td><td class="f">v: −2 → −6 m/s in 2 s: a = (−6 − (−2)) / 2 = −2.0 m/s²</td></tr>
+<tr><td>− (backward)</td><td>+</td><td>slows down, backward</td><td class="f">v: −6 → −2 m/s in 2 s: a = (−2 − (−6)) / 2 = +2.0 m/s²</td></tr></table>
+<figure><svg id="f4" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Four panels. Each shows the velocity arrow at the start and at the end of a time span and the acceleration arrow: forward and faster, forward and slower, backward and faster, backward and slower"></svg>
+<figcaption>Figure 13. One panel per row of the table (the arrows are to scale: every velocity arrow has the same length per m/s, and every acceleration arrow the same length per m/s², in all four panels; a 2 m/s arrow is so short that it shows as an arrowhead only). When the long velocity arrow at the end points the same way as at the start and is longer, the drone speeds up; when it is shorter, the drone slows down. The acceleration arrow has the direction of the change of the velocity: the end velocity minus the start velocity.</figcaption></figure>
+<p><b>Watch out.</b> Acceleration zero does not mean velocity zero. A drone in steady cruise at 20 m/s has a = 0. And velocity zero does not mean acceleration zero: at the top of a throw upward, v = 0 for an instant while a is still pointing down (page 2.2b, section 2.2.9).</p>
+<p class="src">Source for the definition of acceleration: NASA Glenn, <i>Flight Equations with Drag</i> [<a class="cite" href="../reference/references.html#ref-21">21</a>], which defines the acceleration as the time rate of change of velocity, a = dv/dt (<a href="https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/">www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag</a>); MIT 16.00, <i>Theory of Flight</i> [<a class="cite" href="../reference/references.html#ref-24">24</a>], the thrust section of <i>flight.html</i>, "Acceleration is the rate of change of velocity over time" (<a href="https://web.mit.edu/16.00/www/aec/flight.html">web.mit.edu/16.00/www/aec/flight.html</a>). Both pages only define acceleration; the rest of this section is standard kinematics.</p></div>
+<div data-b="acc-try7"><div class="prob"><div class="tag">TRY IT 7 · SPEEDING UP</div>
+A drone goes from rest to 25 m/s in 4.0 s. Find its average acceleration.
+<details><summary>Show solution</summary><span class="f">a = Δv / Δt = (v<sub>2</sub> − v<sub>1</sub>) / Δt = (25 − 0) / 4.0 = <span class="ans">6.25 m/s²</span></span>.</details></div></div>
+<div data-b="acc-try8"><div class="prob"><div class="tag">TRY IT 8 · BRAKING</div>
+A drone slows from 20 m/s to rest in 5 s. Find its average acceleration and say what the sign means.
+<details><summary>Show solution</summary><span class="f">a = Δv / Δt = (0 − 20) / 5 = <span class="ans">−4.0 m/s²</span></span>. The minus sign shows that the acceleration points against the velocity: the drone slows down.</details></div></div>
+<div data-b="acc-try9"><div class="prob"><div class="tag">TRY IT 9 · THINK FIRST</div>
+A drone moves backward with <span class="f">v = −3 m/s</span> and has <span class="f">a = +1 m/s²</span>. Does it speed up or slow down? What is its velocity 2 s later?
+<details><summary>Show solution</summary><ol><li>v is − and a is +, so they have opposite signs: the drone <b>slows down</b> (row 4 of the table).</li><li><span class="f">v = v<sub>1</sub> + a·Δt = −3 + 1 × 2 = <span class="ans">−1 m/s</span></span>: still backward, but slower.</li></ol></details></div></div>
+
+<h2 class="sub" id="s2.2.4"><span class="no">2.2.4</span> Reading the graphs: slope and area</h2>
+<div data-b="graph-explain"><p>The three quantities are connected in two directions. Going from position to acceleration you take the <b>slope</b> two times. Going from acceleration back to position you take the <b>area under the curve</b> two times. The area is counted + above the horizontal axis and − below it.</p>
+<p>The example for this section: a drone starts at rest at x = 0 and has the constant acceleration <span class="f">a = 2 m/s²</span> for 5 s.</p>
+<p><b>How to read this table.</b> The table has four rows, one for each reading of a graph. Read a row from left to right: the graph, what you take from it, the formula, and the numbers of the example. It matters for flying because a flight log gives you one of these three graphs, and the other two follow from it. Here is every symbol. <span class="f">x(t)</span> is the position at the clock reading t, in m. <span class="f">v(t)</span> is the velocity, in m/s, and <span class="f">a(t)</span> the acceleration, in m/s². <span class="f">Δx</span> is the displacement and <span class="f">Δv</span> the change of velocity over the span, both measured from t = 0 to t = 5 s. A <b>slope</b> is "rise divided by run": the change of the up-down value divided by the change of the left-right value. An <b>area</b> under a curve is the size of the region between the curve and the horizontal axis. The last column checks the unit: a slope of x(t) is m divided by s, which is m/s; an area under a(t) is m/s² times s, which is m/s. Figure 14 draws the four rows in four panels, with the slope triangles and the shaded areas.</p>
+<table class="t"><tr><th>Graph</th><th>Take from it</th><th>Formula</th><th>Numbers (a = 2 m/s², 5 s)</th><th>Unit check</th></tr>
+<tr><td>x(t)</td><td><b>slope</b> = velocity</td><td class="f">v = Δx / Δt (for a very short Δt)</td><td class="f">slope of the tangent at t = 5 s: v = 10 m/s</td><td>m / s = m/s</td></tr>
+<tr><td>v(t)</td><td><b>slope</b> = acceleration</td><td class="f">a = Δv / Δt</td><td class="f">a = (10 − 0) / 5 = 2 m/s²</td><td>(m/s) / s = m/s²</td></tr>
+<tr><td>a(t)</td><td><b>area</b> = change of velocity</td><td class="f">Δv = area under a(t)</td><td class="f">Δv = 2 × 5 = 10 m/s</td><td>m/s² × s = m/s</td></tr>
+<tr><td>v(t)</td><td><b>area</b> = displacement</td><td class="f">Δx = area under v(t)</td><td class="f">Δx = ½ × 5 × 10 = 25 m</td><td>m/s × s = m</td></tr></table>
+<figure><svg id="f5" viewBox="0 0 860 300" width="100%" style="max-width:860px" role="img" aria-label="Four graphs of the same 5 second motion: position against time with a tangent of slope 10; velocity against time with a slope triangle; acceleration against time with a shaded rectangle; velocity against time with a shaded triangle"></svg>
+<figcaption>Figure 14. The four rows of the table, in the same order from left to right, for one motion (a = 2 m/s² for 5 s from rest). Panel 1: the curve x(t) and its tangent at t = 5 s; the tangent rises 10 m/s each second. Panel 2: the line v(t); the slope triangle has a rise of 10 m/s and a run of 5 s. Panel 3: the flat line a(t); the shaded rectangle is 2 m/s² high and 5 s wide, so its area is 10 m/s. Panel 4: the line v(t) again; the shaded triangle is the displacement, 25 m.</figcaption></figure></div>
+<div data-b="graph-try10"><div class="prob"><div class="tag">TRY IT 10 · SLOPE AND AREA</div>
+A drone's velocity rises in a straight line from 0 to 12 m/s in 4 s, then stays at 12 m/s for 5 s. Find (a) the acceleration in the first part, (b) the distance in the first part, (c) the distance in the second part, (d) the total distance.
+<details><summary>Show solution</summary><ol type="a"><li><span class="f">a = Δv / Δt = (12 − 0) / 4 = <span class="ans">3.0 m/s²</span></span> (the slope of the first part).</li><li>The area under v(t) is a triangle: <span class="f">Δx<sub>1</sub> = ½ × base × height = ½ × 4 × 12 = <span class="ans">24 m</span></span>.</li><li>The area is a rectangle: <span class="f">Δx<sub>2</sub> = v·Δt = 12 × 5 = <span class="ans">60 m</span></span>.</li><li><span class="f">Δx = Δx<sub>1</sub> + Δx<sub>2</sub> = 24 + 60 = <span class="ans">84 m</span></span>.</li></ol></details></div></div>
+<div data-b="graph-try11"><div class="prob"><div class="tag">TRY IT 11 · AREA UNDER A(T) WITH TWO PARTS</div>
+A drone starts with <span class="f">v<sub>0</sub> = 5 m/s</span>. Its acceleration is +3 m/s² for 2 s, then −1 m/s² for 4 s. Find its velocity after 2 s and after 6 s.
+<details><summary>Show solution</summary><ol><li>Area of the first rectangle: <span class="f">Δv<sub>1</sub> = a·Δt = 3 × 2 = +6 m/s</span>, so <span class="f">v = v<sub>0</sub> + Δv<sub>1</sub> = 5 + 6 = <span class="ans">11 m/s</span></span>.</li><li>Area of the second rectangle: <span class="f">Δv<sub>2</sub> = a·Δt = −1 × 4 = −4 m/s</span>, so <span class="f">v = 11 + (−4) = <span class="ans">7 m/s</span></span>.</li></ol></details></div></div>
+
+<h2 class="sub" id="s2.2.5"><span class="no">2.2.5</span> Four equations for constant acceleration</h2>
+<div data-b="eq-explain"><p>When the acceleration does not change, the graphs of section 2.2.4 are simple shapes, and you can write the answer as a formula. We use these letters: <span class="f">t</span> is the time since the start, in s. <span class="f">a</span> is the constant acceleration, in m/s². <span class="f">v<sub>0</sub></span> is the velocity at the start (t = 0), in m/s. <span class="f">v</span> is the velocity at the time t, in m/s. <span class="f">x<sub>0</sub></span> is the position at the start, in m. <span class="f">x</span> is the position at the time t, in m. So <span class="f">x − x<sub>0</sub></span> is the displacement in the time t.</p>
+<p><b>Where the equations come from.</b> Use the graph of v against t. With constant a, it is a straight line that starts at v<sub>0</sub> and rises (or falls) by a each second.</p>
+<ol><li><b>Equation 1 (the slope).</b> The slope of the line is a, so after the time t the velocity changed by <span class="f">a·t</span>: <span class="f">v = v<sub>0</sub> + a·t</span>.</li>
+<li><b>Equation 4 (the area as a trapezoid).</b> The displacement is the area under the line from 0 to t. That region is a trapezoid with the parallel sides v<sub>0</sub> and v, and the width t. Its area is the average of the two heights times the width: <span class="f">x = x<sub>0</sub> + ½·(v<sub>0</sub> + v)·t</span>.</li>
+<li><b>Equation 2 (the area as a rectangle plus a triangle).</b> Cut the same region into a rectangle of height v<sub>0</sub> and a triangle on top of it. The rectangle has the area <span class="f">v<sub>0</sub>·t</span>. The triangle has the height <span class="f">v − v<sub>0</sub> = a·t</span> and the width t, so its area is <span class="f">½·a·t²</span>. Together: <span class="f">x = x<sub>0</sub> + v<sub>0</sub>·t + ½·a·t²</span>.</li>
+<li><b>Equation 3 (no time).</b> Solve equation 1 for the time, <span class="f">t = (v − v<sub>0</sub>) / a</span>, and put it into equation 4: <span class="f">x − x<sub>0</sub> = ½·(v<sub>0</sub> + v)·(v − v<sub>0</sub>) / a = (v² − v<sub>0</sub>²) / (2a)</span>. Moving the 2a to the other side gives <span class="f">v² = v<sub>0</sub>² + 2·a·(x − x<sub>0</sub>)</span>.</li></ol>
+<p><b>How to read this table.</b> The table has four rows, one for each equation. Read a row from left to right: the equation, the letter that is missing from it, when to use it, and the numbers of one example. It matters for flying because every straight run, climb or braking of a drone with a steady acceleration is one of these four. Here is every symbol again. <span class="f">v₀</span>, <span class="f">v</span>, <span class="f">a</span>, <span class="f">t</span> and <span class="f">x − x₀</span> are the five letters defined above. "Missing" means that the equation does not contain that letter, so you can use it when you do not know that letter and do not need it. The example for all four rows is the same motion: <span class="f">v₀ = 4 m/s</span>, <span class="f">a = 2 m/s²</span>, <span class="f">t = 3 s</span>. Figure 15 draws the four rows in four panels on the same graph of v against t.</p>
+<table class="t"><tr><th>#</th><th>Equation</th><th>Missing letter</th><th>Use it when…</th><th>Example (v₀ = 4, a = 2, t = 3)</th></tr>
+<tr><td>1</td><td class="f">v = v₀ + a·t</td><td>x − x₀</td><td>you want the velocity after a time</td><td class="f">v = 4 + 2 × 3 = 10 m/s</td></tr>
+<tr><td>2</td><td class="f">x = x₀ + v₀·t + ½·a·t²</td><td>v</td><td>you want the position after a time</td><td class="f">x − x₀ = 4 × 3 + ½ × 2 × 3² = 12 + 9 = 21 m</td></tr>
+<tr><td>3</td><td class="f">v² = v₀² + 2·a·(x − x₀)</td><td>t</td><td>you know a distance, not a time</td><td class="f">v² = 4² + 2 × 2 × 21 = 16 + 84 = 100, so v = 10 m/s</td></tr>
+<tr><td>4</td><td class="f">x = x₀ + ½·(v₀ + v)·t</td><td>a</td><td>you know both velocities</td><td class="f">x − x₀ = ½ × (4 + 10) × 3 = 21 m</td></tr></table>
+<figure><svg id="f6" viewBox="0 0 860 262" width="100%" style="max-width:860px" role="img" aria-label="Four panels on the graph of velocity against time from 4 to 10 meters per second in 3 seconds: the rise a times t; the rectangle plus triangle; the square of the velocity split in two parts; the trapezoid with its average height"></svg>
+<figcaption>Figure 15. The four equations on the graph v(t) of the example (v<sub>0</sub> = 4 m/s, a = 2 m/s², t = 3 s). Panel 1: the line rises by a·t = 6 m/s, from 4 to 10 m/s. Panel 2: the area splits into a rectangle (12 m) and a triangle (9 m), which together are 21 m. Panel 3: v² = 100 is the sum of v₀² = 16 and 2·a·(x − x₀) = 84 (bars, not to the scale of panels 1, 2 and 4). Panel 4: the trapezoid with the average height ½·(v₀ + v) = 7 m/s over 3 s is the same 21 m.</figcaption></figure>
+<p><b>How to choose.</b> Follow four steps. (1) Write the five letters v₀, v, a, t and x − x₀, and mark which two or three you know. (2) Mark the one you want. (3) Find the letter that is neither known nor wanted. (4) Pick the equation that has that letter missing. A common mistake is to pick an equation that contains an unknown letter that you have not found yet.</p>
+<p><b>Watch out: signs and units.</b> Pick the plus direction first, and give every v₀, v and a the sign that goes with it. A braking drone that flies in the plus direction has a negative a. Use meters and seconds in every equation: convert km/h before you start (Try it 6).</p></div>
+<div data-b="eq-try12"><div class="prob"><div class="tag">TRY IT 12 · EQUATION 1</div>
+A drone starts at rest and accelerates at 4.0 m/s² for 2.5 s. Find its velocity.
+<details><summary>Show solution</summary><span class="f">v = v₀ + a·t = 0 + 4.0 × 2.5 = <span class="ans">10.0 m/s</span></span>.</details></div></div>
+<div data-b="eq-try13"><div class="prob"><div class="tag">TRY IT 13 · EQUATION 2</div>
+A drone starts at rest and accelerates at 5.0 m/s² for 3.0 s. How far does it go?
+<details><summary>Show solution</summary><span class="f">x − x₀ = v₀·t + ½·a·t² = 0 × 3.0 + ½ × 5.0 × 3.0² = 0 + 22.5 = <span class="ans">22.5 m</span></span>.</details></div></div>
+<div data-b="eq-try14"><div class="prob"><div class="tag">TRY IT 14 · EQUATION 3</div>
+A drone flies at 6 m/s and accelerates at 6 m/s² to 24 m/s. How far does it need? Check the answer with equation 4 and the time from equation 1.
+<details><summary>Show solution</summary><ol><li>The time is not known and not wanted, so use equation 3: <span class="f">x − x₀ = (v² − v₀²) / (2·a) = (24² − 6²) / (2 × 6) = (576 − 36) / 12 = <span class="ans">45.0 m</span></span>.</li><li>Check: equation 1 gives <span class="f">t = (v − v₀) / a = (24 − 6) / 6 = 3.0 s</span>. Equation 4 gives <span class="f">x − x₀ = ½·(v₀ + v)·t = ½ × (6 + 24) × 3.0 = <span class="ans">45.0 m</span></span>. The two answers agree.</li></ol></details></div></div>
+<div data-b="eq-try15"><div class="prob"><div class="tag">TRY IT 15 · WHICH EQUATION?</div>
+A drone starts at rest at gate A and passes gate B, 30 m away, after 4 s. Assume a constant acceleration. Find a and the velocity at gate B.
+<details><summary>Show solution</summary><ol><li>Known: v₀ = 0, t = 4 s, x − x₀ = 30 m. Wanted: a and v. Equation 2 has no v: <span class="f">x − x₀ = ½·a·t²</span>, so <span class="f">a = 2·(x − x₀) / t² = 2 × 30 / 4² = 60 / 16 = <span class="ans">3.75 m/s²</span></span>.</li><li>Equation 1: <span class="f">v = v₀ + a·t = 0 + 3.75 × 4 = <span class="ans">15 m/s</span></span>.</li><li>Check with equation 4: <span class="f">x − x₀ = ½·(v₀ + v)·t = ½ × (0 + 15) × 4 = 30 m</span>, as given.</li></ol></details></div></div>
+<div data-b="eq-wrong"><h3 class="sub3">When the equations are wrong: the acceleration changes</h3>
+<p>The four equations hold only when a is constant for the whole time. If a changes, the graph of v is not a straight line, and the trapezoid and triangle shapes are wrong. The safe method for that case is to cut the flight into short parts, each with its own constant a, and to use the equations on each part (Try it 10 and 11 did this with the areas).</p>
+<p>Example: a drone starts at rest, and its acceleration grows steadily from 0 to 4 m/s² in 4 s, so <span class="f">a(t) = 1 m/s³ × t</span> (the factor has the unit m/s³ so that a is in m/s²). Three ways to guess the motion after 4 s are in the table.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each way to compute the velocity v and the position x after 4 s. Read a row from left to right: the method, its velocity and its position. It matters for flying because a motor that ramps up its thrust, or a simulator that changes the throttle, gives an acceleration that is not constant, and a wrong choice here gives a wrong lap time. Here is every symbol. <span class="f">a<sub>last</sub> = 4 m/s²</span> is the acceleration at the end of the 4 s. <span class="f">a<sub>mean</sub> = ½ × (0 + 4) = 2 m/s²</span> is the average of the acceleration over the 4 s; it is smaller than a<sub>last</sub> because the acceleration was small at the start. <span class="f">v</span> is the velocity after 4 s in m/s and <span class="f">x</span> the position after 4 s in m (x₀ = 0, v₀ = 0). In the first row, the true velocity is the area of the triangle under a(t): <span class="f">½ × 4 × 4 = 8 m/s</span>. The true position is the area under the true v(t), which is a curve; calculus gives <span class="f">x = t³ / 6 = 64 / 6 = 10.67 m</span> (you do not need the calculus here; the point is that the two other rows are far away). Figure 16 draws the three rows.</p>
+<table class="t"><tr><th>Method</th><th>v after 4 s</th><th>x after 4 s</th></tr>
+<tr><td><b>true</b> (areas under the real a(t) and v(t))</td><td class="f">v = ½ × 4 × 4 = 8 m/s</td><td class="f">x = 64 / 6 = 10.67 m</td></tr>
+<tr><td>equations with <b>a<sub>last</sub> = 4 m/s²</b></td><td class="f">v = a·t = 4 × 4 = 16 m/s</td><td class="f">x = ½·a·t² = ½ × 4 × 4² = 32 m</td></tr>
+<tr><td>equations with <b>a<sub>mean</sub> = 2 m/s²</b></td><td class="f">v = a·t = 2 × 4 = 8 m/s</td><td class="f">x = ½·a·t² = ½ × 2 × 4² = 16 m</td></tr></table>
+<figure><svg id="f7" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Left: the acceleration ramp from 0 to 4 with two flat lines at 4 and at 2. Right: the true velocity curve ending at 8, the line ending at 16 for the last acceleration, and the line ending at 8 for the mean acceleration"></svg>
+<figcaption>Figure 16. Left: the real acceleration (a ramp) and the two constant values of the table, a<sub>last</sub> = 4 and a<sub>mean</sub> = 2. Right: the velocity each row gives. Row 1 is the black curve and ends at 8 m/s. Row 2 is the red line and ends at 16 m/s, twice too much. Row 3 is the blue line and ends at exactly 8 m/s, because the mean acceleration has the same area as the ramp; but its curve lies far from the true curve in between, so its position (16 m) is wrong by 50 %.</figcaption></figure></div>
+<div data-b="eq-try16"><div class="prob"><div class="tag">TRY IT 16 · IS THE ACCELERATION CONSTANT?</div>
+For each case, say whether the four equations may be used on the whole span: (a) a drone brakes with the motors at a steady setting; (b) a drone is lifted by the throttle while the throttle is turned up smoothly from 0.5 to 0.8; (c) a drone flies a steady cruise.
+<details><summary>Show solution</summary><ol type="a"><li><b>Yes</b>, if the braking acceleration is constant: the equations apply, with a negative.</li><li><b>No.</b> The thrust changes during the span, so a changes. Cut the span into short parts or use the area method.</li><li><b>Yes.</b> The acceleration is zero, which is a constant: equation 2 becomes <span class="f">x − x₀ = v₀·t</span>.</li></ol></details></div></div>
+<div data-b="eq-try17"><div class="prob"><div class="tag">TRY IT 17 · A RAMP, STEP BY STEP</div>
+Use the ramp <span class="f">a(t) = 1 m/s³ × t</span> from the table. Find the velocity after 4 s by cutting the span into four parts of 1 s. In each part use the constant acceleration at the <b>middle</b> of the part (0.5, 1.5, 2.5 and 3.5 m/s²).
+<details><summary>Show solution</summary><ol><li>Each part: <span class="f">Δv = a·Δt</span> with Δt = 1 s: <span class="f">0.5 × 1 = 0.5</span>, <span class="f">1.5 × 1 = 1.5</span>, <span class="f">2.5 × 1 = 2.5</span>, <span class="f">3.5 × 1 = 3.5</span> m/s.</li><li><span class="f">v = 0.5 + 1.5 + 2.5 + 3.5 = <span class="ans">8.0 m/s</span></span>, which equals the true value of the table. With the middle value of each short part, the error is small; shorter parts make it smaller (section 2.2.11).</li></ol></details></div></div>
+
+<div data-b="think-2"><div class="prob think"><div class="tag">THINK 2 · THE THIRD SECOND</div>
+<p><b>Situation.</b> A drone starts from rest at a launch line and speeds up with a constant acceleration. A camera on the ground sees that the drone covers 10.0 m during its third second, that is, between t = 2.0 s and t = 3.0 s. Nobody recorded the acceleration. Figure 17 draws the speed against the time with the first three seconds as strips.</p>
+<figure><svg id="t2" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Speed against time for a drone speeding up from rest: a straight rising line, with the area under it cut into the strips of the first, second and third second"></svg>
+<figcaption>Figure 17. The speed v(t) of Think 2 (a straight line from rest). The area of each one-second strip is the distance of that second: 2.0 m, 6.0 m and 10.0 m. The camera measured the third strip. The dot marks the speed in the middle of that strip, at t = 2.5 s.</figcaption></figure>
+<p><b>Questions.</b> (a) What is the acceleration? (b) How far has the drone flown after 3.0 s, and how fast is it then? (c) How far does it fly in the first second and in the second second?</p>
+<p><b>Think first.</b></p>
+<ol><li>The distance of one second is the difference of two positions. Which equation of 2.2.5 gives a position when you know the start speed and the time?</li>
+<li>Which letter appears in that difference, and which letters are known?</li>
+<li>On a straight speed line, what is the average speed of one strip?</li></ol>
+<details><summary>Hint</summary>Write x(3) − x(2) with equation 2, with v₀ = 0. The acceleration appears once, so you can solve for it.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the camera gives a difference of two positions, so write both positions with equation 2 and v₀ = 0. <span class="f">Δx = ½·a·3² − ½·a·2² = ½·a·(9 − 4) = 2.5·a</span>.</li>
+<li><i>Why this step:</i> the camera also gives the number for Δx, so the acceleration is the only unknown. <span class="f">2.5·a = 10.0</span>, so <span class="f">a = 10.0 / 2.5 = <span class="ans">4.0 m/s²</span></span>.</li>
+<li><i>Why this step:</i> with a known, the position and the speed at t = 3.0 s follow from equations 2 and 1. <span class="f">x = ½ × 4.0 × 3² = <span class="ans">18.0 m</span></span> and <span class="f">v = a·t = 4.0 × 3.0 = <span class="ans">12.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> the distance of each second is again a difference of two positions. First second: <span class="f">½ × 4.0 × 1² = <span class="ans">2.0 m</span></span>. Second second: <span class="f">½ × 4.0 × (2² − 1²) = <span class="ans">6.0 m</span></span>. Third second: <span class="f">½ × 4.0 × (3² − 2²) = 10.0 m</span>, which agrees with the camera.</li></ol>
+<p><b>Check your answer.</b> A second method: on a straight speed line, the average speed of a strip equals the speed in the middle of the strip. The middle of the third second is t = 2.5 s, so <span class="f">4.0 × 2.5 × 1.0 = 10.0 m</span>. The three distances also add up: <span class="f">2.0 + 6.0 + 10.0 = 18.0 m</span>. They grow like 1 : 3 : 5.</p>
+<p><b>What if …</b> the drone had already a speed v₀ = 5.0 m/s at t = 0 and still covered 10.0 m in the third second?</p>
+<details><summary>Show the answer</summary>Now <span class="f">Δx = v₀·1 + 2.5·a = 10.0</span>, so <span class="f">a = (10.0 − 5.0) / 2.5 = <span class="ans">2.0 m/s²</span></span>. A drone that starts faster needs less acceleration to cover the same third second.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.2.6"><span class="no">2.2.6</span> A straight run between two gates</h2>
+<div data-b="run-explain"><p>A racing drone runs between gate A and gate B, 100 m apart on a straight line. It flies in three phases: it accelerates, it cruises at a steady speed, and it brakes so that it passes gate B slowly enough for the next turn. The numbers are chosen for practice; they are not measured values of a real drone. (How a drone makes an acceleration by tilting is on page 2.1b, section 2.1.10.)</p>
+<p>Phase 1: the drone passes gate A at <span class="f">6.0 m/s</span> and accelerates at <span class="f">a = +6.0 m/s²</span> until it reaches <span class="f">24.0 m/s</span>. Phase 3: it brakes at <span class="f">a = −8.0 m/s²</span> until it reaches <span class="f">8.0 m/s</span> at gate B. Phase 2: it cruises at 24.0 m/s in between. The cruise distance is what is left of the 100 m.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each phase, and a last row for the sum. Read a row from left to right: the acceleration, the velocity at the start and at the end of the phase, the time, and the distance. It matters for flying because a lap time is the sum of such phases, and the distance of the three phases must add up to the distance between the gates. Here is every symbol. <span class="f">a</span> is the acceleration in m/s². <span class="f">v₀</span> and <span class="f">v</span> are the velocity at the start and at the end of the phase, in m/s. <span class="f">t</span> is the time of the phase in s; a longer phase has a bigger t. <span class="f">Δx</span> is the distance flown in the phase, in m. Phase 1 uses equation 1 for the time and equation 4 for the distance; phase 3 does the same. Phase 2 has a = 0, so its distance is what remains, <span class="f">100 − 45.0 − 32.0 = 23.0 m</span>, and its time is that distance divided by the speed, <span class="f">t = Δx / v</span>. <span class="f">t<sub>total</sub></span> is the sum of the three times. <span class="f">v<sub>avg</sub> = Δx<sub>total</sub> / t<sub>total</sub></span> is the average velocity of the whole run. Figure 18 draws x(t), v(t) and a(t) of the run, with the three phases coloured.</p>
+<table class="t"><tr><th>Phase</th><th>a (m/s²)</th><th>v₀ → v (m/s)</th><th>t (s)</th><th>Δx (m)</th></tr>
+<tr><td>1 accelerate</td><td class="f">+6.0</td><td class="f">6.0 → 24.0</td><td class="f">t = (v − v₀) / a = (24.0 − 6.0) / 6.0 = 3.0</td><td class="f">½ × (6.0 + 24.0) × 3.0 = 45.0</td></tr>
+<tr><td>2 cruise</td><td class="f">0</td><td class="f">24.0 → 24.0</td><td class="f">t = Δx / v = 23.0 / 24.0 = 0.958</td><td class="f">100 − 45.0 − 32.0 = 23.0</td></tr>
+<tr><td>3 brake</td><td class="f">−8.0</td><td class="f">24.0 → 8.0</td><td class="f">t = (8.0 − 24.0) / (−8.0) = 2.0</td><td class="f">½ × (24.0 + 8.0) × 2.0 = 32.0</td></tr>
+<tr><td><b>whole run</b></td><td colspan="2">v<sub>avg</sub> = 100 / 5.958 = 16.78 m/s</td><td class="f">t<sub>total</sub> = 3.0 + 0.958 + 2.0 = 5.958</td><td class="f">45.0 + 23.0 + 32.0 = 100.0</td></tr></table>
+<figure><svg id="f8" viewBox="0 0 860 560" width="100%" style="max-width:860px" role="img" aria-label="Three stacked graphs of the straight run against time: position rising from 0 to 100 meters, velocity rising to 24 then flat then falling to 8, acceleration plus 6 then 0 then minus 8, with three coloured phases"></svg>
+<figcaption>Figure 18. The three rows of the table and the whole run, as graphs against time. Top: position x(t) with 0 at gate A and 100 m at gate B; the slope is steepest in the cruise. Middle: velocity v(t); the areas of the three coloured parts are 45.0, 23.0 and 32.0 m. Bottom: acceleration a(t), +6.0, 0 and −8.0 m/s². The vertical dotted lines mark the end of phases 1 and 2.</figcaption></figure></div>
+<div data-b="brake-explain"><h3 class="sub3">Braking distance</h3>
+<p>The most useful special case of equation 3 is braking to a stop. The final velocity is v = 0, so <span class="f">0 = v₀² + 2·a·(x − x₀)</span>, and with a negative a the stopping distance is <span class="f">d<sub>stop</sub> = v₀² / (2·|a|)</span>. The stopping time follows from equation 1: <span class="f">t<sub>stop</sub> = v₀ / |a|</span>. Here <span class="f">|a|</span> is the size of the braking acceleration (no sign), in m/s²; a stronger brake means a bigger |a| and a shorter distance.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each starting speed. Read a row from left to right: the starting speed v₀, the stopping time, and the stopping distance. The braking acceleration is the same in all rows, <span class="f">|a| = 8.0 m/s²</span>. It matters for flying because the distance grows with the square of the speed: you cannot judge a stop from the speed alone. Here is every symbol. <span class="f">v₀</span> is the speed when braking starts, in m/s. <span class="f">t<sub>stop</sub> = v₀ / |a|</span> is the time to stop, in s. <span class="f">d<sub>stop</sub> = v₀² / (2·|a|)</span> is the distance to stop, in m. Figure 19 draws each row as a falling line v(t); the area under the line is the stopping distance.</p>
+<table class="t"><tr><th>v₀ (m/s)</th><th>t<sub>stop</sub> = v₀ / |a| (s)</th><th>d<sub>stop</sub> = v₀² / (2·|a|) (m)</th></tr>
+<tr><td class="f">12</td><td class="f">12 / 8.0 = 1.5</td><td class="f">12² / (2 × 8.0) = 144 / 16 = 9.0</td></tr>
+<tr><td class="f">24</td><td class="f">24 / 8.0 = 3.0</td><td class="f">24² / (2 × 8.0) = 576 / 16 = 36.0</td></tr>
+<tr><td class="f">36</td><td class="f">36 / 8.0 = 4.5</td><td class="f">36² / (2 × 8.0) = 1296 / 16 = 81.0</td></tr></table>
+<figure><svg id="f9" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Three falling lines of velocity against time from 12, 24 and 36 meters per second to zero at 1.5, 3.0 and 4.5 seconds; the areas under them are 9, 36 and 81 meters"></svg>
+<figcaption>Figure 19. The three rows of the table. Each line falls from v₀ to 0 with the slope −8.0 m/s². The shaded triangle under a line is the stopping distance: 9.0, 36.0 and 81.0 m. Double the speed (12 to 24) and the triangle is twice as wide and twice as high, so its area is four times as big (9.0 to 36.0).</figcaption></figure>
+<p><b>Watch out.</b> Equation 3 can give a negative v². Then the drone stops before it reaches the place. Try it 21 shows how to read that.</p></div>
+<div data-b="run-try18"><div class="prob"><div class="tag">TRY IT 18 · BRAKING DISTANCE</div>
+A drone flies at 30 m/s and brakes at 10 m/s² to a stop. Find the stopping distance and the stopping time.
+<details><summary>Show solution</summary><ol><li><span class="f">d<sub>stop</sub> = v₀² / (2·|a|) = 30² / (2 × 10) = 900 / 20 = <span class="ans">45 m</span></span>.</li><li><span class="f">t<sub>stop</sub> = v₀ / |a| = 30 / 10 = <span class="ans">3.0 s</span></span>.</li></ol></details></div></div>
+<div data-b="run-try19"><div class="prob"><div class="tag">TRY IT 19 · BRAKING BEFORE A GATE</div>
+A drone flies at 24 m/s. It must pass a gate 40 m ahead at 8 m/s. What constant acceleration does it need, and how long does it take?
+<details><summary>Show solution</summary><ol><li>The time is not known and not wanted, so use equation 3 solved for a: <span class="f">a = (v² − v₀²) / (2·(x − x₀)) = (8² − 24²) / (2 × 40) = (64 − 576) / 80 = <span class="ans">−6.4 m/s²</span></span>.</li><li><span class="f">t = (v − v₀) / a = (8 − 24) / (−6.4) = <span class="ans">2.5 s</span></span>.</li><li>Check with equation 4: <span class="f">x − x₀ = ½·(v₀ + v)·t = ½ × (24 + 8) × 2.5 = 40 m</span>.</li></ol></details></div></div>
+<div data-b="run-try20"><div class="prob"><div class="tag">TRY IT 20 · TIME TO REACH A GATE</div>
+A drone starts at rest and accelerates at 5.0 m/s². How long does it need to reach a gate 40 m ahead, and how fast is it then?
+<details><summary>Show solution</summary><ol><li>Equation 2 with v₀ = 0: <span class="f">x − x₀ = ½·a·t²</span>, so <span class="f">t = √( 2·(x − x₀) / a ) = √( 2 × 40 / 5.0 ) = √16 = <span class="ans">4.0 s</span></span>.</li><li><span class="f">v = v₀ + a·t = 0 + 5.0 × 4.0 = <span class="ans">20 m/s</span></span>.</li></ol></details></div></div>
+<div data-b="run-try21"><div class="prob"><div class="tag">TRY IT 21 · THE DRONE STOPS FIRST</div>
+A drone flies at 20 m/s toward a gate 30 m ahead. Its strongest brake is 8.0 m/s². Does it pass the gate? What does equation 3 say?
+<details><summary>Show solution</summary><ol><li>Equation 3 for the velocity at the gate: <span class="f">v² = v₀² + 2·a·(x − x₀) = 20² + 2 × (−8.0) × 30 = 400 − 480 = −80</span>.</li><li>A square cannot be negative. The meaning: the drone reaches v = 0 before it reaches the gate.</li><li>Stopping distance: <span class="f">d<sub>stop</sub> = v₀² / (2·|a|) = 400 / 16 = <span class="ans">25 m</span></span>. It stops 30 − 25 = 5 m before the gate. (A real drone would not fly backward; equation 3 only describes the motion while the acceleration keeps acting.)</li></ol></details></div></div>
+<div data-b="run-try22"><div class="prob"><div class="tag">TRY IT 22 · THE WHOLE RUN FROM THE TABLE</div>
+In the table of the gate run, how long would the run take if the drone did not cruise but braked right after the accelerating phase (phases 1 and 3 only, with the same a and the same speeds)? How far would it fly?
+<details><summary>Show solution</summary><ol><li>Phases 1 and 3 take <span class="f">3.0 + 2.0 = <span class="ans">5.0 s</span></span> and cover <span class="f">45.0 + 32.0 = <span class="ans">77.0 m</span></span>.</li><li>That is 23 m short of gate B, so the drone must cruise for the 23.0 m (0.958 s) to reach it. The gate sets the cruise.</li></ol></details></div></div>
+<div data-b="run-try23"><div class="prob"><div class="tag">TRY IT 23 · AVERAGE VELOCITY OF THE RUN</div>
+The run of the table takes 5.958 s for 100 m. Why is its average velocity (16.78 m/s) smaller than the cruise speed (24.0 m/s) but bigger than the average of the start and end speeds (15 m/s)?
+<details><summary>Show solution</summary><ol><li>The drone spends part of the time below 24 m/s (phases 1 and 3), so the average is below the cruise speed.</li><li>The start and end velocities of the whole run are 6.0 and 8.0 m/s. Their average is <span class="f">½ × (6.0 + 8.0) = 7.0 m/s</span>, which is far from 16.78 m/s. Equation 4 may use the average of the two end velocities only when the acceleration is constant; here it changes at every phase.</li><li>Equation 4 does hold in each phase on its own: phase 1 has <span class="f">½ × (6.0 + 24.0) = 15 m/s</span> on average and covers 45.0 m in 3.0 s.</li></ol></details></div></div>
+
+<div data-b="think-3"><div class="prob think"><div class="tag">THINK 3 · THE BRAKE COMMAND ARRIVES LATE</div>
+<p><b>Situation.</b> A drone flies at 24.0 m/s toward a gate. The gate may be passed at 8.0 m/s at most. The flight computer sends the brake command when the drone is 35.0 m from the gate. The brake starts to work 0.25 s after the command, and the drone keeps its speed during these 0.25 s. After that, it brakes with its strongest constant acceleration, −8.0 m/s². Figure 20 draws the speed against the distance flown since the command.</p>
+<figure><svg id="t3" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Speed against the distance flown since the brake command: flat at 24 meters per second for 6 meters, then falling; at the gate, 35 meters from the command, the speed is 10.58 meters per second, above the limit of 8 meters per second; the curve would reach 8 meters per second at 38 meters"></svg>
+<figcaption>Figure 20. The brake command of Think 3. Grey: the 6.0 m flown during the delay. Blue: braking at −8.0 m/s². At the gate (35.0 m after the command) the speed is 10.58 m/s, above the limit (red). The dashed continuation shows that the speed would reach 8.0 m/s only after 38.0 m.</figcaption></figure>
+<p><b>Questions.</b> (a) How fast does the drone pass the gate? (b) At the latest, how far before the gate must the command be sent? (c) If the command is sent at 35.0 m, which constant acceleration would the drone need after the delay, and can it make it?</p>
+<p><b>Think first.</b></p>
+<ol><li>What does the drone do during the delay, and how far does it go?</li>
+<li>You know a distance and two speeds, but not the time. Which equation fits?</li>
+<li>What does a brake that is "too weak" look like in the numbers?</li></ol>
+<details><summary>Hint</summary>Cut the 35.0 m into a delay part and a braking part. The speed is constant in the first part.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> during the delay the speed is constant, so the distance is speed times time. <span class="f">Δx = v·t = 24.0 × 0.25 = <span class="ans">6.0 m</span></span>.</li>
+<li><i>Why this step:</i> only the rest of the distance is used for braking. <span class="f">35.0 − 6.0 = <span class="ans">29.0 m</span></span>.</li>
+<li><i>Why this step:</i> equation 3 gives the speed at the gate from the distance, without the time. <span class="f">v² = v₀² + 2·a·Δx = 24.0² + 2 × (−8.0) × 29.0 = 576 − 464 = 112</span>, so <span class="f">v = √112 = <span class="ans">10.58 m/s</span></span>. This is above 8.0 m/s.</li>
+<li><i>Why this step:</i> the latest command distance is the braking distance from 24.0 to 8.0 m/s plus the delay distance. <span class="f">Δx = (8.0² − 24.0²) / (2 × (−8.0)) = (64 − 576) / (−16) = 32.0 m</span>, and <span class="f">32.0 + 6.0 = <span class="ans">38.0 m</span></span>.</li>
+<li><i>Why this step:</i> for (c), solve equation 3 for the acceleration with the 29.0 m that are left. <span class="f">a = (v² − v₀²) / (2·Δx) = (8.0² − 24.0²) / (2 × 29.0) = (64 − 576) / 58.0 = <span class="ans">−8.83 m/s²</span></span>. Its size is more than 8.0, the strongest brake, so the drone cannot make it.</li></ol>
+<p><b>Check your answer.</b> The command at 35.0 m is <span class="f">38.0 − 35.0 = 3.0 m</span> too late. At 24.0 m/s, 3.0 m take <span class="f">3.0 / 24.0 = 0.125 s</span>, half of the delay. A passing speed of 10.58 m/s (above 8.0) and a needed brake of 8.83 m/s² (above 8.0) tell the same story.</p>
+<p><b>What if …</b> the delay were only 0.10 s?</p>
+<details><summary>Show the answer</summary>The delay distance is <span class="f">24.0 × 0.10 = 2.4 m</span>, and the total need is <span class="f">32.0 + 2.4 = 34.4 m</span>, which is less than 35.0 m. The braking distance is 32.6 m, so <span class="f">v² = 24.0² + 2 × (−8.0) × 32.6 = 576 − 521.6 = 54.4</span> and <span class="f">v = √54.4 = <span class="ans">7.38 m/s</span></span>. The drone passes the gate slowly enough.</details>
+</details></div></div>
+<div data-b="think-4"><div class="prob think"><div class="tag">THINK 4 · A RUN TOO SHORT FOR THE TOP SPEED</div>
+<p><b>Situation.</b> A drone must fly 60 m from rest at gate A to rest at gate B. It speeds up at +6.0 m/s² and brakes at −9.0 m/s². Its speed limit is 24.0 m/s. The plan has no cruise: the drone brakes at the moment where the braking distance is exactly what is left. Figure 21 draws the speed against the time.</p>
+<figure><svg id="t4" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Speed against time for a run of 60 meters from rest to rest: a triangle that rises to 20.785 meters per second and falls back to zero, below the dashed speed limit of 24 meters per second"></svg>
+<figcaption>Figure 21. The run of Think 4. The speed rises to a peak of 20.785 m/s at 3.464 s and falls to zero at 5.773 s. The two shaded triangles are 36.0 m and 24.0 m, together the 60 m of the run. The limit of 24.0 m/s (dashed) is never reached.</figcaption></figure>
+<p><b>Questions.</b> (a) Can the drone reach 24.0 m/s on this run? (b) What peak speed does it reach? (c) How long does the run take?</p>
+<p><b>Think first.</b></p>
+<ol><li>How much track do a speed-up to 24.0 m/s and a stop from 24.0 m/s need together?</li>
+<li>If the track is too short, which quantity is now unknown, and which two distances share it?</li>
+<li>Should the answer to (b) be below or above the limit?</li></ol>
+<details><summary>Hint</summary>Write the speed-up distance and the braking distance with equation 3, both with the same unknown peak speed v. Their sum is 60 m.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> test the limit first. If it fits, the answer is easy. Speed-up to 24.0 m/s: <span class="f">24.0² / (2 × 6.0) = 576 / 12 = 48.0 m</span>. Braking from 24.0 m/s: <span class="f">24.0² / (2 × 9.0) = 576 / 18 = 32.0 m</span>. Together 80.0 m, which is more than 60 m, so <span class="ans">no</span>.</li>
+<li><i>Why this step:</i> without a cruise, the two distances fill the whole run, and both contain the same unknown peak speed v. <span class="f">v² / 12 + v² / 18 = v² × 5 / 36 = 60</span>, so <span class="f">v² = 60 × 36 / 5 = <span class="ans">432</span></span>.</li>
+<li><i>Why this step:</i> take the root. <span class="f">v = √432 = <span class="ans">20.785 m/s</span></span>. This is below the limit of 24.0 m/s, as the first step told us.</li>
+<li><i>Why this step:</i> the time of each part is the peak speed divided by the size of its acceleration. <span class="f">T = 20.785 / 6.0 + 20.785 / 9.0 = 3.464 + 2.309 = <span class="ans">5.773 s</span></span>.</li></ol>
+<p><b>Check your answer.</b> The two distances must add up to the run: <span class="f">432 / 12 + 432 / 18 = 36.0 + 24.0 = 60.0 m</span>. The speed goes up and down along straight lines, so the average speed is half of the peak: <span class="f">60 / 5.773 = 10.39 m/s</span>, and <span class="f">20.785 / 2 = 10.39 m/s</span>.</p>
+<p><b>What if …</b> the run were longer? How long must it be so that the drone just reaches 24.0 m/s?</p>
+<details><summary>Show the answer</summary>The track must hold both distances of step 1: <span class="f">48.0 + 32.0 = <span class="ans">80.0 m</span></span>. On longer runs the drone cruises at 24.0 m/s between the two parts.</details>
+</details></div></div>
+
+<div data-b="check-a"><div class="box"><b>Check yourself.</b><ol>
+ <li>A drone flies 50 m forward and 20 m back. What are its displacement and its distance? <details><summary>answer</summary>Δx = +30 m and d = 70 m.</details></li>
+ <li>What is read from the slope of x(t), and what from the area under v(t)? <details><summary>answer</summary>The slope of x(t) is the velocity; the area under v(t) is the displacement.</details></li>
+ <li>When may you use v² = v₀² + 2·a·(x − x₀)? <details><summary>answer</summary>Only when a is constant for the whole span; it is the equation to use when you know a distance and not a time.</details></li>
+ <li>A drone brakes from 24 m/s at 8.0 m/s². Another brakes from 48 m/s at 8.0 m/s². How many times longer is the second stopping distance? <details><summary>answer</summary>4 times (the distance grows with the square of the speed): 36 m and 144 m.</details></li>
+</ol></div></div>
+<div data-b="next-a"><div class="box howto"><b>Page before:</b> <a href="2.1b_Forces_together_tilt_wind_simulators.html">2.1b The forces together: tilt, wind and the simulators</a>. <b>Next:</b> <a href="2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b Three dimensions, laps, falling, fixed wings and the simulators</a> (vectors in x, y and z, a lap as phases, a fall with the motors off, takeoff and landing rolls, and how a simulator turns a into v and v into x). After that comes <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html">page 2.2c</a> (the jerk, the S-curve of the PX4 planner [<a class="cite" href="../reference/references.html#ref-47">47</a>], the planning limits, and the axes and commands of a simulator). The last page, <a href="2.2d_Real_scenarios_thinking_problems.html">page 2.2d</a>, has larger thinking problems that mix sections 2.1 and 2.2.</div></div>
+<div data-b="refs"><p style="margin-top:22px;font-size:20px;font-weight:700">References</p>
+<ul class="reflist" style="list-style:none;margin:0;padding:0">
+<li>[<a class="cite" href="../reference/references.html#ref-2">2</a>] Dellaert &amp; Hutchinson, <i>Introduction to Robotics and Perception</i>, §7.2.2.1 "Positional Kinematics" (the time derivative of position is the linear velocity), <a href="https://www.roboticsbook.org/S72_drone_actions.html">roboticsbook.org/S72_drone_actions.html</a></li>
+<li>[<a class="cite" href="../reference/references.html#ref-21">21</a>] NASA Glenn, <i>Flight Equations with Drag</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-24">24</a>] MIT 16.00, <i>Theory of Flight</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-29">29</a>] PX4-Autopilot, source code at commit d28a642</li>
+<li>[<a class="cite" href="../reference/references.html#ref-30">30</a>] Project AirSim, source code at commit c80cff5</li>
+<li>[<a class="cite" href="../reference/references.html#ref-39">39</a>] PX4 User Guide, <i>SIH Simulation</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-40">40</a>] PX4 User Guide, <i>Using PX4's Navigation Filter (EKF2)</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-47">47</a>] PX4 User Guide, <i>Jerk-limited Type Trajectory for Multicopters</i> (<code>docs/en/config_mc/mc_jerk_limited_type_trajectory.md</code> at d28a642)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-67">67</a>] OpenStax, <i>University Physics Volume 1</i> (link only)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-68">68</a>] MIT OpenCourseWare, <i>8.01SC Classical Mechanics</i>, Fall 2016 (link only)</li></ul>
+<p class="lead">The numbers in the exercises are made up for practice, not measurements of real parts. The ideas of this page (position, velocity and acceleration, slope and area, the four equations) are standard textbook kinematics; the simulator code is on page 2.2b. Every number on this page is checked by <code>check_2_2.py</code>.</p></div>
+</main>
+<script>
+"use strict";
+// Figure helper. Every figure of this page is drawn here from the same numbers that the text uses, so a label cannot disagree with a formula.
+// Text markup: "v_{0}" is a subscript, "m^{2}" a superscript.
+const nf = (v, d = 0) => { const s = Math.abs(v).toFixed(d); return (v < 0 && Number(s) !== 0 ? "−" : "") + s; };
+const COL = {x:"#2E9E4A", v:"#2F6FD0", a:"#D68910", ink:"#1C1C1C", grey:"#5B5752", line:"#E2DED8", red:"#C0392B", purple:"#7A3FC0"};
+function F(id){
+  const s = document.getElementById(id), ns = "http://www.w3.org/2000/svg";
+  if (!s) return null;
+  const mk = (t, a, txt) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+  const add = (t, a, txt) => { const e = mk(t, a, txt); s.appendChild(e); return e; };
+  const done = {};
+  const marker = c => { const k = "mk" + id + c.replace("#", "");
+    if (!done[k]) { let d = s.querySelector("defs"); if (!d) { d = mk("defs", {}); s.prepend(d); }
+      const m = mk("marker", {id:k, viewBox:"0 0 10 10", refX:9, refY:5, markerWidth:7, markerHeight:7, orient:"auto"});
+      m.appendChild(mk("path", {d:"M0,0L10,5L0,10z", fill:c})); d.appendChild(m); done[k] = 1; }
+    return "url(#" + k + ")"; };
+  const o = {s, add};
+  o.line = (x1, y1, x2, y2, c = COL.ink, w = 2, dash) => add("line", Object.assign({x1, y1, x2, y2, stroke:c, "stroke-width":w}, dash ? {"stroke-dasharray":dash} : {}));
+  o.arrow = (x1, y1, x2, y2, c = COL.ink, w = 3) => add("line", {x1, y1, x2, y2, stroke:c, "stroke-width":w, "marker-end":marker(c)});
+  o.rect = (x, y, w, h, fill = "none", stroke = "none", sw = 1, fo = 1) => add("rect", {x, y, width:w, height:h, fill, stroke, "stroke-width":sw, "fill-opacity":fo});
+  o.poly = (pts, fill = "none", stroke = COL.ink, sw = 2, fo = 1, dash, close = false) => add(close || fill !== "none" ? "polygon" : "polyline",
+    Object.assign({points:pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill, stroke, "stroke-width":sw, "fill-opacity":fo}, dash ? {"stroke-dasharray":dash} : {}));
+  o.circle = (cx, cy, r, fill = COL.ink, stroke = "none") => add("circle", {cx, cy, r, fill, stroke});
+  o.text = (x, y, str, op = {}) => {
+    const {size = 12, fill = COL.ink, anchor = "start", bold = false, rot = null} = op;
+    const e = add("text", Object.assign({x, y, "font-size":size, fill, "text-anchor":anchor}, bold ? {"font-weight":700} : {}, rot ? {transform:`rotate(${rot} ${x} ${y})`} : {}));
+    for (const part of String(str).split(/(_\{[^}]*\}|\^\{[^}]*\})/)) { if (!part) continue;
+      if (part.startsWith("_{") || part.startsWith("^{")) e.appendChild(mk("tspan", {"baseline-shift":part[0] === "_" ? "sub" : "super", "font-size":Math.round(size * 0.75)}, part.slice(2, -1)));
+      else e.appendChild(document.createTextNode(part)); }
+    return e; };
+  // graph(box=[left, top, width, height], {x:[a,b], y:[a,b], xt, yt, xd, yd, xl, yl}) -> {X, Y}
+  o.graph = (b, g) => {
+    const [L, T, W, H] = b, X = x => L + (x - g.x[0]) / (g.x[1] - g.x[0]) * W, Y = y => T + H - (y - g.y[0]) / (g.y[1] - g.y[0]) * H;
+    for (const v of g.xt || []) { o.line(X(v), T, X(v), T + H, COL.line, 1); o.text(X(v), T + H + 14, nf(v, g.xd || 0), {size:11, anchor:"middle", fill:COL.grey}); }
+    for (const v of g.yt || []) { o.line(L, Y(v), L + W, Y(v), COL.line, 1); o.text(L - 5, Y(v) + 4, nf(v, g.yd || 0), {size:11, anchor:"end", fill:COL.grey}); }
+    if (g.y[0] < 0 && g.y[1] > 0) o.line(L, Y(0), L + W, Y(0), COL.ink, 1.2);
+    o.line(L, T + H, L + W, T + H, COL.ink, 1.5); o.line(L, T, L, T + H, COL.ink, 1.5);
+    if (g.xl) o.text(L + W / 2, T + H + 30, g.xl, {size:12, anchor:"middle"});
+    if (g.yl) o.text(L - 40, T + H / 2, g.yl, {size:12, anchor:"middle", rot:-90});
+    return {X, Y, L, T, W, H}; };
+  o.curve = (g, f, x0, x1, c = COL.ink, w = 3, dash, n = 160) => { const p = []; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } return o.poly(p, "none", c, w, 1, dash); };
+  o.area = (g, f, x0, x1, c, fo = 0.25, base = 0, n = 120) => { const p = [[g.X(x0), g.Y(base)]]; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } p.push([g.X(x1), g.Y(base)]); return o.poly(p, c, "none", 0, fo); };
+  o.dot = (g, x, y, c = COL.ink, r = 4.5) => o.circle(g.X(x), g.Y(y), r, c);
+  return o;
+}
+// Each figure runs in its own try block; the number checker reads window.figErrors, so one broken figure cannot hide the others.
+window.figErrors = [];
+function fig(id, fn){ try { const f = F(id); if (!f) throw new Error("no svg with this id"); fn(f); } catch (e) { window.figErrors.push(id + ": " + e.message); } }
+// piecewise-constant-acceleration motion: phases = [{dt, a}], start (t0, x0, v0). Returns functions of t.
+function motion(phases, x0 = 0, v0 = 0){
+  const seg = []; let t = 0, x = x0, v = v0;
+  for (const p of phases) { seg.push({t0:t, t1:t + p.dt, x0:x, v0:v, a:p.a}); x += v * p.dt + 0.5 * p.a * p.dt * p.dt; v += p.a * p.dt; t += p.dt; }
+  const at = tt => { let s = seg[seg.length - 1]; for (const q of seg) if (tt <= q.t1 + 1e-12) { s = q; break; } const d = Math.min(tt, s.t1) - s.t0 > 0 ? tt - s.t0 : 0;
+    return {x:s.x0 + s.v0 * d + 0.5 * s.a * d * d, v:s.v0 + s.a * d, a:s.a}; };
+  return {seg, T:t, X:tt => at(tt).x, V:tt => at(tt).v, A:tt => at(tt).a, xEnd:x, vEnd:v};
+}
+// ---------- Figure 1: the autopilot loop ----------
+fig("f0", f => {
+  const box = (x, y, w, h, title, sub, hi) => { f.rect(x, y, w, h, hi ? "#EAF7ED" : "#fff", hi ? "#2E9E4A" : COL.grey, hi ? 2.5 : 1.2, 1);
+    f.text(x + w / 2, y + 24, title, {size: 14, bold: true, anchor: "middle"}); f.text(x + w / 2, y + 44, sub, {size: 11, anchor: "middle", fill: hi ? "#1F6E33" : COL.grey}); };
+  box(10, 30, 150, 64, "Planner", "row 1 · x(t), v(t), a(t)", true);
+  box(250, 30, 150, 64, "Controller + mixer", "other rows of the map", false);
+  box(490, 30, 150, 64, "Physics / drone", "row 8 · a → v → x", true);
+  box(730, 30, 120, 64, "Sensors", "other rows", false);
+  box(490, 150, 150, 64, "Estimator", "row 10 · predicts x, v", true);
+  f.arrow(160, 62, 248, 62, COL.ink, 2.5); f.arrow(400, 62, 488, 62, COL.ink, 2.5); f.arrow(640, 62, 728, 62, COL.ink, 2.5);
+  f.line(790, 94, 790, 182, COL.ink, 2.5); f.line(790, 182, 700, 182, COL.ink, 2.5); f.arrow(700, 182, 642, 182, COL.ink, 2.5);
+  f.line(490, 182, 85, 182, COL.ink, 2.5); f.line(85, 182, 85, 130, COL.ink, 2.5); f.arrow(85, 130, 85, 96, COL.ink, 2.5);
+  f.text(204, 50, "wanted a", {size: 11, anchor: "middle", fill: COL.grey}); f.text(444, 50, "commands", {size: 11, anchor: "middle", fill: COL.grey});
+  f.text(684, 50, "motion", {size: 11, anchor: "middle", fill: COL.grey}); f.text(782, 140, "measurements", {size: 11, anchor: "end", fill: COL.grey});
+  f.text(290, 174, "estimated x and v go back to the planner and the controller", {size: 11, anchor: "middle", fill: COL.grey});
+  f.rect(20, 226, 14, 14, "#EAF7ED", "#2E9E4A", 2); f.text(42, 238, "rows of this section", {size: 12});
+  f.rect(220, 226, 14, 14, "#fff", COL.grey, 1.2); f.text(242, 238, "other rows (see the autopilot map)", {size: 12});
+});
+
+// ---------- Figure 2: positions, displacement, distance ----------
+fig("f1", f => {
+  const X = v => 60 + v * 9.25;
+  const lane = (y, title) => { f.text(10, y - 46, title, {size: 13, bold: true}); f.line(X(0), y, X(80), y, COL.ink, 1.5);
+    for (let v = 0; v <= 80; v += 10) { f.line(X(v), y - 4, X(v), y + 4); f.text(X(v), y + 18, String(v), {size: 11, anchor: "middle", fill: COL.grey}); }
+    f.text(X(80) + 6, y + 4, "x (m)", {size: 11, fill: COL.grey}); };
+  lane(80, "Row 1 · positions"); lane(185, "Row 2 · displacement"); lane(290, "Row 3 · distance");
+  for (const [v, lab, dy] of [[10, "x_{1} = 10 m", 0], [40, "x_{2} = 40 m", 0], [70, "x_{turn} = 70 m", 0]]) { f.circle(X(v), 80, 6, COL.x); f.text(X(v), 60 + dy, lab, {size: 13, bold: true, anchor: "middle", fill: COL.x}); }
+  f.line(X(10), 169, X(10), 185, COL.grey, 1, "3 3"); f.line(X(40), 169, X(40), 185, COL.grey, 1, "3 3");
+  f.arrow(X(10), 169, X(40) - 2, 169, COL.x, 3); f.text((X(10) + X(40)) / 2, 148, "Δx = x_{2} − x_{1} = 40 − 10 = +30 m", {size: 13, bold: true, anchor: "middle", fill: COL.x});
+  f.arrow(X(10), 276, X(70) - 2, 276, COL.v, 3); f.arrow(X(70), 252, X(40) + 2, 252, COL.a, 3);
+  f.line(X(70), 252, X(70), 290, COL.grey, 1, "3 3"); f.line(X(10), 276, X(10), 290, COL.grey, 1, "3 3"); f.line(X(40), 252, X(40), 290, COL.grey, 1, "3 3");
+  f.text(X(24), 268, "leg 1: 60 m forward", {size: 12, anchor: "middle", fill: COL.v, bold: true});
+  f.text((X(40) + X(70)) / 2, 240, "leg 2: 30 m back", {size: 12, anchor: "middle", fill: COL.a, bold: true});
+  f.text(X(10), 332, "d = 60 + 30 = 90 m", {size: 13, bold: true});
+});
+
+// ---------- Figure 6: x(t) of the 12 s trip ----------
+fig("f2", f => {
+  const g = f.graph([90, 20, 700, 250], {x: [0, 12], y: [0, 80], xt: [0, 2, 4, 6, 8, 10, 12], yt: [0, 20, 40, 60, 80], xl: "time t (s)", yl: "position x (m)"});
+  f.poly([[g.X(0), g.Y(10)], [g.X(6), g.Y(70)], [g.X(12), g.Y(40)]], "none", COL.x, 4);
+  f.line(g.X(0), g.Y(10), g.X(12), g.Y(40), COL.purple, 2.5, "7 5");
+  f.poly([[g.X(0), g.Y(10)], [g.X(6), g.Y(10)], [g.X(6), g.Y(70)]], "none", COL.v, 1.5, 1, "4 3");
+  f.poly([[g.X(6), g.Y(70)], [g.X(12), g.Y(70)], [g.X(12), g.Y(40)]], "none", COL.a, 1.5, 1, "4 3");
+  f.dot(g, 0, 10, COL.x); f.dot(g, 6, 70, COL.x); f.dot(g, 12, 40, COL.x);
+  f.text(g.X(0.25), g.Y(63), "row 3 · leg 1", {size: 12, bold: true, fill: COL.v}); f.text(g.X(0.25), g.Y(56), "60 m / 6 s = +10 m/s", {size: 12, fill: COL.v});
+  f.text(g.X(7.1), g.Y(78), "row 4 · leg 2", {size: 12, bold: true, fill: COL.a}); f.text(g.X(7.1), g.Y(73.2), "(40 − 70) m / 6 s = −5 m/s", {size: 12, fill: COL.a});
+  f.text(g.X(6), g.Y(3.5), "row 1 · whole trip (dashed): 30 m / 12 s = 2.5 m/s", {size: 12, bold: true, anchor: "middle", fill: COL.purple});
+});
+
+// ---------- Figure 7: secants and tangent of x = t^2 ----------
+fig("f3", f => {
+  const g = f.graph([90, 20, 700, 270], {x: [1, 4.5], y: [0, 18], xt: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5], xd: 1, yt: [0, 4, 8, 12, 16], xl: "time t (s)", yl: "position x (m)"});
+  f.curve(g, t => t * t, 1, 4.5, COL.ink, 3);
+  const rows = [[4, "#C0392B", "row 1 · t_{end} = 4: slope 6"], [3, "#D68910", "row 2 · t_{end} = 3: slope 5"], [2.5, "#2F6FD0", "row 3 · t_{end} = 2.5: slope 4.5"], [2.1, "#7A3FC0", "row 4 · t_{end} = 2.1: slope 4.1"]];
+  rows.forEach(([te, c, lab], i) => { f.line(g.X(2), g.Y(4), g.X(te), g.Y(te * te), c, 3); f.dot(g, te, te * te, c, 4.5);
+    f.line(g.X(1.12), g.Y(17.2 - i * 1.2), g.X(1.32), g.Y(17.2 - i * 1.2), c, 3); f.text(g.X(1.38), g.Y(17.2 - i * 1.2) + 4, lab, {size: 12, fill: c}); });
+  f.line(g.X(1), g.Y(0), g.X(4.5), g.Y(14), COL.ink, 2, "7 5");
+  f.line(g.X(1.12), g.Y(12.4), g.X(1.32), g.Y(12.4), COL.ink, 2, "5 3"); f.text(g.X(1.38), g.Y(12.4) + 4, "row 5 · tangent at t = 2: slope 4 m/s", {size: 12});
+  f.dot(g, 2, 4, COL.ink, 6);
+});
+
+// ---------- Figure 13: signs of v and a ----------
+fig("f4", f => {
+  const P = [[2, 6, 2, "speeds up, forward"], [10, 4, 3, "slows down: braking"], [-2, -6, 2, "speeds up, backward"], [-6, -2, 2, "slows down, backward"]];
+  P.forEach(([v1, v2, dt, res], i) => { const x0 = 10 + i * 212, cx = x0 + 106, a = (v2 - v1) / dt;
+    f.rect(x0, 8, 202, 314, "#fff", COL.line, 1.2);
+    f.text(cx, 30, `Row ${i + 1}: v ${v1 > 0 ? "+" : "−"}, a ${a > 0 ? "+" : "−"}`, {size: 14, bold: true, anchor: "middle"});
+    f.line(cx, 44, cx, 262, COL.line, 1, "3 3");
+    f.text(cx, 66, `v at start: ${v1 > 0 ? "+" : "−"}${Math.abs(v1)} m/s`, {size: 12, anchor: "middle", fill: COL.v}); f.arrow(cx, 90, cx + 9 * v1, 90, COL.v, 3);
+    f.text(cx, 126, `v at end: ${v2 > 0 ? "+" : "−"}${Math.abs(v2)} m/s`, {size: 12, anchor: "middle", fill: COL.v}); f.arrow(cx, 150, cx + 9 * v2, 150, COL.v, 3);
+    f.text(cx, 192, `a: ${a > 0 ? "+" : "−"}${Math.abs(a).toFixed(1)} m/s²`, {size: 12, anchor: "middle", fill: COL.a}); f.arrow(cx, 216, cx + 30 * a, 216, COL.a, 3);
+    f.text(cx, 252, `Δt = ${dt} s`, {size: 12, anchor: "middle", fill: COL.grey});
+    f.text(cx, 284, res, {size: 13, bold: true, anchor: "middle"});
+    f.text(cx, 304, `a = (${nf(v2)} − (${nf(v1)})) / ${dt}`, {size: 11, anchor: "middle", fill: COL.grey}); });
+});
+
+// ---------- Figure 14: four ways to read a graph ----------
+fig("f5", f => {
+  const L = i => 50 + i * 212, W = 150, T = 44, H = 170;
+  const title = (i, s) => f.text(L(i) + W / 2, 24, s, {size: 12, bold: true, anchor: "middle"});
+  // 1 slope of x(t)
+  title(0, "1 · slope of x(t) = v");
+  let g = f.graph([L(0), T, W, H], {x: [0, 5], y: [0, 30], xt: [0, 1, 2, 3, 4, 5], yt: [0, 10, 20, 30], xl: "t (s)", yl: "x (m)"});
+  f.curve(g, t => t * t, 0, 5, COL.x, 3); f.line(g.X(3), g.Y(5), g.X(5), g.Y(25), COL.ink, 2, "6 4"); f.dot(g, 5, 25, COL.ink, 4.5);
+  f.text(g.X(0.2), g.Y(26), "tangent at t = 5 s:", {size: 11}); f.text(g.X(0.2), g.Y(22), "slope 10 m/s", {size: 11, bold: true});
+  // 2 slope of v(t)
+  title(1, "2 · slope of v(t) = a");
+  g = f.graph([L(1), T, W, H], {x: [0, 5], y: [0, 12], xt: [0, 1, 2, 3, 4, 5], yt: [0, 4, 8, 12], xl: "t (s)", yl: "v (m/s)"});
+  f.curve(g, t => 2 * t, 0, 5, COL.v, 3); f.poly([[g.X(0), g.Y(0)], [g.X(5), g.Y(0)], [g.X(5), g.Y(10)]], "none", COL.grey, 1.5, 1, "4 3");
+  f.text(g.X(4.85), g.Y(4.5), "rise 10 m/s", {size: 11, anchor: "end"}); f.text(g.X(2.5), g.Y(1.1), "run 5 s", {size: 11, anchor: "middle"});
+  f.text(g.X(0.2), g.Y(11), "slope = 10 / 5 = 2 m/s²", {size: 11, bold: true});
+  // 3 area under a(t)
+  title(2, "3 · area under a(t) = Δv");
+  g = f.graph([L(2), T, W, H], {x: [0, 5], y: [0, 3], xt: [0, 1, 2, 3, 4, 5], yt: [0, 1, 2, 3], xl: "t (s)", yl: "a (m/s²)"});
+  f.area(g, t => 2, 0, 5, COL.a, 0.3); f.curve(g, t => 2, 0, 5, COL.a, 3);
+  f.text(g.X(2.5), g.Y(1.15), "2 × 5 = 10 m/s", {size: 12, bold: true, anchor: "middle"});
+  // 4 area under v(t)
+  title(3, "4 · area under v(t) = Δx");
+  g = f.graph([L(3), T, W, H], {x: [0, 5], y: [0, 12], xt: [0, 1, 2, 3, 4, 5], yt: [0, 4, 8, 12], xl: "t (s)", yl: "v (m/s)"});
+  f.area(g, t => 2 * t, 0, 5, COL.v, 0.25); f.curve(g, t => 2 * t, 0, 5, COL.v, 3);
+  f.text(g.X(3.3), g.Y(3.2), "½ × 5 × 10", {size: 12, bold: true, anchor: "middle"}); f.text(g.X(3.3), g.Y(1.6), "= 25 m", {size: 12, bold: true, anchor: "middle"});
+});
+
+// ---------- Figure 15: the four equations on one v(t) graph ----------
+fig("f6", f => {
+  const L = i => 50 + i * 212, W = 150, T = 44, H = 170, v0 = 4, a = 2, t = 3;
+  const line = g => f.curve(g, s => v0 + a * s, 0, t, COL.v, 3);
+  const mkg = i => f.graph([L(i), T, W, H], {x: [0, 3.5], y: [0, 12], xt: [0, 1, 2, 3], yt: [0, 4, 8, 12], xl: "t (s)", yl: "v (m/s)"});
+  f.text(L(0) + W / 2, 24, "1 · v = v₀ + a·t", {size: 12, bold: true, anchor: "middle"});
+  let g = mkg(0); line(g); f.line(g.X(0), g.Y(v0), g.X(t), g.Y(v0), COL.grey, 1.5, "4 3"); f.line(g.X(t), g.Y(v0), g.X(t), g.Y(v0 + a * t), COL.a, 3);
+  f.text(g.X(3) + 4, g.Y(7), "a·t", {size: 12, bold: true, fill: COL.a}); f.text(g.X(3) + 4, g.Y(5.6), "= 6", {size: 12, fill: COL.a});
+  f.text(g.X(0.1), g.Y(2), "v₀ = 4", {size: 11}); f.text(g.X(0.1), g.Y(11), "v = 10", {size: 11, bold: true}); f.dot(g, t, 10, COL.v);
+  f.text(L(1) + W / 2, 24, "2 · x − x₀ = v₀·t + ½·a·t²", {size: 12, bold: true, anchor: "middle"});
+  g = mkg(1); f.rect(g.X(0), g.Y(v0), g.X(t) - g.X(0), g.Y(0) - g.Y(v0), COL.v, "none", 0, 0.2);
+  f.poly([[g.X(0), g.Y(v0)], [g.X(t), g.Y(v0)], [g.X(t), g.Y(10)]], COL.a, "none", 0, 0.3); line(g);
+  f.text(g.X(1.5), g.Y(2), "v₀·t = 4 × 3 = 12", {size: 11, anchor: "middle", bold: true}); f.text(g.X(2.1), g.Y(5.3), "½·a·t² = 9", {size: 11, anchor: "middle", bold: true});
+  f.text(g.X(1.75), g.Y(11.2), "12 + 9 = 21 m", {size: 12, anchor: "middle", bold: true});
+  f.text(L(2) + W / 2, 24, "3 · v² = v₀² + 2·a·(x − x₀)", {size: 12, bold: true, anchor: "middle"});
+  const bx = L(2) + 6, base = T + H, u = 1.6;
+  f.line(bx - 4, base, bx + 140, base, COL.ink, 1.5); f.line(bx - 4, T, bx - 4, base, COL.ink, 1.5);
+  f.rect(bx, base - 16 * u, 30, 16 * u, COL.v, "none", 0, 0.35); f.rect(bx, base - 100 * u, 30, 84 * u, COL.a, "none", 0, 0.35);
+  f.text(bx + 36, base - 8 * u + 4, "v₀² = 16", {size: 11}); f.text(bx + 36, base - 58 * u + 4, "2·a·(x − x₀)", {size: 11}); f.text(bx + 36, base - 58 * u + 18, "= 2 × 2 × 21 = 84", {size: 11});
+  f.text(bx + 36, base - 100 * u + 12, "v² = 100", {size: 12, bold: true}); f.text(bx + 36, base - 100 * u + 27, "v = 10 m/s", {size: 11});
+  f.text(L(3) + W / 2, 24, "4 · x − x₀ = ½·(v₀ + v)·t", {size: 12, bold: true, anchor: "middle"});
+  g = mkg(3); f.poly([[g.X(0), g.Y(0)], [g.X(t), g.Y(0)], [g.X(t), g.Y(10)], [g.X(0), g.Y(4)]], COL.v, "none", 0, 0.2); line(g);
+  f.line(g.X(0), g.Y(7), g.X(t), g.Y(7), COL.red, 2, "6 4");
+  f.text(g.X(1.5), g.Y(2.6), "average height 7", {size: 11, anchor: "middle"}); f.text(g.X(1.5), g.Y(1.2), "7 × 3 = 21 m", {size: 12, anchor: "middle", bold: true});
+});
+
+// ---------- Figure 16: a changing acceleration ----------
+fig("f7", f => {
+  f.text(70 + 165, 22, "acceleration a(t) = t", {size: 13, bold: true, anchor: "middle"}); f.text(490 + 165, 22, "velocity v(t)", {size: 13, bold: true, anchor: "middle"});
+  let g = f.graph([70, 40, 330, 230], {x: [0, 4], y: [0, 5], xt: [0, 1, 2, 3, 4], yt: [0, 1, 2, 3, 4, 5], xl: "time t (s)", yl: "a (m/s²)"});
+  f.area(g, t => t, 0, 4, COL.a, 0.2); f.curve(g, t => t, 0, 4, COL.ink, 3);
+  f.line(g.X(0), g.Y(4), g.X(4), g.Y(4), COL.red, 2.5, "7 4"); f.line(g.X(0), g.Y(2), g.X(4), g.Y(2), COL.v, 2.5, "7 4");
+  f.text(g.X(0.1), g.Y(4.45), "a_{last} = 4", {size: 12, fill: COL.red, bold: true}); f.text(g.X(0.1), g.Y(2.4), "a_{mean} = 2", {size: 12, fill: COL.v, bold: true});
+  g = f.graph([490, 40, 330, 230], {x: [0, 4], y: [0, 18], xt: [0, 1, 2, 3, 4], yt: [0, 4, 8, 12, 16], xl: "time t (s)", yl: "v (m/s)"});
+  f.curve(g, t => t * t / 2, 0, 4, COL.ink, 3.5); f.curve(g, t => 4 * t, 0, 4, COL.red, 2.5, "7 4"); f.curve(g, t => 2 * t, 0, 4, COL.v, 2.5, "7 4");
+  f.dot(g, 4, 8, COL.ink, 5); f.dot(g, 4, 16, COL.red, 5);
+  f.text(g.X(4) + 9, g.Y(8) + 4, "8", {size: 12, bold: true}); f.text(g.X(4) + 9, g.Y(16) + 4, "16", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(0.15), g.Y(17), "row 1 true: v = 8, x = 10.67", {size: 11, bold: true}); f.text(g.X(0.15), g.Y(15.6), "row 2 a_{last}: v = 16, x = 32", {size: 11, fill: COL.red, bold: true});
+  f.text(g.X(0.15), g.Y(14.2), "row 3 a_{mean}: v = 8, x = 16", {size: 11, fill: COL.v, bold: true});
+});
+
+// ---------- Figure 18: the straight run between two gates ----------
+fig("f8", f => {
+  const m = motion([{dt: 3, a: 6}, {dt: 23 / 24, a: 0}, {dt: 2, a: -8}], 0, 6), T = m.T, cols = ["#2E9E4A", "#2F6FD0", "#C0392B"];
+  const tops = [24, 200, 376], Hh = 120;
+  const specs = [{y: [0, 100], yt: [0, 25, 50, 75, 100], yl: "x (m)"}, {y: [0, 30], yt: [0, 10, 20, 30], yl: "v (m/s)"}, {y: [-10, 10], yt: [-10, -5, 0, 5, 10], yl: "a (m/s²)"}];
+  specs.forEach((sp, k) => { const g = f.graph([90, tops[k], 700, Hh], {x: [0, 6], y: sp.y, xt: [0, 1, 2, 3, 4, 5, 6], yt: sp.yt, xl: k === 2 ? "time t (s)" : null, yl: sp.yl});
+    m.seg.forEach((s, i) => f.rect(g.X(s.t0), g.T, g.X(s.t1) - g.X(s.t0), g.H, cols[i], "none", 0, 0.13));
+    if (k === 0) f.curve(g, tt => m.X(tt), 0, T, COL.x, 3.5);
+    if (k === 1) { f.curve(g, tt => m.V(tt), 0, T, COL.v, 3.5); const areas = ["45.0 m", "23.0 m", "32.0 m"]; m.seg.forEach((s, i) => f.text((g.X(s.t0) + g.X(s.t1)) / 2, g.Y(2.5), areas[i], {size: 12, bold: true, anchor: "middle"})); }
+    if (k === 2) { m.seg.forEach((s, i) => { f.line(g.X(s.t0), g.Y(s.a), g.X(s.t1), g.Y(s.a), COL.a, 3.5); f.text((g.X(s.t0) + g.X(s.t1)) / 2, g.Y(s.a) - 8, (s.a > 0 ? "+" : s.a < 0 ? "−" : "") + Math.abs(s.a).toFixed(1), {size: 12, bold: true, anchor: "middle", fill: COL.a}); }); }
+    if (k === 0) { ["1 accelerate", "2 cruise", "3 brake"].forEach((s, i) => f.text((g.X(m.seg[i].t0) + g.X(m.seg[i].t1)) / 2, g.T - 6, s, {size: 12, bold: true, anchor: "middle", fill: cols[i]})); }
+    for (const s of m.seg.slice(1)) f.line(g.X(s.t0), g.T, g.X(s.t0), g.T + g.H, COL.grey, 1, "2 4"); });
+});
+
+// ---------- Figure 19: braking distance ----------
+fig("f9", f => {
+  const g = f.graph([90, 30, 700, 250], {x: [0, 5], y: [0, 40], xt: [0, 1, 2, 3, 4, 5], yt: [0, 12, 24, 36], xl: "time t (s)", yl: "velocity v (m/s)"});
+  [[12, "#2E9E4A"], [24, "#2F6FD0"], [36, "#C0392B"]].forEach(([v0, c]) => { const ts = v0 / 8, d = v0 * v0 / 16;
+    f.poly([[g.X(0), g.Y(0)], [g.X(0), g.Y(v0)], [g.X(ts), g.Y(0)]], c, "none", 0, 0.15); f.line(g.X(0), g.Y(v0), g.X(ts), g.Y(0), c, 3.5);
+    f.text(g.X(0) + 6, g.Y(v0) - 6, `v₀ = ${v0} m/s`, {size: 12, bold: true, fill: c});
+    f.text(g.X(ts) + 6, g.Y(0) - 22, `t_{stop} = ${(ts).toFixed(1)} s`, {size: 12, fill: c}); f.text(g.X(ts) + 6, g.Y(0) - 7, `d_{stop} = ${d.toFixed(1)} m`, {size: 12, bold: true, fill: c}); });
+});
+// ---------- Ladder figures (Try it 2, 2a, 2b, 4, 5a, 5b, 6) ----------
+fig("l2", f => {
+  const g = f.graph([90, 20, 700, 260], {x: [0, 10], y: [-30, 40], xt: [0, 2, 4, 6, 8, 10], yt: [-30, -20, -10, 0, 10, 20, 30, 40], xl: "time t (s)", yl: "position x (m)"});
+  const T = [0, 2, 4, 6, 8, 10], P = [20, 0, -20, -10, 10, 30];
+  f.poly(T.map((t, i) => [g.X(t), g.Y(P[i])]), "none", COL.x, 3.5);
+  f.poly([[g.X(4), g.Y(-20)], [g.X(4.5), g.Y(-25)], [g.X(6), g.Y(-10)]], "none", COL.red, 3, 1, "6 4");
+  T.forEach((t, i) => f.dot(g, t, P[i], COL.x, 5.5));
+  f.text(g.X(0) + 9, g.Y(20) - 9, "20 m", {size: 12, bold: true});
+  f.text(g.X(2), g.Y(0) - 11, "0 m", {size: 12, bold: true, anchor: "middle"});
+  f.text(g.X(4) - 10, g.Y(-20) + 4, "−20 m", {size: 12, bold: true, anchor: "end"});
+  f.text(g.X(6) + 9, g.Y(-10) + 17, "−10 m", {size: 12, bold: true});
+  f.text(g.X(8) + 9, g.Y(10) + 17, "10 m", {size: 12, bold: true});
+  f.text(g.X(10) - 10, g.Y(30) - 9, "30 m", {size: 12, bold: true, anchor: "end"});
+  f.text(g.X(4.7), g.Y(-27), "turn: −25 m at 4.5 s", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(0.2), g.Y(38), "green: straight lines between the log entries", {size: 12, fill: COL.x, bold: true});
+  f.text(g.X(0.2), g.Y(33.5), "red dashed: the real path between 4 s and 6 s", {size: 12, fill: COL.red, bold: true});
+});
+fig("l2a", f => {
+  const X = p => 60 + p * 11;
+  const lane = (y, title, flip) => { f.text(10, y - 62, title, {size: 13, bold: true}); f.line(X(0), y, X(60), y, COL.ink, 1.5);
+    for (let p = 0; p <= 60; p += 10) { f.line(X(p), y - 4, X(p), y + 4); f.text(X(p), y + 18, String(flip ? 60 - p : p), {size: 11, anchor: "middle", fill: COL.grey}); } };
+  lane(110, "Operator 1 · origin at gate A, plus toward gate B (to the right)", false);
+  lane(290, "Operator 2 · origin at gate B, plus toward gate A (to the left)", true);
+  f.text(X(0), 148, "gate A (origin)", {size: 12, fill: COL.grey}); f.text(X(60), 148, "gate B", {size: 12, fill: COL.grey, anchor: "end"});
+  f.text(X(60), 328, "gate B (origin)", {size: 12, fill: COL.grey, anchor: "end"}); f.text(X(0), 328, "gate A", {size: 12, fill: COL.grey});
+  f.arrow(X(60) + 12, 110, X(60) + 50, 110, COL.ink, 2.5); f.text(X(60) + 58, 114, "+", {size: 14, bold: true});
+  f.arrow(X(0) - 12, 290, X(0) - 48, 290, COL.ink, 2.5); f.text(10, 282, "+", {size: 14, bold: true});
+  const pts = [[10, "start"], [50, "turn"], [35, "end"]], cols = [COL.x, COL.red, COL.v];
+  pts.forEach(([p, nm], i) => { f.circle(X(p), 110, 6, cols[i]); f.circle(X(p), 290, 6, cols[i]);
+    f.text(X(p), 94, `${nm} ${p} m`, {size: 12, bold: true, anchor: "middle", fill: cols[i]});
+    f.text(X(p), 274, `${nm} ${60 - p} m`, {size: 12, bold: true, anchor: "middle", fill: cols[i]}); });
+  f.arrow(X(10), 178, X(50) - 3, 178, COL.v, 3); f.arrow(X(50), 196, X(35) + 3, 196, COL.a, 3);
+  f.text(X(30), 170, "leg 1: 40 m toward gate B", {size: 12, bold: true, anchor: "middle", fill: COL.v});
+  f.text(X(42.5), 216, "leg 2: 15 m back", {size: 12, bold: true, anchor: "middle", fill: COL.a});
+});
+fig("l2b", f => {
+  const X = v => 60 + (v + 50) * 5;
+  const lane = (y, title) => { f.text(10, y - 62, title, {size: 13, bold: true}); f.line(X(-50), y, X(100), y, COL.ink, 1.5);
+    for (let v = -50; v <= 100; v += 25) { f.line(X(v), y - 4, X(v), y + 4); f.text(X(v), y + 18, nf(v), {size: 11, anchor: "middle", fill: COL.grey}); } };
+  const leg = (y, a, b, c) => f.arrow(X(a), y, X(b) + (b > a ? -3 : 3), y, c, 3);
+  const dots = (y, xs) => xs.forEach(v => f.circle(X(v), y, 6, COL.x));
+  lane(100, "Flight 1 · one turn"); lane(270, "Flight 2 · two turns");
+  leg(70, 10, 90, COL.v); leg(86, 90, 40, COL.a); f.line(X(90), 70, X(90), 86, COL.grey, 1.2, "3 3");
+  dots(100, [10, 40, 90]);
+  f.text(X(10), 138, "x_{1} = 10 m", {size: 12, bold: true, anchor: "middle", fill: COL.x}); f.text(X(40), 138, "x_{2} = 40 m", {size: 12, bold: true, anchor: "middle", fill: COL.x});
+  f.text(X(90), 154, "turn: 90 m", {size: 12, bold: true, anchor: "middle", fill: COL.red});
+  f.text(60, 174, "d = 80 + 50 = 130 m", {size: 13, bold: true});
+  leg(232, 10, 75, COL.v); leg(244, 75, 25, COL.a); leg(256, 25, 40, COL.v); f.line(X(75), 232, X(75), 244, COL.grey, 1.2, "3 3"); f.line(X(25), 244, X(25), 256, COL.grey, 1.2, "3 3");
+  dots(270, [10, 40, 75, 25]);
+  f.text(X(10), 308, "x_{1} = 10 m", {size: 12, bold: true, anchor: "middle", fill: COL.x}); f.text(X(40), 308, "x_{2} = 40 m", {size: 12, bold: true, anchor: "middle", fill: COL.x});
+  f.text(X(25), 324, "turn: 25 m", {size: 12, bold: true, anchor: "middle", fill: COL.red}); f.text(X(75), 324, "turn: 75 m", {size: 12, bold: true, anchor: "middle", fill: COL.red});
+  f.text(60, 346, "d = 65 + 50 + 15 = 130 m", {size: 13, bold: true});
+});
+fig("l4", f => {
+  const g = f.graph([90, 20, 700, 270], {x: [0, 10], y: [0, 60], xt: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], yt: [0, 10, 20, 30, 40, 50, 60], xl: "time t (s)", yl: "position x (m)"});
+  const C = [[0, 20], [2, 50], [6, 20], [10, 40]];
+  f.poly(C.map(([t, x]) => [g.X(t), g.Y(x)]), "none", COL.x, 4);
+  C.forEach(([t, x]) => f.dot(g, t, x, COL.x, 5.5));
+});
+fig("l5a", f => {
+  const g = f.graph([90, 20, 700, 270], {x: [0, 8], y: [0, 20], xt: [0, 1, 2, 3, 4, 5, 6, 7, 8], yt: [0, 5, 10, 15, 20], xl: "time t (s)", yl: "position x (m)"});
+  const X = t => (t ** 3 - 12 * t * t + 36 * t) / 2;
+  f.curve(g, X, 0, 8, COL.ink, 3.5);
+  f.line(g.X(2.9), g.Y(8 - 6 * (2.9 - 4)), g.X(5.2), g.Y(8 - 6 * (5.2 - 4)), COL.red, 2, "7 4");
+  [[1, "A", -4, -12], [3, "B", 0, -12], [5.5, "C", 0, -12], [7.5, "D", -14, -8]].forEach(([t, nm, dx, dy]) => { f.dot(g, t, X(t), COL.v, 5.5); f.text(g.X(t) + dx, g.Y(X(t)) + dy, nm, {size: 14, bold: true, anchor: "middle", fill: COL.v}); });
+  f.dot(g, 4, X(4), COL.red, 6); f.text(g.X(4) - 16, g.Y(X(4)) + 17, "E", {size: 14, bold: true, anchor: "middle", fill: COL.red});
+  f.circle(g.X(3.5), g.Y(11), 5, "#fff", COL.red); f.circle(g.X(4.5), g.Y(5), 5, "#fff", COL.red);
+  f.text(g.X(3.5) - 12, g.Y(11) + 18, "(3.5 s, 11 m)", {size: 12, anchor: "end", fill: COL.red}); f.text(g.X(4.5) + 10, g.Y(5) - 10, "(4.5 s, 5 m)", {size: 12, fill: COL.red});
+  f.text(g.X(5.0), g.Y(19), "black: the curve x(t)", {size: 12, bold: true}); f.text(g.X(5.0), g.Y(17.4), "red dashed: the tangent at E", {size: 12, bold: true, fill: COL.red});
+});
+fig("l5b", f => {
+  const g = f.graph([90, 20, 700, 270], {x: [0, 1], y: [0, 2.5], xt: [0, 0.2, 0.4, 0.6, 0.8, 1], xd: 1, yt: [0, 0.5, 1, 1.5, 2, 2.5], yd: 1, xl: "time span Δt between the two readings (s)", yl: "error bound E (m/s)"});
+  const s = 0.02, a = 4, E = d => 2 * s / d + a * d / 2;
+  f.curve(g, d => 2 * s / d, 0.02, 1, COL.red, 2.5, "7 4"); f.curve(g, d => a * d / 2, 0.02, 1, COL.a, 2.5, "7 4"); f.curve(g, E, 0.02, 1, COL.ink, 3.5);
+  [0.02, 0.14, 1.0].forEach(d => f.dot(g, d, E(d), COL.ink, 5.5));
+  f.text(g.X(0.03), g.Y(2.2), "1 step: 2.04", {size: 12, bold: true}); f.text(g.X(1.0) - 8, g.Y(2.25), "50 steps: 2.04", {size: 12, bold: true, anchor: "end"});
+  f.text(g.X(0.2), g.Y(2.4), "best: 7 steps (Δt = 0.14 s), E = 0.566 m/s", {size: 12, bold: true});
+  [[0.8, COL.red, "2σ/Δt", "red dashed: reading error 2σ/Δt", "7 4"], [0.6, COL.a, "", "orange dashed: bias a·Δt/2", "7 4"], [0.4, COL.ink, "", "black: their sum E(Δt)", null]].forEach(([y, c, _x, lab, d]) => { f.line(g.X(0.45), g.Y(y), g.X(0.5), g.Y(y), c, 3, d || undefined); f.text(g.X(0.52), g.Y(y) + 4, lab, {size: 12, fill: c}); });
+});
+fig("l6", f => {
+  const g = f.graph([90, 20, 700, 270], {x: [0, 1.8], y: [0, 50], xt: [0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8], xd: 1, yt: [0, 10, 20, 30, 40, 50], xl: "time t (s)", yl: "position x (m)"});
+  f.line(g.X(1.15), g.Y(45), g.X(1.8), g.Y(45), COL.grey, 1.5, "3 3");
+  f.line(g.X(0), g.Y(0), g.X(1.5), g.Y(45), COL.purple, 2.5, "7 5"); f.line(g.X(0), g.Y(0), g.X(1.62), g.Y(45), COL.x, 3);
+  f.poly([[g.X(0), g.Y(0)], [g.X(1.2), g.Y(36)], [g.X(1.62), g.Y(45)]], "none", COL.v, 3);
+  f.dot(g, 1.5, 45, COL.purple, 4.5); f.dot(g, 1.62, 45, COL.x, 4.5); f.dot(g, 1.2, 36, COL.v, 5);
+  f.text(g.X(1.8) - 4, g.Y(45) - 14, "gate B: 45 m", {size: 12, anchor: "end", fill: COL.grey});
+  f.text(g.X(1.25), g.Y(32), "30 m/s until 1.20 s", {size: 12, bold: true, fill: COL.v});
+  [[48, COL.purple, "purple dashed: steady 30 m/s", "7 5"], [43.5, COL.x, "green: the measured average, 27.78 m/s", null], [39, COL.v, "blue: 30 m/s for 1.20 s, then 21.43 m/s", null]].forEach(([y, c, lab, d]) => { f.line(g.X(0.05), g.Y(y), g.X(0.17), g.Y(y), c, 3, d || undefined); f.text(g.X(0.2), g.Y(y) + 4, lab, {size: 12, fill: c, bold: true}); });
+});
+// ---------- Think figures (T1 to T4) ----------
+fig("t1", f => {
+  const g = f.graph([90, 20, 700, 250], {x: [0, 21], y: [0, 140], xt: [0, 5, 10, 15, 20], yt: [0, 40, 80, 120], xl: "time t (s)", yl: "position x (m)"});
+  f.poly([[g.X(0), g.Y(0)], [g.X(15), g.Y(120)], [g.X(20), g.Y(0)]], "none", COL.x, 4);
+  f.dot(g, 0, 0, COL.x); f.dot(g, 15, 120, COL.x); f.dot(g, 20, 0, COL.x);
+  f.text(g.X(1), g.Y(98), "out: 120 m in 15.0 s (8.0 m/s)", {size: 12, bold: true, fill: COL.v});
+  f.text(g.X(17.2), g.Y(55), "back: 120 m in 5.0 s (24.0 m/s)", {size: 12, bold: true, fill: COL.a, anchor: "end"});
+  f.text(g.X(0.3), g.Y(135), "average speed 240 m / 20.0 s = 12.0 m/s", {size: 12, bold: true});
+  f.text(g.X(0.3), g.Y(124), "average velocity 0 m / 20.0 s = 0 m/s", {size: 12});
+});
+fig("t2", f => {
+  const g = f.graph([90, 20, 700, 260], {x: [0, 4.4], y: [0, 18], xt: [0, 1, 2, 3, 4], yt: [0, 4, 8, 12, 16], xl: "time t (s)", yl: "speed v (m/s)"});
+  [[0, 1, COL.x, "2.0 m"], [1, 2, COL.v, "6.0 m"], [2, 3, COL.a, "10.0 m"]].forEach(([a, b, c, lab]) => {
+    f.area(g, t => 4 * t, a, b, c, 0.3); f.line(g.X(b), g.Y(0), g.X(b), g.Y(4 * b), c, 1.5, "4 3");
+    f.text(g.X((a + b) / 2), g.Y(0.4), lab, {size: 13, bold: true, anchor: "middle", fill: c}); });
+  f.curve(g, t => 4 * t, 0, 4.2, COL.ink, 3);
+  f.dot(g, 2.5, 10, COL.red, 5);
+  f.text(g.X(0.5), g.Y(12.5), "middle of the third second: v = 4.0 × 2.5 = 10 m/s", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(0.1), g.Y(16.8), "area of a strip = distance of that second", {size: 12, fill: COL.grey});
+});
+fig("t3", f => {
+  const g = f.graph([90, 20, 700, 260], {x: [0, 40], y: [0, 28], xt: [0, 5, 10, 15, 20, 25, 30, 35, 40], yt: [0, 8, 16, 24], xl: "distance flown since the command (m)", yl: "speed v (m/s)"});
+  const v = x => x <= 6 ? 24 : Math.sqrt(Math.max(0, 576 - 16 * (x - 6)));
+  f.rect(g.X(0), g.Y(28), g.X(6) - g.X(0), g.Y(0) - g.Y(28), "#999", "none", 0, 0.15);
+  f.curve(g, v, 0, 35, COL.v, 3.5);
+  f.curve(g, v, 35, 38, COL.grey, 2.5, "6 4", 30);
+  f.line(g.X(35), g.Y(0), g.X(35), g.Y(28), COL.ink, 1.5, "5 4");
+  f.line(g.X(28), g.Y(8), g.X(40), g.Y(8), COL.red, 2.5, "7 4");
+  f.dot(g, 35, Math.sqrt(112), COL.red, 5); f.dot(g, 38, 8, COL.grey, 5);
+  f.text(g.X(0.3), g.Y(26.5), "delay: 6.0 m", {size: 12, bold: true, fill: COL.grey});
+  f.text(g.X(7.5), g.Y(13), "braking at −8.0 m/s²", {size: 12, bold: true, fill: COL.v});
+  f.text(g.X(34.6), g.Y(26.6), "gate", {size: 12, bold: true, anchor: "end"});
+  f.text(g.X(35.6), g.Y(12.2), "10.58 m/s at the gate", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(28.2), g.Y(5.8), "limit 8.0 m/s", {size: 12, fill: COL.red});
+  f.text(g.X(34.4), g.Y(2.6), "8.0 m/s only after 38.0 m", {size: 12, fill: COL.grey, anchor: "end"});
+});
+fig("t4", f => {
+  const g = f.graph([90, 20, 700, 260], {x: [0, 6.5], y: [0, 28], xt: [0, 1, 2, 3, 4, 5, 6], yt: [0, 8, 16, 24], xl: "time t (s)", yl: "speed v (m/s)"});
+  const vp = Math.sqrt(432), t1 = vp / 6, T = vp / 6 + vp / 9;
+  f.poly([[g.X(0), g.Y(0)], [g.X(t1), g.Y(vp)], [g.X(t1), g.Y(0)]], COL.x, "none", 0, 0.25);
+  f.poly([[g.X(t1), g.Y(0)], [g.X(t1), g.Y(vp)], [g.X(T), g.Y(0)]], COL.a, "none", 0, 0.25);
+  f.poly([[g.X(0), g.Y(0)], [g.X(t1), g.Y(vp)], [g.X(T), g.Y(0)]], "none", COL.ink, 3.5);
+  f.line(g.X(0), g.Y(24), g.X(6.5), g.Y(24), COL.red, 2.5, "7 4");
+  f.dot(g, t1, vp, COL.ink, 5);
+  f.text(g.X(0.15), g.Y(25.4), "speed limit 24.0 m/s", {size: 12, bold: true, fill: COL.red});
+  f.text(g.X(t1) + 12, g.Y(22.2), "peak 20.785 m/s at 3.464 s", {size: 12, bold: true});
+  f.text(g.X(2.1), g.Y(5), "speed-up: 36.0 m", {size: 12, bold: true, anchor: "middle", fill: COL.x});
+  f.text(g.X(4.6), g.Y(3.2), "braking: 24.0 m", {size: 12, bold: true, anchor: "middle", fill: COL.a});
+  f.text(g.X(T) + 8, g.Y(0) - 8, "5.773 s", {size: 12});
+});
+const PAGE = "2.2a";                                 // note keys: "2.2a:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes (owner's order 2026-10-20: "each table must have an editor tool").
+// A table's key is "<page>:<block>#t<n>", n counting the tables inside that block.
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+</script>
+</body>
+</html>

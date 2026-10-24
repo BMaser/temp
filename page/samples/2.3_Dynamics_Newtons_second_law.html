@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.3 Dynamics: Newton's second law</title>
+<!-- Section 2.3 of the v2 course (Part I, Ch 2), plan row fly.3. Source of truth: github
+     coursera_mirror\mirrors\Autonomous_Racing_Drone_Path\runs\2026-10-24_v2_section_2.3\draft\ (draft); numbers are checked by check_2_3.py.
+     Marks and notes go to ..\notes.json under keys "2.3:<block>" and "2.3:<block>#t<n>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px;display:flex;align-items:center;gap:10px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:17px;white-space:nowrap}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prob{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:6px;padding:10px 14px}
+.prob .tag{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--accent)}
+.prob ol{margin:6px 0 0;padding-left:22px}.prob li{margin:3px 0}
+details{margin-top:8px}summary{cursor:pointer;font-weight:600;color:var(--cL)}
+.ans{font-weight:700;background:#EAF7ED;border-radius:4px;padding:1px 6px}
+.trap{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:6px 10px;margin-top:6px}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+h2.sub{font-size:21px;margin:34px 0 10px;padding-top:10px;border-top:2px solid var(--ink)}
+h2.sub .no{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 10px}
+h3.sub3{font-size:17px;margin:22px 0 8px 12px}
+.big{font-size:21px;text-align:center;margin:10px 0}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+pre.code{background:#F6F4F0;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;overflow-x:auto;white-space:pre;margin:6px 0}
+.src{font-size:12px;color:var(--ink2)}
+.prob.think{border-left-color:#7A3FC0;background:#FBF9FE}.prob.think .tag{color:#7A3FC0}
+.prob.think p{margin:8px 0}.prob.think .steps{margin:6px 0 0;padding-left:22px}.prob.think .steps li{margin:9px 0}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I — Flight theory</a> › Ch 2 How things fly › <b>2.3 Dynamics: Newton's second law</b> (draft)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>2.3 Dynamics: Newton's second law</h1>
+<p class="lead">Part I · Chapter 2 · section 3 (plan row fly.3), one page · about 2 hours · paper and a calculator · page before: <a href="2.2d_Real_scenarios_thinking_problems.html">2.2d Real scenarios: thinking problems</a> · next section: 2.4 Attitude: roll, pitch, yaw (plan row fly.4; not written yet).</p>
+<p class="lead">Page 2.3: 2.3.1-2.3.7, Try it 1-17, Problems 1-5, Think 1-3. Try-it, Problem and Think numbers start at 1 on this page. Figures are numbered from 1 on this page; a figure on another page is always named with its page and its subject.</p></div>
+
+<div data-b="goal"><div class="box"><b>Goal.</b> After this page you can add the forces on a multirotor as arrows, draw its free-body diagram (thrust, weight, drag), and compute its acceleration from the sum of the forces: a = ΣF / m. You can also run the formula backward: the thrust a wanted acceleration needs.</div></div>
+
+<div data-b="why"><p><b>Why you learn this.</b> The autopilot decides how hard the rotors must push, and the simulator decides how the drone moves when they push. Both use one rule: force equals mass times acceleration. The <a href="../reference/autopilot_map.html">autopilot map</a> numbers the parts; this table shows the three rows that need this section.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each part of the autopilot. Read a row from left to right: the part and its row in the autopilot map (the link opens that row), what this section gives to the part, and where the part is in real code. Here is every symbol. <span class="f">a</span> is the acceleration in m/s². <span class="f">m</span> is the mass of the drone in kg. <span class="f">g</span> is the acceleration of gravity in m/s²; it is 9.8062 m/s² at the home field (2.1.2). <span class="f">T</span> is the thrust of all rotors together in N. <span class="f">F</span> is a force in N; the sum of all forces on the drone is <span class="f">ΣF</span>. Figure 1 draws the loop and marks the three rows.</p>
+<table class="t"><tr><th>Autopilot part (map row)</th><th>What this section gives it</th><th>Where in PX4 (the PX4-Autopilot source code [<a class="cite" href="../reference/references.html#ref-29">29</a>]) / Project AirSim (the Project AirSim source code [<a class="cite" href="../reference/references.html#ref-30">30</a>])</th></tr>
+<tr><td><a href="../reference/autopilot_map.html#row-3"><b>Row 3 · Velocity controller</b></a></td><td>It turns a wanted acceleration into a thrust. On the vertical axis the rule is <span class="f">T = m·(g + a)</span>, which is F = m·a solved for the thrust (2.3.5).</td><td>PX4 documentation [<a class="cite" href="../reference/references.html#ref-38">38</a>]: "The acceleration setpoints generated by the velocity controller will be converted to thrust and attitude setpoints." (controller_diagrams.md:53).</td></tr>
+<tr><td><a href="../reference/autopilot_map.html#row-7"><b>Row 7 · Motors and rotors</b></a></td><td>The thrust that the four rotors make, and the ratio of the largest thrust to the weight (2.3.4).</td><td>PX4 SIH <code>src/modules/simulation/simulator_sih/sih.cpp:459</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]; Project AirSim <code>core_sim/include/core_sim/actuators/rotor.hpp:85-89</code> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>].</td></tr>
+<tr><td><a href="../reference/autopilot_map.html#row-8"><b>Row 8 · Physics / simulator</b></a></td><td>The rule that turns all forces into one acceleration, <span class="f">a = ΣF / m</span> (2.3.1), with weight (2.3.3) and drag (2.3.6) as two of the forces.</td><td>PX4 SIH [<a class="cite" href="../reference/references.html#ref-39">39</a>] <code>sih.cpp:686</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]; Project AirSim <code>physics/src/fast_physics.cpp:521-525</code> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>].</td></tr></table>
+<figure><svg id="g1" viewBox="0 0 860 250" width="100%" style="max-width:860px" role="img" aria-label="A simplified autopilot loop of five boxes: planner, controller and mixer, physics or simulator, sensors, estimator. The controller and mixer box is highlighted as rows 3 and 7, the physics box as row 8"></svg>
+<figcaption>Figure 1. A simplified autopilot loop (the boxes are a simplification; the full numbered list is on the autopilot map). The highlighted boxes are the rows of the table. The planner asks for a motion, the controller turns the wanted acceleration into a thrust (row 3) and the mixer and motors make that thrust (row 7). The physics box adds up the forces and finds the new acceleration (row 8). The sensors measure and the estimator tells the planner and the controller where the drone is.</figcaption></figure>
+<p><b>Without this page, rows 3, 7 and 8 cannot be built:</b> the velocity controller would not know how much thrust a wanted acceleration needs, the motor model would not know what thrust it has to make, and the simulator would have no rule to turn forces into an acceleration.</p></div>
+
+<div data-b="howto"><div class="box howto"><b>How this page works.</b> Each idea has an explanation, a picture or table, and <b>Try it</b> exercises with a solution that you open after you try. Most ideas have a medium and a hard exercise; the warm-ups are few. A medium exercise needs more than one step. A hard exercise needs a decision, a trap or a feasibility test. The purple <b>Think</b> problems at the end are larger scenes; every solution step starts with the reason for it. Five mixed <b>Problems</b> come before them. <b>Sign rule.</b> On this page up is plus, and a force or an acceleration that points down has a minus sign. <b>Gravity.</b> Every exercise uses version 4 of 2.1.2 at the place it names: the home field (φ = 45° N, h = 0 m, g = 9.8062 m/s²) unless it says Denver (φ = 39.74° N, h = 1 600 m, g = 9.7965 m/s²). The values 9.8 and similar appear only where a sentence calls them a rough value. <b>Numbers.</b> The masses, thrusts and drag constants are made up for practice; they are not measurements of a real drone. <b>Source code.</b> The formulas that the simulators use are collected on the <a href="../reference/sim_physics_formulas.html">reference page of simulator formulas</a>; this page quotes the ones that carry F = m·a.</div></div>
+
+<h2 class="sub" id="s2.3.1"><span class="no">2.3.1</span> Newton's second law as a vector sum</h2>
+<div data-b="law-explain"><p>A <b>force</b> <span class="f">F</span> is a push or a pull. It has a size and a direction, so we draw it as an arrow. The unit is the newton (N): one newton gives a mass of 1 kg an acceleration of 1 m/s². A force gets bigger when the push gets harder.</p>
+<p>The <b>mass</b> <span class="f">m</span> of the drone is how much it resists a change of its motion. The unit is the kilogram (kg). A payload makes m bigger. Mass does not change from place to place; weight does (2.3.3). The <b>acceleration</b> <span class="f">a</span> is the rate of change of the velocity, in m/s² (2.2.3).</p>
+<p>Several forces act on the drone at the same time. The <b>net force</b> <span class="f">ΣF</span> ("sigma F") is their sum, added as arrows. <b>Newton's second law</b> says that the net force gives the drone an acceleration in the same direction, and that the acceleration is smaller when the mass is bigger:</p>
+<p class="big f">a = ΣF / m</p>
+<p>MIT 16.00 [<a class="cite" href="../reference/references.html#ref-24">24</a>] states the law in its thrust section: "force (F) is equal to mass (m) times acceleration (a)". NASA Glenn [<a class="cite" href="../reference/references.html#ref-21">21</a>] applies it to a ball in flight: the net vertical force is the weight plus the drag, and the acceleration follows from it. In the ISAE-SUPAERO course [<a class="cite" href="../reference/references.html#ref-70">70</a>, C1 M2 "Newton's second law" video] the law is "the vectorial sum of those forces is equal to the mass m of the system multiplied by the acceleration" of its center of mass, observed in an inertial frame; the course adds that for flight mechanics the Earth is a very good inertial frame. We use the Earth the same way.</p>
+<p><b>One axis at a time, then vectors.</b> On a straight line, give each force a sign (the sign rule above), add the signed numbers, and divide by m. In space, do the same for each axis: <span class="f">aₓ = ΣFₓ / m</span>, and so on. Or add the arrows and divide the resulting arrow by m (Try it 2).</p>
+<p><b>What the simulators do.</b> The most complete form in the code is the sum of three groups of forces, divided by the mass. PX4's simulator SIH [<a class="cite" href="../reference/references.html#ref-39">39</a>] adds the weight as a force; Project AirSim adds gravity as an acceleration. Both give the same number.</p>
+<pre class="code">const Vector3f gravity_acceleration_E = Vector3f(_R_N2E.col(2)) * LatLonAlt::Wgs84::gravity(_lla.latitude_rad());
+const Vector3f coriolis_acceleration_E = -2.f * Vector3f(0.f, 0.f, CONSTANTS_EARTH_SPIN_RATE).cross(_v_E);
+Vector3f sum_of_forces_E = _Fa_E + _q_E.rotateVector(_T_B) + weight_E;
+const Vector3f acceleration_E = sum_of_forces_E / _MASS;
+_v_E_dot = acceleration_E + coriolis_acceleration_E;
+_v_N_dot = _R_N2E.transpose() * _v_E_dot + transport_rate;</pre>
+<p class="src"><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/simulation/simulator_sih/sih.cpp#L641-L646"><code>sih.cpp:641-646, 686-694</code></a> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]. <code>_Fa_E</code> is the aerodynamic force (drag), <code>_T_B</code> the thrust, <code>weight_E</code> the weight: the three arrows of 2.3.2. The Coriolis term comes from the rotation of the Earth and is tiny at the speeds of a drone; this page leaves it out (page 2.2b computes its size).</p>
+<pre class="code">const Wrench total_wrench = external_wrench + drag_wrench + lift_drag_wrench;
+
+kin_no_collision.accels.linear = total_wrench.force * mass_inv + env_gravity;</pre>
+<p class="src"><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/physics/src/fast_physics.cpp#L521-L525"><code>fast_physics.cpp:521-525</code></a> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>]. <code>mass_inv</code> is 1/m, so the line is a = ΣF / m + g. The wrench of the rotors is in <code>external_wrench</code>.</p>
+<p><b>PX4 and Project AirSim use this form because</b> they treat the drone as one rigid body. Project AirSim's documentation [<a class="cite" href="../reference/references.html#ref-42">42</a>] says that Fast Physics models "the drone as a cuboid body frame with attached rotors treated as point masses". One sum of forces is then enough: no blade, no wire and no battery is modeled separately.</p>
+<p><b>Three cases.</b> What the net force does to the velocity depends on the angle between ΣF and the velocity v. The ISAE-SUPAERO course [<a class="cite" href="../reference/references.html#ref-70">70</a>, C1 M2 "Newton's second law" video] sums it up in three cases; the table adds a multirotor example to each. The ISAE-SUPAERO video shows the same facts with an apple: a series of stills a fixed time apart, with the same change of velocity Δv in every step.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each position of ΣF against v. Read a row from left to right: the case, what ΣF is like, what happens to the speed and to the path, and an example with a 1.2 kg drone. Here is every symbol. <span class="f">v</span> is the velocity (m/s); the <b>speed</b> is its size. <span class="f">ΣF</span> is the net force (N). <span class="f">a</span> is the acceleration (m/s²). <span class="f">Δt</span> is one time step (s) and <span class="f">Δv = a·Δt</span> is the change of the velocity in one step (m/s). "Parallel" means along v and "perpendicular" means at a right angle to v. Figure 2 draws every row as three stills: the blue arrows are v and the orange arrow is Δv.</p>
+<table class="t"><tr><th>Case</th><th>The net force ΣF</th><th>The velocity v</th><th>Path</th><th>Example (m = 1.2 kg)</th></tr>
+<tr><td><b>(a)</b></td><td>zero</td><td>constant: same speed, same direction</td><td>straight line</td><td class="f">hover or steady cruise: ΣF = 0, a = 0 / 1.2 = 0.00 m/s²</td></tr>
+<tr><td><b>(b)</b></td><td>parallel to v</td><td>the speed changes, the direction stays</td><td>straight line</td><td class="f">thrust above weight on a vertical climb: ΣF = +3.6 N, a = 3.6 / 1.2 = +3.00 m/s²</td></tr>
+<tr><td><b>(c)</b></td><td>perpendicular to v</td><td>the direction turns, the speed stays about the same</td><td>curve</td><td class="f">a sideways push of 3.6 N on a drone that flies level: |a| = 3.6 / 1.2 = 3.00 m/s² at a right angle to v</td></tr></table>
+<figure><svg id="g2" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Three panels, one per row of the table. Panel (a): three equal velocity arrows in a row and no change. Panel (b): velocity arrows that grow along a straight line, each step adds the same change. Panel (c): velocity arrows of nearly equal length that turn step by step along a curve"></svg>
+<figcaption>Figure 2. One panel per row of the table; every panel shows the drone at three moments, one time step apart. (a) The three blue velocity arrows are equal: no change of v, a straight path. (b) The net force is along v, so each step adds the same orange Δv along v: the arrows grow, the path stays straight. (c) The net force is at a right angle to v, so each step adds the same orange Δv sideways: the arrows turn, their length hardly changes, and the path bends.</figcaption></figure>
+<p><b>Watch out.</b> "No net force" does not mean "not moving". A drone in steady cruise at 20 m/s has ΣF = 0 and keeps moving. And a net force at a right angle to v does not speed the drone up or slow it down: it only turns it. A level turn at constant speed needs a net force that points sideways, toward the inside of the turn.</p></div>
+<div data-b="law-try1"><div class="prob lv"><div class="tag">TRY IT 1 · WARM-UP · THE SAME FORCE ON TWO MASSES</div>
+<p>A bench test pushes a racing drone of mass <span class="f">m = 0.8 kg</span> with a net force of <span class="f">3.6 N</span>. Find the acceleration. Then find it for the same drone with a camera and a battery that make the mass <span class="f">1.6 kg</span>, for the same net force.</p>
+<details><summary>Show solution</summary><ol>
+<li><span class="f">a = ΣF / m = 3.6 / 0.8 = <span class="ans">4.50 m/s²</span></span>.</li>
+<li>Twice the mass, the same force: <span class="f">a = ΣF / m = 3.6 / 1.6 = <span class="ans">2.25 m/s²</span></span>. The acceleration halves when the mass doubles.</li></ol></details></div></div>
+<div data-b="law-try2"><div class="prob lv"><div class="tag">TRY IT 2 · MEDIUM · TWO HORIZONTAL FORCES AT RIGHT ANGLES</div>
+<p>A drone of mass <span class="f">m = 2.0 kg</span> hovers: thrust and weight balance. A crosswind pushes it with <span class="f">3.0 N</span> toward the east, and a tether pulls it with <span class="f">4.0 N</span> toward the north. Both forces are horizontal. <b>Questions.</b> (a) Find the size of the net horizontal force. (b) Find the size of the acceleration. (c) Find the direction of the acceleration, as an angle from east toward north. (d) Find the two components of the acceleration and check that they give the same size.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the two forces are at a right angle, so they add like the sides of a right triangle. <span class="f">ΣF = √(3.0² + 4.0²) = √25.00 = <span class="ans">5.00 N</span></span>.</li>
+<li><i>Why this step:</i> the acceleration is the net force divided by the mass. <span class="f">a = ΣF / m = 5.00 / 2.0 = <span class="ans">2.50 m/s²</span></span>.</li>
+<li><i>Why this step:</i> the acceleration points along the net force, so the angle comes from the two components of the force. <span class="f">θ = atan(Fy / Fx) = atan(4.0 / 3.0) = <span class="ans">53.1°</span></span> from east toward north.</li>
+<li><i>Why this step:</i> divide each component by the mass, then add the components as a right triangle. <span class="f">ax = 3.0 / 2.0 = 1.50 m/s²</span> and <span class="f">ay = 4.0 / 2.0 = 2.00 m/s²</span>, and <span class="f">√(1.50² + 2.00²) = √6.25 = 2.50 m/s²</span>. It agrees with step 2.</li></ol>
+<figure><svg id="g3" viewBox="0 0 860 320" width="100%" style="max-width:860px" role="img" aria-label="Top view. Left: a 3.0 newton arrow to the east, a 4.0 newton arrow to the north and the 5.00 newton net force between them at 53.1 degrees. Right: the acceleration arrows with components 1.50 and 2.00 and a size of 2.50 meters per second squared"></svg>
+<figcaption>Figure 3. Top view of Try it 2 (north is up, east is right). Left: the two forces and their net force. Right: the same triangle divided by m = 2.0 kg gives the acceleration; it has the same angle.</figcaption></figure>
+<p><b>Check your answer.</b> The 3-4-5 triangle fits: 5.00 is longer than either side and shorter than their sum 7.0. The angle is above 45° because the north force is the bigger one.</p></div></div></div>
+<div data-b="law-try3"><div class="prob think lv"><div class="tag">TRY IT 3 · HARD · EQUAL STEPS OF VELOCITY, TWO DIRECTIONS OF FORCE</div>
+<p>A drone of mass <span class="f">m = 1.2 kg</span> flies level to the east at <span class="f">10.0 m/s</span>. A steady net force of <span class="f">6.0 N</span> acts on it. A camera takes a still every <span class="f">Δt = 0.50 s</span>. Look at two cases. <b>Case P:</b> the force points north, at a right angle to the velocity. <b>Case Q:</b> the force points east, along the velocity. <b>Questions.</b> (a) Find the change of velocity Δv in each step. (b) Find the velocity after one and after two steps in case Q. (c) Find the speed and the direction after one and after two steps in case P. (d) Which case is a level turn, and which case changes the speed most?</p>
+<p><b>Think first.</b> Each still adds the same Δv. Does adding Δv at a right angle to v make the arrow longer by the full Δv?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the force is steady, so the acceleration is the same in every step, and so is the change of velocity. <span class="f">a = ΣF / m = 6.0 / 1.2 = 5.00 m/s²</span> and <span class="f">Δv = a·Δt = 5.00 × 0.50 = <span class="ans">2.50 m/s</span></span> per step, in the direction of the force.</li>
+<li><i>Why this step:</i> in case Q the arrows lie on one line, so the speeds just add. <span class="f">10.0 + 2.50 = <span class="ans">12.5 m/s</span></span> after one step and <span class="f">12.5 + 2.50 = <span class="ans">15.0 m/s</span></span> after two. The path stays straight.</li>
+<li><i>Why this step:</i> in case P, Δv is at a right angle to v, so the new velocity is the hypotenuse of a right triangle. After one step: <span class="f">√(10.0² + 2.50²) = √106.25 = <span class="ans">10.31 m/s</span></span>, turned by <span class="f">atan(2.50 / 10.0) = <span class="ans">14.0°</span></span> toward the north. After two steps: <span class="f">√(10.0² + 5.00²) = √125.00 = <span class="ans">11.18 m/s</span></span>, turned by <span class="f">atan(5.00 / 10.0) = <span class="ans">26.6°</span></span>.</li>
+<li><i>Why this step:</i> compare the speed gained in the two cases. After one step case Q gained 2.50 m/s and case P only 0.31 m/s, although both added the same Δv. Case P is the turn: the arrow rotates, and the speed changes only a little. A level turn at constant speed is the limit of very short steps, where the sideways Δv rotates the arrow and does not lengthen it. Case Q changes the speed most.</li></ol>
+<figure><svg id="g4" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Two panels with velocity arrows. Case Q: arrows along one line, 10.0, 12.5 and 15.0 meters per second. Case P: arrows that turn north, 10.0, 10.31 and 11.18 meters per second at 0, 14.0 and 26.6 degrees"></svg>
+<figcaption>Figure 4. The stills of Try it 3. Each orange arrow is the same Δv = 2.50 m/s. Left, case Q: the arrows add along one line and the speed grows by 2.50 m/s per step. Right, case P: the arrows turn north; the speed grows from 10.0 to 10.31 and then to 11.18 m/s.</figcaption></figure>
+<p><b>Check your answer.</b> The speed in case P is the length of the hypotenuse, so it must be longer than 10.0 and shorter than 10.0 + 2.50 = 12.5: 10.31 is. And 11.18 is shorter than 10.0 + 5.00 = 15.0.</p>
+<p><b>What if …</b> the force in case P stays at a right angle to the velocity all the time, as it does in a real turn?</p>
+<details><summary>Show the answer</summary>Then the force turns with the velocity, and each step adds a Δv that is at a right angle to the new arrow. The speed stays constant and the path is a circle. The ISAE-SUPAERO apple thrown sideways is the same fact: gravity pulls down, the velocity arrow turns downward, and the speed hardly changes while the apple is near the top of its path [<a class="cite" href="../reference/references.html#ref-70">70</a>, C1 M2 "Newton's second law" video].</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.2"><span class="no">2.3.2</span> The free-body diagram of a multirotor</h2>
+<div data-b="fbd-explain"><p>To add forces you must first find them all. A <b>free-body diagram</b> does that. It shows one object alone, with one arrow for every force that acts on it. Draw it in five steps: (1) draw the drone as a small body and nothing else; (2) ask what pushes or pulls it, by touching it or from a distance; (3) draw an arrow from the body for each answer, with the length in proportion to the size; (4) choose a plus direction (here up); (5) write the sum, ΣF, with a sign for each arrow.</p>
+<p>A multirotor in flight has three forces. <b>Thrust</b> <span class="f">T</span> is the push of the air on the rotors, in N, when the rotors push air down; the four rotors together make it. It points along the vertical axis of the body, up when the drone is level, and it gets bigger when the rotors spin faster. <b>Weight</b> <span class="f">W</span> is the pull of the Earth, in N. It points down, and it gets bigger when the mass is bigger (2.3.3). <b>Drag</b> <span class="f">D</span> is the push of the air against the motion, in N. It points opposite to the velocity, and it gets bigger when the speed is bigger (2.3.6). Lift is the force of a wing; a multirotor has none worth drawing here, and wings are on a later page (plan row fly.7).</p>
+<p>The simulators have the same three groups. PX4's SIH [<a class="cite" href="../reference/references.html#ref-39">39</a>] sums <code>_Fa_E + _q_E.rotateVector(_T_B) + weight_E</code>: the aerodynamic force, the thrust rotated from the body frame into the world frame, and the weight (<code>sih.cpp:686</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]). Project AirSim sums <code>external_wrench + drag_wrench + lift_drag_wrench</code> and adds gravity as an acceleration (<code>fast_physics.cpp:521-525</code> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>]). In the code the thrust is the vector <code>(0, 0, −_T_MAX·Σu)</code>: no push along x and y, and a minus sign along z. PX4 numbers its body axes front, right, down, so minus z is up (2.2c).</p>
+<p><b>How to read this table.</b> The table has three rows, one for each arrow of the diagram. Read a row from left to right: the force, its symbol and unit, where it points, what makes it bigger, and where the simulator code holds it. Here is every symbol. <span class="f">T</span> is the total thrust of all rotors, <span class="f">W = m·g</span> is the weight, and <span class="f">D</span> is the drag, all in N. <span class="f">v</span> is the velocity of the drone relative to the air, in m/s. <span class="f">m</span> is the mass in kg and <span class="f">g</span> the acceleration of gravity in m/s². Figure 5 draws the three rows as the three arrows of one diagram; the numbers on the arrows belong to a drone of 1.2 kg that climbs at a steady speed.</p>
+<table class="t"><tr><th>Force (row)</th><th>Symbol and unit</th><th>Points</th><th>Gets bigger when</th><th>In the code</th></tr>
+<tr><td><b>1 · thrust</b></td><td class="f">T, in N</td><td>along the body's vertical axis, up when level</td><td>the rotors spin faster</td><td><code>_T_B</code> in PX4 SIH; <code>external_wrench</code> in Project AirSim</td></tr>
+<tr><td><b>2 · weight</b></td><td class="f">W = m·g, in N</td><td>down, toward the Earth</td><td>the mass is bigger (or g is bigger)</td><td><code>weight_E</code> in PX4 SIH; <code>env_gravity</code> in Project AirSim</td></tr>
+<tr><td><b>3 · drag</b></td><td class="f">D, in N</td><td>against the velocity relative to the air</td><td>the speed relative to the air is bigger</td><td><code>_Fa_E</code> in PX4 SIH; <code>drag_wrench</code> in Project AirSim</td></tr></table>
+<figure><svg id="g5" viewBox="0 0 860 360" width="100%" style="max-width:860px" role="img" aria-label="Free-body diagram of a drone climbing at a steady speed: a green thrust arrow of 13.767 newtons up, a red weight arrow of 11.767 newtons down and an orange drag arrow of 2.0 newtons down, with the sum zero"></svg>
+<figcaption>Figure 5. The three rows of the table as one free-body diagram. Row 1: thrust T = 13.767 N, up (green). Row 2: weight W = 11.767 N, down (red). Row 3: drag D = 2.0 N, down (orange), because the drone moves up. The arrows are to scale. The sum is zero, so the drone climbs at a steady speed.</figcaption></figure>
+<p><b>Why the diagram helps.</b> A drone is a complicated object, but for its motion as a whole only the sum matters. The diagram forces you to count each force once, and it shows the direction of each, which is where most sign mistakes start. <b>Watch out.</b> Draw only forces that act <i>on</i> the drone. The force that the drone exerts on the air is real, but it acts on the air; it belongs in the diagram of the air (2.3.7). And never draw an "acceleration force": the acceleration is the result of the sum, not another arrow.</p>
+<p class="src">Source for the three forces of a free-body diagram: MIT 16.00 [<a class="cite" href="../reference/references.html#ref-24">24</a>] names weight, thrust and drag as the forces of an aircraft; NASA Glenn [<a class="cite" href="../reference/references.html#ref-21">21</a>] shows the diagram of a ball with weight and drag, where "the only forces acting on the ball are the forces of weight and drag". The owner's notes [<a class="cite" href="../reference/references.html#ref-69">69</a>], PDF page 32, draw the quadcopter diagram of Figure 2.3 with the weight M×g and the four rotor forces.</p></div>
+<div data-b="fbd-try5"><div class="prob think lv"><div class="tag">TRY IT 4 · MEDIUM · THE SAME SPEED UP AND DOWN</div>
+<p>A drone of mass <span class="f">m = 1.2 kg</span> flies at a steady <span class="f">3 m/s</span>, first straight up and then straight down. At this speed the drag is <span class="f">D = 2.0 N</span>. <b>Questions.</b> (a) Find the weight. (b) Draw the diagram for each flight and find the thrust that the rotors must make going up. (c) Find the thrust going down. (d) Explain why the two thrusts differ although the speed is the same.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the weight is needed in both flights. <span class="f">W = m·g = 1.2 × 9.8062 = <span class="ans">11.767 N</span></span>.</li>
+<li><i>Why this step:</i> a steady speed means no acceleration, so the sum is zero: <span class="f">a = ΣF / m = 0 / 1.2 = 0.00 m/s²</span>. Going up, the drag acts down, so the sum is <span class="f">ΣF = T − W − D = 0</span>. Solve for T: <span class="f">T = W + D = 11.767 + 2.0 = <span class="ans">13.767 N</span></span>.</li>
+<li><i>Why this step:</i> going down, the drone moves against the other direction, so the drag points up, against the motion. Now <span class="f">ΣF = T − W + D = 0</span>, so <span class="f">T = W − D = 11.767 − 2.0 = <span class="ans">9.767 N</span></span>.</li>
+<li><i>Why this step:</i> the drag always opposes the velocity, so it changes sides when the velocity does. Going up the rotors must carry the weight and beat the drag; going down the drag helps to carry the weight. The difference is <span class="f">13.767 − 9.767 = 4.000 N</span>, twice the drag.</li></ol>
+<figure><svg id="g6" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Two free-body diagrams. Climbing at 3 meters per second: thrust 13.767 newtons up, weight 11.767 and drag 2.0 down. Descending at 3 meters per second: thrust 9.767 up, drag 2.0 up, weight 11.767 down"></svg>
+<figcaption>Figure 6. The two flights of Try it 4. Left: climbing; the drag arrow points down. Right: descending; the drag arrow points up. The velocity v is the blue arrow beside the drone. In both panels the arrows up and the arrows down have the same total length, so ΣF = 0.</figcaption></figure>
+<p><b>Check your answer.</b> In each panel the arrows up add to the arrows down: <span class="f">13.767 = 11.767 + 2.0</span> and <span class="f">9.767 + 2.0 = 11.767</span>.</p>
+<p><b>What if …</b> the drag were 3.0 N?</p>
+<details><summary>Show the answer</summary>Going up, <span class="f">T = 11.767 + 3.0 = 14.767 N</span>; going down, <span class="f">T = 11.767 − 3.0 = 8.767 N</span>. The two thrusts now differ by 6.0 N, again twice the drag.</details>
+</details></div></div>
+<div data-b="fbd-try6"><div class="prob think lv"><div class="tag">TRY IT 5 · HARD · THE ACCELERATION CHANGES AS THE SPEED FALLS</div>
+<p>A drone of mass <span class="f">m = 1.2 kg</span> flies straight up at <span class="f">4.0 m/s</span> when its thrust drops to a steady <span class="f">10.4 N</span> (less than its weight). The drag is <span class="f">D = k·v²</span> with <span class="f">k = 0.05 N·s²/m²</span>. <b>Questions.</b> (a) Find the drag at 4.0 m/s. (b) Find the acceleration at that moment. (c) Is the drone speeding up or slowing down, and which way does it move? (d) Find the acceleration when the drone reaches v = 0. (e) Give two times between which the drone stops, if the acceleration were constant at the first value and at the second value.</p>
+<p><b>Think first.</b> Which way does the drag point while the drone still moves up? What happens to the drag when v falls? Can one constant acceleration describe the whole stop?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the drag uses the speed now. <span class="f">D = k·v² = 0.05 × 4.0² = <span class="ans">0.80 N</span></span>, pointing down because the drone moves up.</li>
+<li><i>Why this step:</i> list all three forces with up as plus: thrust up, weight down, drag down. <span class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</span>. <span class="f">ΣF = T − W − D = 10.4 − 11.767 − 0.80 = −2.167 N</span>, so <span class="f">a = ΣF / m = −2.167 / 1.2 = <span class="ans">−1.81 m/s²</span></span>.</li>
+<li><i>Why this step:</i> compare the sign of a with the sign of v. The drone still moves up (v is plus) but a is minus, so the velocity shrinks: the drone is slowing down while it still climbs.</li>
+<li><i>Why this step:</i> at v = 0 the drag is zero, and the sum has only thrust and weight. <span class="f">ΣF = 10.4 − 11.767 = −1.367 N</span>, so <span class="f">a = −1.367 / 1.2 = <span class="ans">−1.14 m/s²</span></span>. The acceleration is smaller in size than at the start, because the drag that helped to brake has disappeared.</li>
+<li><i>Why this step:</i> the real acceleration lies between the two values, so the stopping time lies between two estimates. With the first value: <span class="f">t = v / |a| = 4.0 / 1.81 = <span class="ans">2.21 s</span></span>. With the second: <span class="f">t = 4.0 / 1.14 = <span class="ans">3.51 s</span></span>. The drone stops somewhere between 2.21 s and 3.51 s.</li></ol>
+<figure><svg id="g7" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Two free-body diagrams of the same drone. At 4.0 meters per second up: thrust 10.4 up, weight 11.767 and drag 0.80 down, acceleration minus 1.81. At rest: thrust 10.4 up, weight 11.767 down, no drag, acceleration minus 1.14"></svg>
+<figcaption>Figure 7. The two moments of Try it 5. Left: moving up at 4.0 m/s, the weight and the drag both pull down; the orange acceleration arrow is long. Right: at v = 0 the drag has vanished and the acceleration arrow is shorter.</figcaption></figure>
+<p><b>Check your answer.</b> The drone must slow down, since the thrust is below the weight even without drag, so a is minus at every moment. And |a| must be largest when the drag is largest, at the start: 1.81 is more than 1.14.</p>
+<p><b>What if …</b> the thrust were exactly 11.767 N?</p>
+<details><summary>Show the answer</summary>At v = 4.0 m/s the drag still brakes: <span class="f">ΣF = 11.767 − 11.767 − 0.80 = −0.80 N</span>, so <span class="f">a = −0.80 / 1.2 = −0.67 m/s²</span>. The drone slows down until the drag has gone; with T = W it then stays at rest. Thrust equal to the weight does not mean "keep the speed" while the drag is on.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.3"><span class="no">2.3.3</span> Weight: W = m·g</h2>
+<div data-b="w-explain"><p><b>Weight</b> <span class="f">W</span> is the force with which the Earth pulls the drone. The unit is the newton. <b>Mass</b> <span class="f">m</span> is how much matter the drone has; the unit is the kilogram. The two are not the same: a mass does not change from place to place, but its weight does. A scale in a shop shows kilograms, but it really measures a force and converts it with a fixed value of g (Try it 7).</p>
+<p>The link between them is the <b>acceleration of gravity</b> <span class="f">g</span>, in m/s². It is the acceleration of a body that falls with no other force on it. It gets bigger toward the poles and smaller with height. Page 2.1a, section 2.1.2 gives the versions of g; the most precise one is the WGS84 formula [<a class="cite" href="../reference/references.html#ref-45">45</a>] of latitude φ and height h, and the course uses it in every exercise:</p>
+<p class="big f">W = m·g(φ, h)</p>
+<p>Two places are used on this page: the home field (φ = 45° N, h = 0 m) with <span class="f">g = 9.8062 m/s²</span>, and Denver (φ = 39.74° N, h = 1 600 m) with <span class="f">g = 9.7965 m/s²</span>. A rough value of 9.8 m/s² is enough to check an answer, but not to compute one: the third digit already differs.</p>
+<p><b>What the simulators do.</b> Project AirSim computes the gravity vector from the altitude only:</p>
+<pre class="code">env_info.gravity =
+    Vector3(0, 0, EarthUtils::GetGravity(env_info.geo_point.altitude));</pre>
+<p class="src"><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/include/core_sim/environment.hpp#L44-L45"><code>environment.hpp:44-45</code></a> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>]. The vector has x = y = 0 and a plus z: Project AirSim's world frame has z down, so gravity points along +z.</p>
+<p>PX4's SIH uses only the latitude, through the Somigliana formula (<code>src/lib/lat_lon_alt/lat_lon_alt.hpp:119-126</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]); the weight enters the sum of forces as <code>weight_E</code> (<code>sih.cpp:641-646</code>). <b>They use these simpler forms because</b> one input is enough for a simulated flight near one place: AirSim has the height and PX4 SIH has the latitude. The full formula of this course takes both.</p>
+<p><b>How to read this table.</b> The table has three rows: the home field, Denver, and the rough value. Read a row from left to right: the place, the latitude φ and the height h, the value of g, and the weight of the same drone of mass 1.2 kg. Here is every symbol. <span class="f">φ</span> is the latitude in degrees north and <span class="f">h</span> the height above the ellipsoid in m. <span class="f">g</span> is in m/s², <span class="f">W</span> in N, <span class="f">m</span> in kg. A row with a bigger g gives a bigger weight, because W is g times a fixed m. Figure 8 puts the three values of g on one line, so that you see how close they are.</p>
+<table class="t"><tr><th>Place (row)</th><th>φ and h</th><th>g (m/s²)</th><th>Weight of m = 1.2 kg</th></tr>
+<tr><td><b>1 · home field</b></td><td class="f">45° N, 0 m</td><td class="f">9.8062</td><td class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</td></tr>
+<tr><td><b>2 · Denver</b></td><td class="f">39.74° N, 1 600 m</td><td class="f">9.7965</td><td class="f">W = m·g = 1.2 × 9.7965 = 11.756 N</td></tr>
+<tr><td><b>3 · rough value</b></td><td>(no place)</td><td class="f">9.8</td><td class="f">W = m·g = 1.2 × 9.8 = 11.760 N</td></tr></table>
+<figure><svg id="g8" viewBox="0 0 860 220" width="100%" style="max-width:860px" role="img" aria-label="A number line of g from 9.790 to 9.810 with three markers: Denver 9.7965, the rough value 9.8 and the home field 9.8062, each with the weight of a 1.2 kilogram drone"></svg>
+<figcaption>Figure 8. The three rows of the table on a number line of g. Row 2: Denver, 9.7965 m/s². Row 3: the rough value, 9.8 m/s². Row 1: the home field, 9.8062 m/s². The whole line spans only 0.02 m/s², about 0.2 % of g.</figcaption></figure>
+<p>The rough value differs from the home-field weight by <span class="f">11.767 − 11.760 = 0.007 N</span>, and Denver differs by <span class="f">11.767 − 11.756 = 0.011 N</span>. These are small for one drone, but a flight controller that sums many small errors, or a test that compares two numbers to the fourth digit, sees them.</p>
+<p><b>Watch out.</b> Weight is a force, so it points; mass does not. And "weightless" does not mean "massless": a drone in free fall has its full mass and no scale force (Try it 8).</p></div>
+<div data-b="w-try7"><div class="prob lv"><div class="tag">TRY IT 6 · WARM-UP · THE WEIGHT OF A RACING DRONE</div>
+<p>A racing drone has a mass of <span class="f">0.8 kg</span>. Find its weight at the home field.</p>
+<details><summary>Show solution</summary><ol><li><span class="f">W = m·g = 0.8 × 9.8062 = <span class="ans">7.845 N</span></span>.</li></ol></details></div></div>
+<div data-b="w-try8"><div class="prob think lv"><div class="tag">TRY IT 7 · MEDIUM · A SCALE THAT READS GRAMS, TAKEN TO DENVER</div>
+<p>A spring scale is set at the home field so that a drone of true mass <span class="f">1.2 kg</span> reads <span class="f">1 200 g</span>. The scale measures a force and converts it with the home-field value of g. The drone and the scale go to Denver (<span class="f">g = 9.7965 m/s²</span>). <b>Questions.</b> (a) Find the force on the scale in Denver. (b) Find what the scale reads in Denver. (c) Has the mass of the drone changed? (d) What does a scale that reads in kilograms really measure?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the scale feels a force, and the force is the weight at the place of the scale. <span class="f">F = m·g = 1.2 × 9.7965 = <span class="ans">11.756 N</span></span>.</li>
+<li><i>Why this step:</i> the scale divides the force by the home-field g that was used to set it. <span class="f">reading = F / g(cal) = 11.756 / 9.8062 = 1.1988 kg = <span class="ans">1 198.8 g</span></span>. The reading is lower by <span class="f">1 200 − 1 198.8 = 1.2 g</span>.</li>
+<li><i>Why this step:</i> the mass is the amount of matter, and nothing was removed, so the mass is still 1.2 kg. Only the pull of the Earth changed, so only the force changed.</li>
+<li><i>Why this step:</i> a spring scale reads the force on its spring. Its kilogram scale is the force divided by one fixed g. A balance scale that compares two masses would read 1 200 g at both places.</li></ol>
+<figure><svg id="g9" viewBox="0 0 860 220" width="100%" style="max-width:860px" role="img" aria-label="A zoomed scale from 1 198 grams to 1 201 grams with two markers: the Denver reading 1 198.8 grams and the home-field reading 1 200 grams"></svg>
+<figcaption>Figure 9. The scale of Try it 7, zoomed to the range 1 198 to 1 201 g. The home-field reading is 1 200 g (by setting). The Denver reading is 1 198.8 g, 1.2 g lower, although the mass is the same.</figcaption></figure>
+<p><b>Check your answer.</b> Denver's g is smaller by the factor <span class="f">9.7965 / 9.8062 = 0.9990</span>, and <span class="f">1 200 × 0.9990 = 1 198.8</span>. The reading must go down: g is smaller in Denver.</p>
+<p><b>What if …</b> the drone were weighed at the north pole, where g is larger?</p>
+<details><summary>Show the answer</summary>A larger g gives a larger force and a larger reading, with the same mass. The direction of the change follows g.</details>
+</details></div></div>
+<div data-b="w-try9"><div class="prob think lv"><div class="tag">TRY IT 8 · HARD · A DRONE ON A SCALE IN A MOVING LIFT</div>
+<p>A drone of mass <span class="f">m = 1.2 kg</span> stands on a scale inside a lift at the home field. The scale pushes up with a force <span class="f">N</span> (the scale reading in newtons). <b>Questions.</b> (a) The lift accelerates upward at <span class="f">1.5 m/s²</span>. Find N. (b) The lift accelerates downward at <span class="f">1.5 m/s²</span>. Find N. (c) The cable breaks and the lift falls freely, a = −g. Find N. (d) Which of these is the weight of the drone?</p>
+<p><b>Think first.</b> Which two forces act on the drone? Which one is a "contact" force, and which one depends only on g and m?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the drone feels two forces: N up from the scale and the weight W down. With up as plus, <span class="f">ΣF = N − W = m·a</span>, so <span class="f">N = m·(g + a)</span>.</li>
+<li><i>Why this step:</i> accelerating upward means a is plus. <span class="f">N = m·(g + a) = 1.2 × (9.8062 + 1.5) = 1.2 × 11.3062 = <span class="ans">13.567 N</span></span>, more than the weight 11.767 N.</li>
+<li><i>Why this step:</i> accelerating downward means a is minus, a = −1.5 m/s². <span class="f">N = m·(g + a) = 1.2 × (9.8062 − 1.5) = 1.2 × 8.3062 = <span class="ans">9.967 N</span></span>, less than the weight.</li>
+<li><i>Why this step:</i> free fall means a = −g, which puts the same formula to work. <span class="f">N = m·(g + a) = m·(g − g) =<span class="ans">0 N</span></span>. The scale reads zero: the drone seems weightless.</li>
+<li><i>Why this step:</i> the weight is the pull of the Earth, <span class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</span>, in all three cases. Only the scale reading changed; the weight did not.</li></ol>
+<figure><svg id="g10" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Three free-body diagrams of a drone on a scale. Lift accelerating up: scale force 13.567 newtons up, weight 11.767 down. Lift accelerating down: 9.967 up, 11.767 down. Free fall: no scale force, weight 11.767 down"></svg>
+<figcaption>Figure 10. The three lifts of Try it 8. The red weight arrow is the same in every panel. The green scale-force arrow is longer than the weight when the lift accelerates up, shorter when it accelerates down, and absent in free fall. The orange arrow is the acceleration.</figcaption></figure>
+<p><b>Check your answer.</b> In panel 1 the net force is <span class="f">13.567 − 11.767 = 1.800 N</span> up, and <span class="f">1.800 / 1.2 = 1.50 m/s²</span> is the acceleration of the lift. In panel 2 it is <span class="f">9.967 − 11.767 = −1.800 N</span>.</p>
+<p><b>What if …</b> the lift moves up at a steady speed?</p>
+<details><summary>Show the answer</summary>Then a = 0 and <span class="f">N = m·g = 11.767 N</span>. A steady speed feels like standing still; only an acceleration changes the reading.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.4"><span class="no">2.3.4</span> Thrust from the rotors and the thrust-to-weight ratio</h2>
+<div data-b="thr-explain"><p>Each rotor pushes air down and gets a push up. The <b>thrust of one rotor</b> <span class="f">F<sub>i</sub></span> (i = 1 to 4) is that push in N. The thrust of the drone is the sum <span class="f">T = F<sub>1</sub> + F<sub>2</sub> + F<sub>3</sub> + F<sub>4</sub></span>; the owner's notes [<a class="cite" href="../reference/references.html#ref-69">69</a>] write the same sum on PDF page 33. The sum is the number that enters the free-body diagram of 2.3.2. Which rotor makes how much matters for turning (chapter 3), not for the sum.</p>
+<p>What decides the thrust of a rotor? The most complete formula in the simulators is the one of Project AirSim. It gives the largest thrust of a rotor from four numbers: the thrust coefficient <span class="f">C<sub>T</sub></span> (no unit; how well the propeller turns speed into push), the air density <span class="f">ρ</span> (kg/m³), the revolutions per second <span class="f">n</span> (1/s) and the propeller diameter <span class="f">D</span> (m):</p>
+<p class="big f">F = C<sub>T</sub>·ρ·n²·D⁴</p>
+<pre class="code">float revs_per_second = max_rpm / 60.0f;
+max_speed_square = (float)std::pow(revs_per_second * 2 * M_PI, 2);
+max_thrust =
+    (float)(coeff_of_thrust * kBaseAirDensity * revs_per_second *
+            revs_per_second * std::pow(propeller_diameter, 4));</pre>
+<p class="src"><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/include/core_sim/actuators/rotor.hpp#L85-L89"><code>rotor.hpp:85-89</code></a> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>]. The code uses the density at sea level, <code>kBaseAirDensity</code>, for the largest thrust. The same law holds at any speed n (2.1.8).</p>
+<p>Three things follow. The thrust grows with the <b>square</b> of the rotor speed: twice the speed gives four times the thrust. It grows with the air density, so it falls with height (Think 1). And it grows with the <b>fourth power</b> of the diameter. The owner's notes agree on the square of the speed (<span class="f">F = k<sub>F</sub>·ω²</span>, PDF page 33 [<a class="cite" href="../reference/references.html#ref-69">69</a>]); there <span class="f">ω</span> is the rotor speed, which the notes give in rpm (PDF page 32), and <span class="f">k<sub>F</sub></span> collects C<sub>T</sub>, ρ and D. The law has the same shape in any unit of speed; only the number k<sub>F</sub> changes.</p>
+<figure><svg id="g12" viewBox="0 0 860 330" width="100%" style="max-width:860px" role="img" aria-label="Graph of rotor thrust against rotor speed, both as fractions of the largest value: a curve that rises with the square of the speed, with the point where thrust is one half at a speed of 0.7071"></svg>
+<figcaption>Figure 11. Thrust of one rotor against its speed, both as a fraction of the largest value. The curve is the square. Half of the largest thrust needs 0.7071 of the largest speed, not half of it. The dashed line is the straight-line model of PX4's SIH, drawn against the command.</figcaption></figure>
+<p>PX4's SIH uses a simpler law for a quadrotor. Each motor has a command <span class="f">u<sub>i</sub></span> between 0 and 1, and the thrust is linear in the command:</p>
+<pre class="code">_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
+_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
+		 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
+		 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));</pre>
+<p class="src"><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/simulation/simulator_sih/sih.cpp#L459-L462"><code>sih.cpp:459-462</code></a> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]. <code>_T_MAX</code> is the largest thrust of one rotor. The first line is the thrust: <span class="f">T = T<sub>MAX</sub>·(u<sub>0</sub> + u<sub>1</sub> + u<sub>2</sub> + u<sub>3</sub>)</span>. The second line holds the torques (chapter 3).</p>
+<p><b>PX4 uses this simpler form because</b> the SIH plant has its own fixed law from command to thrust; the controller in PX4 can linearise a real motor with a parameter (THR_MDL_FAC, page 2.1b), but the SIH quadrotor needs none. For a real or a Gazebo motor the quadratic law is the better model.</p>
+<p><b>The thrust-to-weight ratio</b> <span class="f">TWR</span> (no unit) is the largest total thrust divided by the weight: <span class="f">TWR = T<sub>max</sub> / W</span>. The owner's notes define it the same way (PDF page 31 and page 56 [<a class="cite" href="../reference/references.html#ref-69">69</a>]). Why does it matter for the sum of forces? The drone can only make a net force up of <span class="f">T<sub>max</sub> − W</span>. So its best vertical acceleration is</p>
+<p class="big f">a<sub>max</sub> = (T<sub>max</sub> − W) / m = (TWR·W − W) / m = (TWR − 1)·g</p>
+<p>because W = m·g. With TWR = 1 the drone can only hover; with TWR = 2 it can accelerate upward at 1 g. A second use: if thrust is linear in the command, the hover command is <span class="f">u<sub>h</sub> = 1 / TWR</span>; if it is quadratic in the speed, the hover <i>speed</i> is <span class="f">√(1 / TWR)</span> of the largest speed. PX4's default hover thrust, <code>MPC_THR_HOVER</code>, is 0.5 (<code>multicopter_position_control_params.yaml:5-19</code> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]; the controller diagrams [<a class="cite" href="../reference/references.html#ref-38">38</a>] describe it as the vertical thrust needed to hover); that is the value of TWR = 2 with a linear law.</p>
+<p><b>How to read this table.</b> The table has three rows, one for each thrust-to-weight ratio, for the same drone of mass 1.2 kg and weight W = 11.767 N (2.3.3). Read a row from left to right: TWR, the largest thrust, the hover command, and the best vertical acceleration. Here is every symbol. <span class="f">TWR</span> has no unit. <span class="f">T<sub>max</sub> = TWR × W</span> is the largest total thrust in N. <span class="f">u<sub>h</sub> = 1 / TWR</span> is the share of the largest thrust that exactly carries the weight (no unit). <span class="f">a<sub>max</sub> = (TWR − 1)·g</span> is the best vertical acceleration in m/s², with g = 9.8062 m/s². A bigger TWR gives more spare thrust, a lower hover command and a bigger a<sub>max</sub>. Figure 12 draws the thrust against the command for each row.</p>
+<table class="t"><tr><th>TWR (row)</th><th>T<sub>max</sub> = TWR × W</th><th>Hover command u<sub>h</sub> = 1 / TWR</th><th>Best climb a<sub>max</sub> = (TWR − 1)·g</th></tr>
+<tr><td><b>1 · 1.0</b></td><td class="f">1.0 × 11.767 = 11.767 N</td><td class="f">1 / 1.0 = 1.00</td><td class="f">(1.0 − 1) × 9.8062 = 0.000 m/s²</td></tr>
+<tr><td><b>2 · 2.0</b></td><td class="f">2.0 × 11.767 = 23.534 N</td><td class="f">1 / 2.0 = 0.50</td><td class="f">(2.0 − 1) × 9.8062 = 9.806 m/s²</td></tr>
+<tr><td><b>3 · 4.0</b></td><td class="f">4.0 × 11.767 = 47.068 N</td><td class="f">1 / 4.0 = 0.25</td><td class="f">(4.0 − 1) × 9.8062 = 29.419 m/s²</td></tr></table>
+<figure><svg id="g11" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Thrust divided by weight against the command from 0 to 1, for three drones with thrust-to-weight ratios 1, 2 and 4. A horizontal line at 1 marks the weight. The lines cross it at the commands 1.00, 0.50 and 0.25"></svg>
+<figcaption>Figure 12. The three rows of the table. Each line is T / W against the command u for a linear law (the PX4 SIH form). Row 1 (TWR 1.0) reaches the weight line only at u = 1.00. Row 2 (TWR 2.0) crosses it at u = 0.50. Row 3 (TWR 4.0) crosses it at u = 0.25. The part of a line above the weight line is the spare thrust.</figcaption></figure>
+<p><b>The rule "TWR 2" in the owner's notes.</b> The notes [<a class="cite" href="../reference/references.html#ref-69">69</a>] call an effective TWR of 2 safe (PDF page 31), a typical TWR "2:1 to 3:1" (page 56), and say racing drones sometimes go to 3 or higher (page 31). We found no outside source for these numbers; treat them as design rules of thumb. What is checked is the meaning: TWR 2 leaves a spare thrust equal to the weight, which is an acceleration of 1 g, and it gives a hover command of 0.50 when the law is linear. The notes' sentence "at 50 % throttle the thrust equals the weight" is true only under both conditions (TWR 2 and a linear law). With the quadratic law and TWR 2, hover needs 0.7071 of the largest speed (Try it 11).</p>
+<p><b>Watch out.</b> The TWR depends on the weight, so a payload lowers it, and on the air density, so a high field lowers it (Think 1).</p></div>
+<div data-b="thr-try10"><div class="prob lv"><div class="tag">TRY IT 9 · WARM-UP · FIND THE TWR</div>
+<p>A drone of mass <span class="f">1.2 kg</span> has a largest total thrust of <span class="f">30.0 N</span>. Find its TWR at the home field.</p>
+<details><summary>Show solution</summary><ol><li><span class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</span>.</li><li><span class="f">TWR = T<sub>max</sub> / W = 30.0 / 11.767 = <span class="ans">2.55</span></span>. It is above 2, so the drone meets the rule of thumb.</li></ol></details></div></div>
+<div data-b="thr-try11"><div class="prob think lv"><div class="tag">TRY IT 10 · MEDIUM · HOW MUCH PAYLOAD KEEPS THE TWR AT 2?</div>
+<p>The drone of Try it 9 (<span class="f">1.2 kg</span>, <span class="f">T<sub>max</sub> = 30.0 N</span>) must carry a payload. <b>Questions.</b> (a) Find the TWR with a payload of <span class="f">0.50 kg</span>. (b) Find the largest total mass for which TWR = 2.0. (c) Find the largest payload. (d) Does the payload limit change much between the home field and Denver, if only g changes?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the payload adds to the mass, and the mass sets the weight. <span class="f">m = 1.2 + 0.50 = 1.7 kg</span> and <span class="f">W = m·g = 1.7 × 9.8062 = 16.671 N</span>.</li>
+<li><i>Why this step:</i> the TWR uses the new weight. <span class="f">TWR = T<sub>max</sub> / W = 30.0 / 16.671 = <span class="ans">1.80</span></span>, below 2.</li>
+<li><i>Why this step:</i> TWR = T<sub>max</sub> / (m·g) = 2.0 can be solved for m. <span class="f">m = T<sub>max</sub> / (2.0 × g) = 30.0 / (2.0 × 9.8062) = 30.0 / 19.612 = <span class="ans">1.53 kg</span></span>.</li>
+<li><i>Why this step:</i> the payload is what is left after the drone itself. <span class="f">1.53 − 1.2 = <span class="ans">0.33 kg</span></span>.</li>
+<li><i>Why this step:</i> redo step 3 with the Denver value of g. <span class="f">m = 30.0 / (2.0 × 9.7965) = 30.0 / 19.593 = <span class="ans">1.53 kg</span></span>. Nothing changes at this precision, so g alone does not limit the payload at a high field; the air density does (Think 1).</li></ol>
+<figure><svg id="g13" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Graph of the thrust-to-weight ratio against total mass for a largest thrust of 30.0 newtons. The curve falls from above 3 at 1.0 kilograms. Marked points: 1.2 kilograms with 2.55, 1.7 kilograms with 1.80, and the crossing of the TWR 2 line at 1.53 kilograms"></svg>
+<figcaption>Figure 13. TWR against the total mass for T<sub>max</sub> = 30.0 N at the home field. The empty drone (1.2 kg) is at TWR 2.55. A payload of 0.50 kg (1.7 kg) gives TWR 1.80. The dashed horizontal line is TWR 2; the curve crosses it at 1.53 kg, so the payload limit is 0.33 kg.</figcaption></figure>
+<p><b>Check your answer.</b> At the limit the TWR must be exactly 2: <span class="f">W = 1.53 × 9.8062 = 15.003 N</span> and <span class="f">30.0 / 15.003 = 2.00</span>.</p>
+<p><b>What if …</b> the rule were TWR 3 instead of 2?</p>
+<details><summary>Show the answer</summary>Then <span class="f">m = 30.0 / (3.0 × 9.8062) = 30.0 / 29.419 = 1.02 kg</span>, which is less than the empty drone: this drone cannot meet TWR 3 at all, even without a payload.</details>
+</details></div></div>
+<div data-b="thr-try12"><div class="prob think lv"><div class="tag">TRY IT 11 · HARD · TEN PERCENT MORE SPEED, TWO MODELS</div>
+<p>A drone of mass <span class="f">1.2 kg</span> has TWR = 2.0 at the home field, so <span class="f">T<sub>max</sub> = 23.534 N</span> (row 2 of the table) and a largest rotor speed of <span class="f">1 200 rad/s</span>. <b>Questions.</b> (a) With the quadratic law, at which rotor speed does the drone hover? (b) The controller raises the rotor speed 10 % above the hover speed. Find the thrust and the acceleration. (c) A model with the straight-line law raises the command 10 % above its hover value. Find its thrust and acceleration. (d) Which model reacts more strongly to the same 10 %?</p>
+<p><b>Think first.</b> If thrust grows with the square of the speed, is the hover speed half of the largest speed when the hover thrust is half of the largest thrust?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> hovering needs T = W, which is half of T<sub>max</sub> here, and the thrust is in proportion to the speed squared, so the speed ratio is the square root of the thrust ratio. <span class="f">ω / ω<sub>max</sub> = √(W / T<sub>max</sub>) = √(11.767 / 23.534) = √0.50 = <span class="ans">0.7071</span></span>. The hover speed is <span class="f">0.7071 × 1 200 = <span class="ans">848.5 rad/s</span></span>.</li>
+<li><i>Why this step:</i> a 10 % rise in speed multiplies the thrust by the square of 1.10. <span class="f">ω / ω<sub>max</sub> = 1.10 × 0.7071 = 0.7778</span> and <span class="f">T / W = 1.10² = 1.21</span>, so <span class="f">T = 1.21 × 11.767 = <span class="ans">14.238 N</span></span>. The net force is the thrust minus the weight: <span class="f">a = (T − W) / m = (14.238 − 11.767) / 1.2 = 2.471 / 1.2 = <span class="ans">2.06 m/s²</span></span>.</li>
+<li><i>Why this step:</i> in the straight-line law the thrust is in proportion to the command, so 10 % more command is 10 % more thrust. <span class="f">T = 1.10 × 11.767 = <span class="ans">12.944 N</span></span> and <span class="f">a = (12.944 − 11.767) / 1.2 = 1.177 / 1.2 = <span class="ans">0.98 m/s²</span></span>.</li>
+<li><i>Why this step:</i> compare the two accelerations. <span class="f">2.06 / 0.98 = 2.1</span>: the quadratic model reacts about twice as strongly. Near hover, the square turns a 10 % change of speed into a 21 % change of thrust. A controller tuned for the straight-line law would be too gentle on a real rotor, and this is why a real autopilot linearises the motor.</li></ol>
+<figure><svg id="g14" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Graph of thrust divided by weight against the speed relative to the hover speed, from 0.8 to 1.3. The quadratic curve passes through 1.21 at 1.10; the straight line of the other model gives 1.10 there"></svg>
+<figcaption>Figure 14. T / W against the speed (or command) relative to its hover value. The curve is the quadratic law: at 1.10 it reads 1.21. The dashed straight line is the linear law: at 1.10 it reads 1.10. The gap between the two points at 1.10 is the difference between the two accelerations.</figcaption></figure>
+<p><b>Check your answer.</b> Both models give T = W (a = 0) at 1.00. And the quadratic curve is the steeper one at 1.00, which is why its acceleration is larger.</p>
+<p><b>What if …</b> the rotor speed fell 10 % below the hover speed?</p>
+<details><summary>Show the answer</summary><span class="f">T / W = 0.90² = 0.81</span>, so <span class="f">T = 0.81 × 11.767 = 9.531 N</span> and <span class="f">a = (9.531 − 11.767) / 1.2 = −1.86 m/s²</span>. The drone sinks, and the quadratic law gives a smaller change below hover than above it (−1.86 against +2.06).</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.5"><span class="no">2.3.5</span> One axis: hover, climb, descent and a changing mass</h2>
+<div data-b="axis-explain"><p>Take the vertical axis with up as plus. Two forces act when drag is small: the thrust T up and the weight W down. Newton's law gives the vertical acceleration <span class="f">a</span> (plus is up):</p>
+<p class="big f">a = (T − W) / m</p>
+<p>and solved for the thrust that a wanted acceleration needs:</p>
+<p class="big f">T = m·(g + a)</p>
+<p>This is the rule of row 3 of the autopilot map: the velocity controller turns a wanted acceleration into a thrust. Read it in words: to hover (a = 0) the thrust equals the weight; to climb the thrust must also supply m·a; to descend slowly it may be smaller than the weight. The PX4 documentation [<a class="cite" href="../reference/references.html#ref-38">38</a>] states the step in one sentence (quoted in the table of the start of this page).</p>
+<p>The ISAE-SUPAERO course [<a class="cite" href="../reference/references.html#ref-70">70</a>, C1 M3 "Load factor" video] shows a neat way to read the same equation. It rewrites Newton's law so that the forces other than weight equal "a pseudo weight" m·g·n, where the load factor <span class="f">n</span> has no unit and measures how many times the weight those forces must be. For a multirotor on a vertical line the only force besides the weight is the thrust, so <span class="f">n = T / W = 1 + a / g</span>. It is 1 in hover; above 1 in a climb (you feel heavier); below 1 in a descent (you feel lighter). The thrust-to-weight ratio of 2.3.4 is the largest n the drone can make.</p>
+<p><b>How to read this table.</b> The table has three rows for the same drone of mass 1.2 kg, weight W = 11.767 N. Read a row from left to right: the situation, the net force, the acceleration, the thrust that makes it, and the load factor. Here is every symbol. <span class="f">T</span> is the thrust and <span class="f">W</span> the weight, in N. <span class="f">ΣF = T − W</span> is the net force with up as plus. <span class="f">a = ΣF / m</span> is the acceleration in m/s². <span class="f">n = T / W</span> is the load factor, without a unit. A plus sign on ΣF and a means up; a minus sign means down. Figure 15 draws the three rows as three free-body diagrams.</p>
+<table class="t"><tr><th>Situation (row)</th><th>Net force ΣF = T − W</th><th>Acceleration a = ΣF / m</th><th>Thrust needed T = m·(g + a)</th><th>Load factor n = T / W</th></tr>
+<tr><td><b>1 · hover</b></td><td class="f">11.767 − 11.767 = 0.000 N</td><td class="f">0.000 / 1.2 = 0.00 m/s²</td><td class="f">1.2 × (9.8062 + 0.00) = 11.767 N</td><td class="f">11.767 / 11.767 = 1.00</td></tr>
+<tr><td><b>2 · climb, a = +3.00 m/s²</b></td><td class="f">15.367 − 11.767 = +3.600 N</td><td class="f">+3.600 / 1.2 = +3.00 m/s²</td><td class="f">1.2 × (9.8062 + 3.00) = 1.2 × 12.8062 = 15.367 N</td><td class="f">15.367 / 11.767 = 1.31</td></tr>
+<tr><td><b>3 · descent, a = −2.00 m/s²</b></td><td class="f">9.367 − 11.767 = −2.400 N</td><td class="f">−2.400 / 1.2 = −2.00 m/s²</td><td class="f">1.2 × (9.8062 − 2.00) = 1.2 × 7.8062 = 9.367 N</td><td class="f">9.367 / 11.767 = 0.80</td></tr></table>
+<figure><svg id="g15" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Three free-body diagrams. Hover: thrust and weight both 11.767 newtons. Climb: thrust 15.367 up, weight 11.767 down, acceleration 3.00 up. Descent: thrust 9.367 up, weight 11.767 down, acceleration 2.00 down"></svg>
+<figcaption>Figure 15. The three rows of the table. The red weight arrow is the same in every panel. The green thrust arrow equals it in hover (row 1), is longer in the climb (row 2) and shorter in the descent (row 3). The orange arrow is the acceleration, always in the direction of the longer of the two arrows.</figcaption></figure>
+<p>Check the load factor the other way: for the climb, <span class="f">n = 1 + a / g = 1 + 3.00 / 9.8062 = 1.31</span>; for the descent, <span class="f">n = 1 + (−2.00) / 9.8062 = 0.80</span>. Both agree with the last column.</p>
+<p><b>A changing mass.</b> The mass m enters twice: it sets the weight W = m·g and it divides the net force. When the mass changes in flight (a dropped payload, a spray tank that empties), and the thrust has not yet changed, the net force and the acceleration jump (Try it 12 and Think 3).</p>
+<p><b>Watch out.</b> The formulas above hold when drag is small, the drone is level and the thrust is vertical. When the drone is tilted, the vertical part of the thrust is smaller than T (page 2.5 on tilting; Problem 2 shows the first step). And a = 0 does not mean the drone is at rest: it can climb at a steady speed.</p></div>
+<div data-b="axis-try12"><div class="prob think lv"><div class="tag">TRY IT 12 · MEDIUM · A PAYLOAD IS DROPPED</div>
+<p>A drone and its parcel have a total mass of <span class="f">1.7 kg</span> and hover at the home field. The drone drops the parcel of <span class="f">0.50 kg</span>. For a short time the motor commands stay as they were. <b>Questions.</b> (a) Find the thrust before the drop. (b) Find the weight after the drop. (c) Find the acceleration just after the drop. (d) How fast is the drone moving after 0.40 s, and how high has it risen, if the thrust did not change?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> before the drop the drone hovers, so the thrust equals the weight of the total mass. <span class="f">W = m·g = 1.7 × 9.8062 = 16.671 N</span>, so <span class="f">T = <span class="ans">16.671 N</span></span>.</li>
+<li><i>Why this step:</i> after the drop only the drone is left, and the weight uses the new mass. <span class="f">W = m·g = 1.2 × 9.8062 = <span class="ans">11.767 N</span></span>.</li>
+<li><i>Why this step:</i> the thrust is still 16.671 N, so the net force is the old thrust minus the new weight. <span class="f">ΣF = T − W = 16.671 − 11.767 = 4.904 N</span> and <span class="f">a = ΣF / m = 4.904 / 1.2 = <span class="ans">4.09 m/s²</span></span>, upward.</li>
+<li><i>Why this step:</i> the acceleration is constant for this short time, so the equations of 2.2.5 apply. <span class="f">v = a·t = 4.09 × 0.40 = <span class="ans">1.64 m/s</span></span> and <span class="f">Δh = ½·a·t² = 0.5 × 4.09 × 0.40² = <span class="ans">0.33 m</span></span>.</li></ol>
+<figure><svg id="g16" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Two free-body diagrams. Before the drop, mass 1.7 kilograms: thrust and weight both 16.671 newtons. After the drop, mass 1.2: thrust 16.671 up, weight 11.767 down, acceleration 4.09 up"></svg>
+<figcaption>Figure 16. Try it 12. Left: before the drop the two arrows are equal. Right: the thrust arrow is unchanged but the weight arrow is shorter, so the orange acceleration arrow points up.</figcaption></figure>
+<p><b>Check your answer.</b> The acceleration is <span class="f">4.09 / 9.8062 = 0.42</span> of g. It is a large share, so a real controller must lower the thrust at once; the motor lag (page 2.2c) is why this takes time.</p>
+<p><b>What if …</b> the drone dropped only 0.20 kg?</p>
+<details><summary>Show the answer</summary>Then <span class="f">m = 1.5 kg</span>, <span class="f">W = 1.5 × 9.8062 = 14.709 N</span>, <span class="f">ΣF = 16.671 − 14.709 = 1.962 N</span> and <span class="f">a = 1.962 / 1.5 = 1.31 m/s²</span>. Less dropped mass gives a smaller jump, but not in proportion: the mass in the denominator changes as well.</details>
+</details></div></div>
+<div data-b="axis-try13"><div class="prob think lv"><div class="tag">TRY IT 13 · HARD · CAN THE DRONE STOP IN TIME?</div>
+<p>A drone descends straight down at <span class="f">4.0 m/s</span>. It must stop in a distance of <span class="f">2.0 m</span>, with the same deceleration all the way. Its largest total thrust is <span class="f">23.534 N</span> (the TWR 2.0 drone of 2.3.4). <b>Questions.</b> (a) Find the deceleration that is needed. (b) Find the thrust for the drone alone (<span class="f">1.2 kg</span>) and for the drone with a <span class="f">0.50 kg</span> payload. (c) Is it possible? (d) What if the descent speed were 5.0 m/s, with the payload? Find the shortest stopping distance.</p>
+<p><b>Think first.</b> To slow a downward motion the acceleration must point up. Is the thrust then larger or smaller than the weight?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the stop is at constant deceleration, so the equation without time applies: v² = 2·a·d for the size of the speed. <span class="f">a = v² / (2·d) = 4.0² / (2 × 2.0) = 16.0 / 4.0 = <span class="ans">4.00 m/s²</span></span>, pointing up.</li>
+<li><i>Why this step:</i> an upward acceleration needs a thrust above the weight, T = m·(g + a). For the drone alone: <span class="f">T = m·(g + a) = 1.2 × (9.8062 + 4.00) = 1.2 × 13.8062 = <span class="ans">16.567 N</span></span>. With the payload: <span class="f">T = 1.7 × (9.8062 + 4.00) = 1.7 × 13.8062 = <span class="ans">23.471 N</span></span>.</li>
+<li><i>Why this step:</i> compare with the limit. 16.567 N is far below 23.534 N. 23.471 N is just below it: <span class="f">23.534 − 23.471 = 0.063 N</span>, a margin of <span class="f">0.063 / 23.534 = 0.3 %</span>. So the stop is possible in both cases, but with the payload only barely.</li>
+<li><i>Why this step:</i> at 5.0 m/s the needed deceleration is larger. <span class="f">a = 5.0² / (2 × 2.0) = 25.0 / 4.0 = 6.25 m/s²</span> and <span class="f">T = 1.7 × (9.8062 + 6.25) = 1.7 × 16.0562 = <span class="ans">27.296 N</span></span>, above the limit by <span class="f">27.296 − 23.534 = 3.762 N</span>. It is not possible in 2.0 m.</li>
+<li><i>Why this step:</i> the best the drone can do uses the full thrust. <span class="f">a = (T<sub>max</sub> − W) / m = (23.534 − 16.671) / 1.7 = 6.863 / 1.7 = <span class="ans">4.04 m/s²</span></span>. Then <span class="f">d = v² / (2·a) = 5.0² / (2 × 4.04) = 25.0 / 8.08 = <span class="ans">3.09 m</span></span>. The drone needs at least 3.09 m, not 2.0 m.</li></ol>
+<figure><svg id="g17" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Bar chart of thrusts in newtons: 16.567 for the drone alone, 23.471 for the drone with payload at 4.0 meters per second, and 27.296 for the drone with payload at 5.0 meters per second, with a dashed limit at 23.534"></svg>
+<figcaption>Figure 17. The thrusts of Try it 13 against the largest thrust of 23.534 N (dashed). The first two bars stay below it; the third, at 5.0 m/s with the payload, goes above it.</figcaption></figure>
+<p><b>Check your answer.</b> At the limit the drone's own numbers must give the stop: with a = 4.04 m/s² and d = 3.09 m, <span class="f">v² = 2 × 4.04 × 3.09 = 25.0</span>, so v = 5.0 m/s.</p>
+<p><b>What if …</b> the pilot starts to brake only when the drone is 1.0 m from the ground?</p>
+<details><summary>Show the answer</summary>Then <span class="f">a = 4.0² / (2 × 1.0) = 8.00 m/s²</span> and the drone alone needs <span class="f">T = 1.2 × (9.8062 + 8.00) = 21.367 N</span>, which is still below 23.534 N, but the drone with the payload needs <span class="f">T = 1.7 × (9.8062 + 8.00) = 1.7 × 17.8062 = 30.271 N</span>: impossible. Braking late is where the payload hurts most.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.6"><span class="no">2.3.6</span> Drag as a force against the velocity</h2>
+<div data-b="drag-explain"><p><b>Drag</b> <span class="f">D</span> is the force of the air against the motion, in N. Two facts are enough for the sum of forces. First, it points <b>opposite to the velocity relative to the air</b> (not relative to the ground): a drone that hovers in a wind of 5 m/s feels drag although its ground speed is zero. Second, it gets bigger with the speed <span class="f">v</span> (m/s). There are two common forms. The <b>linear</b> form, <span class="f">D = k<sub>1</sub>·v</span>, has the constant <span class="f">k<sub>1</sub></span> in N·s/m. The <b>quadratic</b> form, <span class="f">D = k<sub>2</sub>·v²</span>, has the constant <span class="f">k<sub>2</sub></span> in N·s²/m². In the quadratic form, twice the speed gives four times the drag.</p>
+<p>The full drag model is on page 2.1 (2.1.5 and 2.1.11) and is not repeated here. NASA Glenn [<a class="cite" href="../reference/references.html#ref-21">21</a>] gives the drag equation D = C<sub>D</sub>·ρ·A·V²/2 for a ball, so the constant of the quadratic form collects <span class="f">k<sub>2</sub> = ½·ρ·S·C<sub>D</sub></span>: air density ρ, reference area S and drag coefficient C<sub>D</sub>. On this page the constants are given numbers.</p>
+<p><b>What the simulators do.</b> Project AirSim computes the drag on each face of the body. The comment in the code says: "Drag vector magnitude is proportional to v^2, with direction opposite of velocity." (<code>fast_physics.cpp:725</code> @ c80cff5 [<a class="cite" href="../reference/references.html#ref-30">30</a>]). PX4's SIH uses the linear form, with the velocity relative to the air:</p>
+<pre class="code">_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
+_Ma_B = -_KDW * _w_B; // first order angular damper</pre>
+<p class="src"><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/simulation/simulator_sih/sih.cpp#L464-L465"><code>sih.cpp:464-465</code></a> @ d28a642 [<a class="cite" href="../reference/references.html#ref-29">29</a>]. <code>_KDV</code> plays the role of k<sub>1</sub> and <code>_v_apparent_N</code> is the velocity relative to the air. The second line damps the rotation (chapter 3). <b>PX4 uses the linear form because</b> the code calls it "first order drag to slow down the aircraft": a simple term that keeps the simulated drone from flying on forever, not a model of a body shape.</p>
+<p>The two forms differ at high speed. Take <span class="f">k<sub>1</sub> = 0.30 N·s/m</span> and <span class="f">k<sub>2</sub> = 0.06 N·s²/m²</span>. At 5.0 m/s both give the same drag: <span class="f">k<sub>1</sub>·v = 0.30 × 5.0 = 1.50 N</span> and <span class="f">k<sub>2</sub>·v² = 0.06 × 5.0² = 1.50 N</span>. At 10.0 m/s they part: <span class="f">0.30 × 10.0 = 3.00 N</span> against <span class="f">0.06 × 10.0² = 6.00 N</span>. At 20.0 m/s the gap is large: <span class="f">0.30 × 20.0 = 6.00 N</span> against <span class="f">0.06 × 20.0² = 24.0 N</span>. Figure 18 draws both curves.</p>
+<figure><svg id="g18" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Graph of drag against speed from 0 to 20 meters per second. A straight line for the linear form and a curve for the quadratic form cross at 5.0 meters per second where both give 1.50 newtons. At 20 meters per second they give 6.00 and 24.0 newtons"></svg>
+<figcaption>Figure 18. Drag against speed for the two forms, with k<sub>1</sub> = 0.30 N·s/m (straight line) and k<sub>2</sub> = 0.06 N·s²/m² (curve). They agree at 5.0 m/s. At higher speed the quadratic form gives much more drag.</figcaption></figure>
+<p><b>Sign.</b> Draw the drag arrow against the velocity. In a formula with up as plus, the force on the drone is <span class="f">−k<sub>2</sub>·v·|v|</span>: its sign is the opposite of the sign of v. Going up (v plus) it is minus, so it pulls down; going down (v minus) it is plus.</p>
+<p><b>Watch out.</b> Use the speed relative to the air. With a headwind of 3.0 m/s and a ground speed of 5.0 m/s, the air speed is 8.0 m/s, and the drag follows the 8.0 (Try it 15).</p></div>
+<div data-b="drag-try14"><div class="prob think lv"><div class="tag">TRY IT 14 · MEDIUM · THRUST EQUALS WEIGHT, BUT THE DRONE IS FALLING</div>
+<p>A drone of mass <span class="f">1.2 kg</span> flies straight down at <span class="f">10.0 m/s</span>. Its thrust equals its weight. The drag is quadratic with <span class="f">k<sub>2</sub> = 0.06 N·s²/m²</span>. <b>Questions.</b> (a) Find the weight. (b) Find the drag and say where it points. (c) Find the net force and the acceleration. (d) Is the drone speeding up or slowing down?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the thrust equals the weight, so the weight gives the thrust. <span class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</span> and <span class="f">T = 11.767 N</span>.</li>
+<li><i>Why this step:</i> the drag follows the speed. <span class="f">D = k<sub>2</sub>·v² = 0.06 × 10.0² = <span class="ans">6.00 N</span></span>. The drone moves down, so the drag points up.</li>
+<li><i>Why this step:</i> with up as plus, the thrust and the drag are plus and the weight is minus. <span class="f">ΣF = T − W + D = 11.767 − 11.767 + 6.00 = <span class="ans">+6.00 N</span></span>. Then <span class="f">a = ΣF / m = 6.00 / 1.2 = <span class="ans">+5.00 m/s²</span></span>.</li>
+<li><i>Why this step:</i> compare the signs: v is minus (down), a is plus (up). They have opposite signs, so the drone is slowing down. The drag brakes the fall, but as the speed drops the drag shrinks, so the braking gets weaker and the speed creeps toward zero.</li></ol>
+<figure><svg id="g19" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Free-body diagram of a drone moving down at 10.0 meters per second: thrust 11.767 newtons up, drag 6.00 newtons up, weight 11.767 down, net force 6.00 up and acceleration 5.00 up"></svg>
+<figcaption>Figure 19. Try it 14. The drone moves down (blue). Thrust and drag point up; the weight points down. The up arrows are longer, so the net force and the acceleration (orange) point up.</figcaption></figure>
+<p><b>Check your answer.</b> The up arrows add to <span class="f">11.767 + 6.00 = 17.767 N</span> and the down arrow is 11.767 N; the difference is 6.00 N, as in step 3.</p>
+<p><b>What if …</b> the drag were linear, <span class="f">k<sub>1</sub> = 0.30 N·s/m</span>?</p>
+<details><summary>Show the answer</summary><span class="f">D = k<sub>1</sub>·v = 0.30 × 10.0 = 3.00 N</span>, so <span class="f">a = 3.00 / 1.2 = +2.50 m/s²</span>: half the braking of the quadratic form at this speed.</details>
+</details></div></div>
+<div data-b="drag-try15"><div class="prob think lv"><div class="tag">TRY IT 15 · HARD · THE TOP SPEED DEPENDS ON THE WIND</div>
+<p>A drone of mass <span class="f">1.2 kg</span> holds its height and pushes forward with a steady horizontal force of <span class="f">H = 6.0 N</span> (how it makes this force by tilting is on page 2.5). The drag is quadratic with <span class="f">k<sub>2</sub> = 0.06 N·s²/m²</span> and acts on the air speed. <b>Questions.</b> (a) Find the top air speed. (b) Find the top ground speed in still air, in a headwind of 3.0 m/s and in a tailwind of 3.0 m/s. (c) In the headwind, find the acceleration at a ground speed of 5.0 m/s.</p>
+<p><b>Think first.</b> At the top speed what is the acceleration, and what does that say about H and D? Does the drag care about the ground?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> at the top speed the speed no longer grows, so a = 0 and the net force is zero: H = D. Solve <span class="f">k<sub>2</sub>·v² = H</span> for v. <span class="f">v = √(H / k<sub>2</sub>) = √(6.0 / 0.06) = √100 = <span class="ans">10.0 m/s</span></span>. This is the air speed.</li>
+<li><i>Why this step:</i> the drag depends on the air speed, which stays at 10.0 m/s at the top speed. In still air the ground speed is 10.0 m/s. In a headwind of 3.0 m/s the ground speed is the air speed minus the wind: <span class="f">10.0 − 3.0 = <span class="ans">7.0 m/s</span></span>. In a tailwind: <span class="f">10.0 + 3.0 = <span class="ans">13.0 m/s</span></span>.</li>
+<li><i>Why this step:</i> in the headwind the air speed is the ground speed plus the wind. <span class="f">5.0 + 3.0 = 8.0 m/s</span>, so <span class="f">D = k<sub>2</sub>·v² = 0.06 × 8.0² = 3.84 N</span>.</li>
+<li><i>Why this step:</i> the drag points back, the push points forward, so the net force is the difference. <span class="f">ΣF = H − D = 6.0 − 3.84 = 2.16 N</span> and <span class="f">a = ΣF / m = 2.16 / 1.2 = <span class="ans">1.80 m/s²</span></span>.</li></ol>
+<figure><svg id="g20" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Bar chart of top ground speeds: 7.0 meters per second in a headwind of 3.0, 10.0 in still air and 13.0 in a tailwind of 3.0. The air speed is 10.0 in all three"></svg>
+<figcaption>Figure 20. The top ground speeds of Try it 15. The air speed at the top speed is 10.0 m/s in all three cases (dashed line); the wind moves the ground speed up or down by 3.0 m/s.</figcaption></figure>
+<p><b>Check your answer.</b> In the headwind at a ground speed of 7.0 m/s, the air speed is 10.0 m/s and the drag is <span class="f">0.06 × 10.0² = 6.00 N = H</span>, so a = 0. The drag at 8.0 m/s air speed (3.84 N) is smaller, so the drone still accelerates.</p>
+<p><b>What if …</b> the drag were linear with <span class="f">k<sub>1</sub> = 0.30 N·s/m</span>?</p>
+<details><summary>Show the answer</summary>Then <span class="f">v = H / k<sub>1</sub> = 6.0 / 0.30 = 20.0 m/s</span>: the linear form lets the drone go twice as fast for the same push, because it is weak at high speed. The form of the model changes the answer, not only the number.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.7"><span class="no">2.3.7</span> Action and reaction: why a rotor makes thrust</h2>
+<div data-b="react-explain"><p>Newton's <b>third law</b> says that forces come in pairs. If body A pushes on body B with a force, then B pushes back on A with a force of the same size and the opposite direction. The two forces act on <b>different</b> bodies. That is the key point: you cannot put both forces of a pair into one free-body diagram.</p>
+<p>A rotor spins and pushes air down. The air pushes the rotor up with a force of the same size: that is the thrust T. MIT 16.00 [<a class="cite" href="../reference/references.html#ref-24">24</a>] says it in one sentence: "Thrust (T) is produced therefore by accelerating a mass of air." The rotors act on the air, the air acts on the rotors, and only the second force is in the diagram of the drone.</p>
+<p>How large is the push? Apply the second law to the air. In one second the rotors accelerate a mass of air <span class="f">Q</span> (kg/s) from rest to a speed <span class="f">Δv</span> (m/s) downward. The force on the air is mass times acceleration, and that is the change of speed per second times the mass: <span class="f">F = Q·Δv</span>. By the third law, the thrust is the same size:</p>
+<p class="big f">T = Q·Δv</p>
+<p>This is a simple model. It counts the air that the rotors accelerate and the speed that the air gets, and it does not say how the spinning blades do it (that is the theory of the rotor disk, in the propulsion pages). The textbook of Leishman [<a class="cite" href="../reference/references.html#ref-1">1</a>] covers it (not checked: the chapter pages could not be fetched).</p>
+<figure><svg id="g21" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="A drone with two rotors. Below each rotor a column of air is pushed down by a force on the air. An arrow of the same size points up on the rotor: the thrust. Labels name the two forces and the bodies they act on"></svg>
+<figcaption>Figure 21. The pair of forces at a rotor. The red arrow is the force of the rotor on the air (down); it acts on the air. The green arrow is the force of the air on the rotor (up); it acts on the drone and is the thrust T in the free-body diagram. The two arrows have the same length.</figcaption></figure>
+<p><b>The weight has a partner too.</b> The Earth pulls the drone down with W. The partner of that force is the pull of the drone on the Earth, also W, upward, on the Earth. So thrust and weight are <b>not</b> a pair. They act on the same body. In hover they are equal because the net force is zero (second law), not because of the third law. In a climb they are unequal, while each force still has its equal partner on another body.</p></div>
+<div data-b="react-try16"><div class="prob think lv"><div class="tag">TRY IT 16 · MEDIUM · HOW MUCH AIR MUST THE ROTORS MOVE?</div>
+<p>A drone of mass <span class="f">1.2 kg</span> hovers at the home field. Its rotors push air downward. <b>Questions.</b> (a) Find the thrust. (b) The air leaves the rotors at <span class="f">Δv = 8.0 m/s</span> faster than it came. Find the mass of air per second, and the volume per second at the density <span class="f">1.225 kg/m³</span>. (c) Larger propellers push air at only <span class="f">4.0 m/s</span>. Find the mass of air per second then. (d) What do you learn about large slow propellers?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> in hover the thrust carries the weight. <span class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</span>, so <span class="f">T = <span class="ans">11.767 N</span></span>.</li>
+<li><i>Why this step:</i> solve T = Q·Δv for Q. <span class="f">Q = T / Δv = 11.767 / 8.0 = <span class="ans">1.471 kg/s</span></span>. The volume is the mass divided by the density: <span class="f">1.471 / 1.225 = <span class="ans">1.20 m³/s</span></span>.</li>
+<li><i>Why this step:</i> the same thrust with half the speed change. <span class="f">Q = 11.767 / 4.0 = <span class="ans">2.942 kg/s</span></span>.</li>
+<li><i>Why this step:</i> compare. Half the speed change needs twice the mass of air: <span class="f">2.942 / 1.471 = 2.0</span>. A large propeller reaches more air, so it can make the same thrust with a slower stream. The model says only this; what it means for power is left to the propulsion pages.</li></ol>
+<figure><svg id="g22" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Two air columns below a rotor. Left: a narrow column with speed change 8.0 meters per second and 1.471 kilograms per second. Right: a column twice as wide with speed change 4.0 and 2.942 kilograms per second. Both give 11.767 newtons"></svg>
+<figcaption>Figure 22. The two streams of Try it 16. Left: a narrow, fast stream (8.0 m/s, 1.471 kg/s). Right: a stream of twice the mass flow at half the speed change (4.0 m/s, 2.942 kg/s). Both make T = 11.767 N.</figcaption></figure>
+<p><b>Check your answer.</b> The units: kg/s times m/s is kg·m/s², which is N. So Q·Δv has the unit of a force.</p>
+<p><b>What if …</b> the drone climbed at a = 3.00 m/s² with the same Δv?</p>
+<details><summary>Show the answer</summary>The thrust would be <span class="f">T = 15.367 N</span> (2.3.5), so <span class="f">Q = 15.367 / 8.0 = 1.921 kg/s</span>: 31 % more air, the same factor as the thrust.</details>
+</details></div></div>
+<div data-b="react-try17"><div class="prob think lv"><div class="tag">TRY IT 17 · HARD · A DRONE FLYING INSIDE A SEALED BOX</div>
+<p>A sealed box of mass <span class="f">M = 2.0 kg</span> stands on a scale at the home field. Inside it, a drone of mass <span class="f">m = 1.2 kg</span> flies. Treat the air in the box as massless. <b>Questions.</b> (a) What does the scale read while the drone hovers? (b) The drone climbs inside the box with <span class="f">a = +3.00 m/s²</span>. What does the scale read? (c) The drone descends with <span class="f">a = −2.00 m/s²</span>. What does it read? (d) Where does the push on the scale come from, in terms of action and reaction?</p>
+<p><b>Think first.</b> Draw the diagram of the whole system, box and drone together. Which forces from outside act on it? Does the sealed box know about the drone's rotors?</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the rotors push air down, the air pushes the floor of the box, and so the scale feels it. Looking at the whole system, only two outside forces act: the scale force N up and the weight of box and drone down. The box does not accelerate, and the drone has acceleration a, so the second law for the system is <span class="f">N − (M + m)·g = m·a</span>.</li>
+<li><i>Why this step:</i> hover has a = 0. <span class="f">(M + m)·g = 3.2 × 9.8062 = 31.380 N</span>, so <span class="f">N = <span class="ans">31.380 N</span></span>. The scale reads the full weight: a hovering drone adds its whole weight to the box.</li>
+<li><i>Why this step:</i> in the climb a is plus. <span class="f">N = (M + m)·g + m·a = 31.380 + 1.2 × 3.00 = 31.380 + 3.600 = <span class="ans">34.980 N</span></span>.</li>
+<li><i>Why this step:</i> in the descent a is minus. <span class="f">N = 31.380 + 1.2 × (−2.00) = 31.380 − 2.400 = <span class="ans">28.980 N</span></span>.</li>
+<li><i>Why this step:</i> action and reaction. The rotors push air down with the thrust, and the air pushes the rotors up. The air that is pushed down hits the floor and pushes the floor down; the floor pushes the box, and the box pushes the scale. Nothing leaves the box, so every force the drone makes is passed on to the scale in the end. In the climb the drone makes more thrust than its weight, and the extra 3.600 N shows on the scale.</li></ol>
+<figure><svg id="g23" viewBox="0 0 860 380" width="100%" style="max-width:860px" role="img" aria-label="Three diagrams of a box with a drone inside. Hover: scale force 31.380 newtons up, weight of box and drone 31.380 down. Climb: scale force 34.980 up. Descent: 28.980 up"></svg>
+<figcaption>Figure 23. The box of Try it 17. The red arrow is the weight of box and drone, 31.380 N, the same in all three panels. The green arrow is the scale force; it is longer than the weight while the drone accelerates up and shorter while it accelerates down.</figcaption></figure>
+<p><b>Check your answer.</b> The climb reading minus the hover reading is <span class="f">34.980 − 31.380 = 3.600 N</span>, which equals <span class="f">m·a = 1.2 × 3.00 = 3.600 N</span>.</p>
+<p><b>What if …</b> the drone were released and fell freely inside the box?</p>
+<details><summary>Show the answer</summary>With a = −g for the drone, <span class="f">N = (M + m)·g + m·(−g) = M·g = 2.0 × 9.8062 = 19.612 N</span>: the scale feels only the box, because a freely falling drone pushes on nothing.</details>
+</details></div></div>
+
+<h2 class="sub" id="s2.3.8"><span class="no">2.3.8</span> Mixed problems</h2>
+<div data-b="mix-intro"><p>These five problems join the ideas of 2.3.1 to 2.3.7: payload, wind from the side, a fall from a height, a fast climb and a changing hover command. Try each on paper before you open the solution. Altitude enters in Think 1.</p></div>
+<div data-b="mix-p1"><div class="prob lv"><div class="tag">PROBLEM 1 · A PAYLOAD AND THE BEST CLIMB</div>
+<p>The drone of Try it 9 (<span class="f">1.2 kg</span>, <span class="f">T<sub>max</sub> = 30.0 N</span>) carries a camera of <span class="f">0.30 kg</span> at the home field. <b>Questions.</b> (a) Find the weight. (b) Find the TWR; does it meet the rule of 2? (c) Find the best vertical acceleration. (d) Find the thrust for a climb of <span class="f">6.00 m/s²</span> and its share of T<sub>max</sub>.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the camera adds to the mass first. <span class="f">m = 1.2 + 0.30 = 1.5 kg</span>, then <span class="f">W = m·g = 1.5 × 9.8062 = <span class="ans">14.709 N</span></span>.</li>
+<li><i>Why this step:</i> the TWR compares the largest thrust with this weight. <span class="f">TWR = T<sub>max</sub> / W = 30.0 / 14.709 = <span class="ans">2.04</span></span>. It is above 2, so the rule is met, just: the limit mass is 1.53 kg (Try it 10) and <span class="f">1.53 − 1.2 = 0.33 kg</span> is the largest payload.</li>
+<li><i>Why this step:</i> the best acceleration uses all the thrust. <span class="f">a<sub>max</sub> = (T<sub>max</sub> − W) / m = (30.0 − 14.709) / 1.5 = 15.291 / 1.5 = <span class="ans">10.19 m/s²</span></span>.</li>
+<li><i>Why this step:</i> the thrust for a wanted acceleration is T = m·(g + a). <span class="f">T = 1.5 × (9.8062 + 6.00) = 1.5 × 15.8062 = <span class="ans">23.709 N</span></span>; its share is <span class="f">23.709 / 30.0 = 0.79</span>.</li></ol>
+<figure><svg id="g24" viewBox="0 0 860 360" width="100%" style="max-width:860px" role="img" aria-label="Bar chart in newtons: the weight 14.709, half of the largest thrust 15.000, the thrust for a 6.00 climb 23.709 and the largest thrust 30.0"></svg>
+<figcaption>Figure 24. The forces of Problem 1. The weight (14.709 N) is just below half of the largest thrust (15.000 N): TWR is just above 2. The thrust for the 6.00 m/s² climb (23.709 N) leaves a margin below T<sub>max</sub> = 30.0 N.</figcaption></figure>
+<p><b>Check your answer.</b> 23.709 N is more than the weight 14.709 N (the drone climbs) and less than 30.0 N (the motors can do it).</p></details></div></div>
+<div data-b="mix-p2"><div class="prob lv"><div class="tag">PROBLEM 2 · HOLDING POSITION IN A CROSSWIND</div>
+<p>A drone of mass <span class="f">1.2 kg</span> must hold its place at the home field in a wind that pushes it with a horizontal force of <span class="f">H<sub>w</sub> = 2.4 N</span> toward the east. It tilts so that the thrust has a horizontal part that cancels this force. <b>Questions.</b> (a) Find the vertical and the horizontal part of the thrust. (b) Find the thrust and the tilt from the vertical. (c) Compare the thrust with the hover thrust. (d) Repeat for a wind force of <span class="f">4.8 N</span>.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> holding the place means ΣF = 0 on each axis. Vertically, the vertical part of the thrust carries the weight: <span class="f">V = W = m·g = 1.2 × 9.8062 = <span class="ans">11.767 N</span></span>. Horizontally, the horizontal part cancels the wind: <span class="f">H = H<sub>w</sub> = <span class="ans">2.4 N</span></span>, toward the west.</li>
+<li><i>Why this step:</i> the two parts are the sides of a right triangle, and the thrust is the hypotenuse. <span class="f">T = √(V² + H²) = √(11.767² + 2.4²) = √(138.462 + 5.760) = √144.222 = <span class="ans">12.009 N</span></span>. The tilt from the vertical follows from the sides: <span class="f">θ = atan(H / V) = atan(2.4 / 11.767) = <span class="ans">11.5°</span></span>.</li>
+<li><i>Why this step:</i> compare with the hover thrust, which equals the weight. <span class="f">T / W = 12.009 / 11.767 = 1.021</span>: the tilt costs 2.1 % more thrust.</li>
+<li><i>Why this step:</i> the same steps with the stronger wind. <span class="f">T = √(11.767² + 4.8²) = √(138.462 + 23.040) = √161.502 = <span class="ans">12.708 N</span></span> and <span class="f">θ = atan(4.8 / 11.767) = <span class="ans">22.2°</span></span>. Doubling the wind force doubles the tangent of the tilt, while the thrust rises only to <span class="f">T / W = 12.708 / 11.767 = 1.080</span> of the hover thrust.</li></ol>
+<figure><svg id="g25" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="A right triangle of forces: a vertical side of 11.767 newtons, a horizontal side of 2.4 newtons and the thrust of 12.009 newtons as the hypotenuse, with the tilt of 11.5 degrees from the vertical"></svg>
+<figcaption>Figure 25. The forces of Problem 2 (side view, east to the right). The vertical part V = 11.767 N (blue) carries the weight; the horizontal part H = 2.4 N (orange) points west and cancels the wind; the thrust T = 12.009 N (green) is the hypotenuse, tilted 11.5° from the vertical.</figcaption></figure>
+<p><b>Watch out.</b> The horizontal part is T·sin θ and the vertical part is T·cos θ when θ is measured from the vertical. The owner's notes [<a class="cite" href="../reference/references.html#ref-69">69</a>] (PDF page 36) write F cos θ for the horizontal part and F sin θ for the vertical part, where θ is the tilt of the drone. With the tilt, the two are swapped: at θ = 0 (hover) the vertical part must be the whole force. The notes' form fits only an angle measured from the horizontal. How the tilt is chosen is on page 2.5.</p></details></div></div>
+<div data-b="mix-p3"><div class="prob lv"><div class="tag">PROBLEM 3 · THE MOTORS FAIL AT 20 m IN DENVER</div>
+<p>A drone of mass <span class="f">1.2 kg</span> loses all thrust at a height of <span class="f">20.0 m</span> in Denver (<span class="f">g = 9.7965 m/s²</span>) and falls straight down. The drag is quadratic, <span class="f">k<sub>2</sub> = 0.06 N·s²/m²</span>. <b>Questions.</b> (a) Find the weight. (b) Ignore the drag: find the fall time and the final speed. (c) With the drag, find the acceleration at <span class="f">v = 10.0 m/s</span> downward. (d) Find the speed at which the acceleration is zero, and say whether the result of (b) can be right.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the weight is the only force when the drag is ignored. <span class="f">W = m·g = 1.2 × 9.7965 = <span class="ans">11.756 N</span></span>.</li>
+<li><i>Why this step:</i> without drag the acceleration is g and the equations of 2.2.9 apply. <span class="f">t = √(2·h / g) = √(2 × 20.0 / 9.7965) = √4.08 = <span class="ans">2.02 s</span></span> and <span class="f">v = g·t = 9.7965 × 2.02 = <span class="ans">19.79 m/s</span></span>.</li>
+<li><i>Why this step:</i> with the drag, at 10.0 m/s the drag points up. <span class="f">D = k<sub>2</sub>·v² = 0.06 × 10.0² = 6.00 N</span>. With up as plus, <span class="f">ΣF = D − W = 6.00 − 11.756 = −5.756 N</span> and <span class="f">a = ΣF / m = −5.756 / 1.2 = <span class="ans">−4.80 m/s²</span></span>: about half of g.</li>
+<li><i>Why this step:</i> the speed stops growing when the drag balances the weight, D = W. <span class="f">v = √(W / k<sub>2</sub>) = √(11.756 / 0.06) = √195.93 = <span class="ans">14.00 m/s</span></span>. The drag-free result of step 2, 19.79 m/s, is above this limit, so it cannot be right: the drone never reaches that speed. This limit is the terminal speed, taught in plan row fly.10.</li></ol>
+<figure><svg id="g26" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Graph of the acceleration of the falling drone against its downward speed from 0 to 14 meters per second: a curve from minus 9.7965 at rest through minus 4.80 at 10.0 to zero at 14.00 meters per second"></svg>
+<figcaption>Figure 26. The acceleration against the downward speed in Problem 3 (up is plus). It starts at −g = −9.7965 m/s² at v = 0, is −4.80 m/s² at 10.0 m/s and reaches 0 at 14.00 m/s, where the drag equals the weight.</figcaption></figure>
+<p><b>Check your answer.</b> At 14.00 m/s the drag is <span class="f">0.06 × 14.00² = 11.76 N</span>, which equals the weight 11.756 N to the digits kept.</p></details></div></div>
+<div data-b="mix-p4"><div class="prob lv"><div class="tag">PROBLEM 4 · A RACING DRONE PUNCHES UP 10 m</div>
+<p>A racing drone of mass <span class="f">0.8 kg</span> has TWR = 4.0 at the home field. It hovers, then goes to full thrust. Ignore the drag and the motor lag (page 2.2c). The notes [<a class="cite" href="../reference/references.html#ref-69">69</a>] say that racing drones sometimes reach a TWR of 3 or higher (PDF page 31). <b>Questions.</b> (a) Find the weight and the largest thrust. (b) Find the acceleration at full thrust. (c) Find the time to rise 10.0 m and the speed at that height.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> the TWR gives T<sub>max</sub> from the weight. <span class="f">W = m·g = 0.8 × 9.8062 = <span class="ans">7.845 N</span></span> and <span class="f">T<sub>max</sub> = TWR × W = 4.0 × 7.845 = <span class="ans">31.380 N</span></span>.</li>
+<li><i>Why this step:</i> the net force at full thrust is T<sub>max</sub> − W. <span class="f">a = (T<sub>max</sub> − W) / m = (31.380 − 7.845) / 0.8 = 23.535 / 0.8 = <span class="ans">29.42 m/s²</span></span>, which is 3 g.</li>
+<li><i>Why this step:</i> the drone starts from rest with constant acceleration, so Δh = ½·a·t² gives the time. <span class="f">t = √(2·h / a) = √(2 × 10.0 / 29.42) = √0.68 = <span class="ans">0.82 s</span></span>.</li>
+<li><i>Why this step:</i> the speed is a times t. <span class="f">v = a·t = 29.42 × 0.82 = <span class="ans">24.12 m/s</span></span>. In a real flight the drag and the motor lag lower this number.</li></ol>
+<figure><svg id="g27" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Graph of the vertical speed against time from 0 to 0.9 seconds: a straight line from zero to 24.12 meters per second at 0.82 seconds, with the area under it shaded and labeled 10.0 meters"></svg>
+<figcaption>Figure 27. The climb of Problem 4. The speed grows in a straight line with the slope 29.42 m/s². The shaded triangle is the height gained: at 0.82 s its area is 10.0 m.</figcaption></figure>
+<p><b>Check your answer.</b> The area of the triangle is <span class="f">½ × 0.82 × 24.12 = 9.89 m</span>, which is 10.0 m to the digits kept.</p></details></div></div>
+<div data-b="mix-p5"><div class="prob lv"><div class="tag">PROBLEM 5 · THE HOVER COMMAND MOVES WITH THE MASS</div>
+<p>The drone of Try it 11 has TWR = 2.0 empty (mass <span class="f">1.2 kg</span>), so its hover command is <span class="f">0.50</span>, as in the default of PX4's <code>MPC_THR_HOVER</code> [<a class="cite" href="../reference/references.html#ref-29">29</a>]. The thrust law is linear in the command. It takes a parcel of <span class="f">0.50 kg</span> (total mass <span class="f">1.7 kg</span>). <b>Questions.</b> (a) Find the new hover command. (b) Find the new TWR. (c) Find the best vertical acceleration now.</p>
+<details><summary>Show solution</summary><ol>
+<li><i>Why this step:</i> with a linear law the hover command is the weight divided by T<sub>max</sub>, so it grows in proportion to the mass. <span class="f">u = 0.50 × 1.7 / 1.2 = <span class="ans">0.7083</span></span>.</li>
+<li><i>Why this step:</i> the TWR is the inverse of the hover command. <span class="f">TWR = 1 / u = 1 / 0.7083 = <span class="ans">1.41</span></span>.</li>
+<li><i>Why this step:</i> the best acceleration is (TWR − 1)·g. <span class="f">a<sub>max</sub> = (TWR − 1)·g = (1.41 − 1) × 9.8062 = <span class="ans">4.02 m/s²</span></span>. The parcel took away more than half of the spare climb acceleration (9.806 m/s² empty).</li></ol>
+<figure><svg id="g28" viewBox="0 0 860 340" width="100%" style="max-width:860px" role="img" aria-label="Bar chart of the hover command: 0.50 for the empty drone and 0.7083 with the parcel, against the limit 1.0 at full thrust"></svg>
+<figcaption>Figure 28. The hover command of Problem 5. The empty drone hovers at 0.50 of the full command and has half of the range as spare. With the parcel it hovers at 0.7083 and has 0.29 of the range as spare.</figcaption></figure>
+<p><b>Check your answer.</b> The spare share of the range is <span class="f">1 − 0.7083 = 0.29</span>, against 0.50 for the empty drone. The spare acceleration falls in a similar way: <span class="f">4.02 / 9.806 = 0.41</span> of the empty value.</p></details></div></div>
+
+<h2 class="sub" id="s2.3.9"><span class="no">2.3.9</span> Think it through</h2>
+<div data-b="think-1"><div class="prob think"><div class="tag">THINK 1 · HARD · A PARCEL AT A HIGH FIELD</div>
+<p><b>Situation.</b> A delivery drone of mass <span class="f">1.2 kg</span> has a largest total thrust of <span class="f">30.0 N</span> at sea-level density. It must carry a parcel of <span class="f">0.40 kg</span> from Denver (<span class="f">g = 9.7965 m/s²</span>, air density <span class="f">1.049 kg/m³</span>, against <span class="f">1.225 kg/m³</span> at sea level). Rotor thrust is in proportion to the air density (2.3.4). Figure 29 shows the thrusts.</p>
+<figure><svg id="t1" viewBox="0 0 860 360" width="100%" style="max-width:860px" role="img" aria-label="Bar chart of thrusts in newtons: largest thrust at sea level 30.0, largest thrust in Denver 25.68, and the thrust needed for TWR 2 with the parcel, 31.348"></svg>
+<figcaption>Figure 29. The thrusts of Think 1. The largest thrust falls from 30.0 N at sea level to 25.68 N in Denver. The dashed line is what TWR 2 would need with the parcel (31.348 N): neither bar reaches it.</figcaption></figure>
+<p><b>Questions.</b> (a) Find the largest thrust in Denver. (b) Find the TWR with the parcel in Denver, and the best climb acceleration. (c) Find the largest payload for TWR 2 in Denver and compare it with the sea-level value of 0.33 kg. (d) Is the cause the lower g or the lower density?</p>
+<p><b>Think first.</b></p>
+<ol><li>Which of the two numbers, g or ρ, changes the thrust, and which changes the weight?</li>
+<li>g is smaller in Denver. Does that make the drone's job easier or harder, and by how much?</li>
+<li>If the thrust falls by 14 % and the weight falls by 0.1 %, which one decides?</li></ol>
+<details><summary>Hint</summary>Scale the thrust by the ratio of the two densities first. Then repeat the TWR steps with the new thrust and the new weight.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the thrust follows the density, so scale it by the density ratio. <span class="f">ρ(Denver) / ρ(sea level) = 1.049 / 1.225 = 0.856</span> and <span class="f">T<sub>max</sub>(Denver) = 0.856 × 30.0 = <span class="ans">25.68 N</span></span>.</li>
+<li><i>Why this step:</i> the weight uses the new mass and the Denver g. <span class="f">m = 1.2 + 0.40 = 1.6 kg</span> and <span class="f">W = m·g = 1.6 × 9.7965 = 15.674 N</span>. Then <span class="f">TWR = 25.68 / 15.674 = <span class="ans">1.64</span></span>, below 2, and <span class="f">a<sub>max</sub> = (25.68 − 15.674) / 1.6 = 10.006 / 1.6 = <span class="ans">6.25 m/s²</span></span>.</li>
+<li><i>Why this step:</i> for TWR 2 the mass limit comes from T<sub>max</sub> = 2·m·g. <span class="f">m = 25.68 / (2.0 × 9.7965) = 25.68 / 19.593 = 1.31 kg</span>, so the largest payload is <span class="f">1.31 − 1.2 = <span class="ans">0.11 kg</span></span>. At sea level it was 0.33 kg: the high field cost <span class="f">0.33 − 0.11 = 0.22 kg</span>, two thirds of the payload.</li>
+<li><i>Why this step:</i> test the g effect alone, with the sea-level thrust. <span class="f">m = 30.0 / (2.0 × 9.7965) = 30.0 / 19.593 = 1.53 kg</span>, the same as at sea level. So the lower g changes nothing at this precision. The density is the cause.</li></ol>
+<p><b>Check your answer.</b> At the home field the same parcel gives <span class="f">W = 1.6 × 9.8062 = 15.690 N</span> and <span class="f">TWR = 30.0 / 15.690 = 1.91</span>, already below 2. So the parcel is too heavy at sea level as well, and Denver makes it worse (1.64).</p>
+<p><b>What if …</b> the pilot insists on TWR 2 with the 0.40 kg parcel in Denver?</p>
+<details><summary>Show the answer</summary>The drone would need <span class="f">T<sub>max</sub> = 2.0 × 15.674 = 31.348 N</span> in Denver, which is <span class="f">31.348 / 25.68 = 1.22</span> times what it has: 22 % more thrust, from larger propellers or a stronger motor, or the parcel must be lighter.</details>
+</details></div></div>
+<div data-b="think-2"><div class="prob think"><div class="tag">THINK 2 · HARD · ONE ROTOR FAILS</div>
+<p><b>Situation.</b> A quadrotor of mass <span class="f">1.2 kg</span> has four equal rotors, each with a largest thrust of <span class="f">6.0 N</span> (so <span class="f">T<sub>max</sub> = 24.0 N</span>). In hover at the home field one rotor stops. This problem looks only at the thrust and the weight. How the drone then turns (chapter 3) is not part of it. Figure 30 draws the rotors.</p>
+<figure><svg id="t2" viewBox="0 0 860 360" width="100%" style="max-width:860px" role="img" aria-label="Two sets of bars for rotor thrusts: four rotors at 2.942 newtons each and three rotors at 3.922 newtons each, against the largest thrust 6.0 of one rotor"></svg>
+<figcaption>Figure 30. The rotor thrusts of Think 2. Left: four rotors share the weight, 2.942 N each. Right: three rotors share it, 3.922 N each. The dashed line is the 6.0 N limit of one rotor.</figcaption></figure>
+<p><b>Questions.</b> (a) Find the TWR with four and with three rotors. (b) Find the thrust each working rotor must make to hold the weight, and its share of 6.0 N. (c) Find the best climb acceleration with three rotors. (d) What payload could the drone still hover with on three rotors?</p>
+<p><b>Think first.</b></p>
+<ol><li>What does the loss of a rotor change in the sum T, and what stays the same in the weight?</li>
+<li>Must the three rotors make the same thrust to give T = W?</li>
+<li>Does a TWR above 1 guarantee a safe flight?</li></ol>
+<details><summary>Hint</summary>Write the largest thrust of the working rotors first; then use W = m·g and TWR = T<sub>max</sub> / W.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> the weight is the same in both cases. <span class="f">W = m·g = 1.2 × 9.8062 = 11.767 N</span>. With four rotors <span class="f">TWR = 24.0 / 11.767 = <span class="ans">2.04</span></span>. With three working rotors the largest thrust is <span class="f">3 × 6.0 = 18.0 N</span>, so <span class="f">TWR = 18.0 / 11.767 = <span class="ans">1.53</span></span>.</li>
+<li><i>Why this step:</i> to hold the weight the sum must equal W. Here we split it equally to see the load on each rotor. In a real quadrotor the split cannot stay equal: three equal thrusts no longer cancel each other's tipping torques, and chapter 3 shows that the rotor opposite the failed one must drop to almost nothing. The sum, which is what this page uses, is the same either way. Four rotors: <span class="f">11.767 / 4 = 2.942 N</span>, a share of <span class="f">2.942 / 6.0 = 0.49</span>. Three rotors: <span class="f">11.767 / 3 = <span class="ans">3.922 N</span></span>, a share of <span class="f">3.922 / 6.0 = <span class="ans">0.65</span></span>.</li>
+<li><i>Why this step:</i> the best climb uses all the thrust that is left. <span class="f">a<sub>max</sub> = (18.0 − 11.767) / 1.2 = 6.233 / 1.2 = <span class="ans">5.19 m/s²</span></span>, against <span class="f">(24.0 − 11.767) / 1.2 = 10.19 m/s²</span> with four rotors.</li>
+<li><i>Why this step:</i> the largest mass that three rotors can hold has T<sub>max</sub> = m·g. <span class="f">m = 18.0 / 9.8062 = <span class="ans">1.84 kg</span></span>, so the payload is at most <span class="f">1.84 − 1.2 = 0.64 kg</span>, and no margin is left at that mass.</li></ol>
+<p><b>Check your answer.</b> With three rotors each at 0.65 of the limit, the total is <span class="f">3 × 3.922 = 11.766 N</span>, which equals the weight to the digits kept.</p>
+<p><b>What if …</b> the drone carries a payload of 0.80 kg (total mass 2.0 kg) when the rotor fails?</p>
+<details><summary>Show the answer</summary><span class="f">W = 2.0 × 9.8062 = 19.612 N</span> and <span class="f">ΣF = 18.0 − 19.612 = −1.612 N</span>, so <span class="f">a = −1.612 / 2.0 = −0.81 m/s²</span>: the drone sinks even at full thrust. Spare thrust is what protects against a failure; the TWR rule of the notes gives exactly that.</details>
+</details></div></div>
+<div data-b="think-3"><div class="prob think"><div class="tag">THINK 3 · HARD · A SPRAY TANK THAT EMPTIES</div>
+<p><b>Situation.</b> A spray drone of mass <span class="f">1.2 kg</span> carries a tank with <span class="f">1.0 kg</span> of liquid. It hovers at the home field; the tank empties at <span class="f">0.25 kg</span> per minute. The pilot sets the thrust for the start and does not touch it afterward. Figure 31 draws the weight and the thrust against time.</p>
+<figure><svg id="t3" viewBox="0 0 860 360" width="100%" style="max-width:860px" role="img" aria-label="Graph of force against time from 0 to 4 minutes. A horizontal line at 21.574 newtons is the thrust. A falling line from 21.574 to 11.767 newtons is the weight. The gap between them is the net force"></svg>
+<figcaption>Figure 31. The forces of Think 3. The thrust (green) stays at 21.574 N. The weight (red) falls as the tank empties, from 21.574 N to 11.767 N after 4 minutes. The gap is the net force that accelerates the drone upward.</figcaption></figure>
+<p><b>Questions.</b> (a) Find the thrust at the start. (b) Find the acceleration after 1 minute and after 2 minutes. (c) Express the acceleration after 2 minutes as a share of g. (d) What hover thrust does the controller need when the tank is empty, as a share of the start value?</p>
+<p><b>Think first.</b></p>
+<ol><li>At the start the drone hovers. What does that say about the thrust?</li>
+<li>Does the mass at time t use the full or the remaining liquid?</li>
+<li>If the thrust stays constant, what makes the net force?</li></ol>
+<details><summary>Hint</summary>The thrust is the weight at t = 0. For later times compute the new mass, the new weight, then the net force and divide by the new mass.</details>
+<details><summary>Show the solution</summary><ol class="steps">
+<li><i>Why this step:</i> hover means T = W at the start, with the full tank. <span class="f">m<sub>0</sub> = 1.2 + 1.0 = 2.2 kg</span> and <span class="f">T = W<sub>0</sub> = m·g = 2.2 × 9.8062 = <span class="ans">21.574 N</span></span>.</li>
+<li><i>Why this step:</i> after 1 minute 0.25 kg has gone; the weight falls and the unchanged thrust is now too large. <span class="f">m = 2.2 − 0.25 = 1.95 kg</span>, <span class="f">W = 1.95 × 9.8062 = 19.122 N</span>, <span class="f">ΣF = 21.574 − 19.122 = 2.452 N</span> and <span class="f">a = ΣF / m = 2.452 / 1.95 = <span class="ans">1.26 m/s²</span></span>.</li>
+<li><i>Why this step:</i> the same steps after 2 minutes. <span class="f">m = 2.2 − 0.50 = 1.70 kg</span>, <span class="f">W = 1.70 × 9.8062 = 16.671 N</span>, <span class="f">ΣF = 21.574 − 16.671 = 4.903 N</span> and <span class="f">a = 4.903 / 1.70 = <span class="ans">2.88 m/s²</span></span>.</li>
+<li><i>Why this step:</i> a share of g shows how big the effect is. <span class="f">2.88 / 9.8062 = <span class="ans">0.29</span></span>: after two minutes the drone would climb with 0.29 g if nobody lowered the thrust.</li>
+<li><i>Why this step:</i> with the tank empty the mass is the drone's own 1.2 kg, whose hover thrust is its weight, 11.767 N. The share of the start value is <span class="f">11.767 / 21.574 = <span class="ans">0.55</span></span>. The controller must cut the thrust to a little more than half over four minutes.</li></ol>
+<p><b>Check your answer.</b> Each minute removes 0.25 kg, which lowers the weight by <span class="f">0.25 × 9.8062 = 2.452 N</span>; after the first minute the net force equals exactly this loss, 2.452 N, as in step 2.</p>
+<p><b>What if …</b> the thrust is cut to follow the weight, but the tank is not full at the start (only 0.5 kg of liquid)?</p>
+<details><summary>Show the answer</summary>Then the start mass is <span class="f">1.7 kg</span>, the start thrust is <span class="f">1.7 × 9.8062 = 16.671 N</span>, and the hover thrust of the empty drone is the same 11.767 N. The controller's job is the same, with a smaller range: the hover thrust follows m·g all along.</details>
+</details></div></div>
+
+<div data-b="notes-check"><div class="box howto"><b>Where the owner's notes need care.</b> The notes [<a class="cite" href="../reference/references.html#ref-69">69</a>] (library item AD139, chapter 2) are the source for the structure of this page. Each claim was checked; the full table with the verdicts is in the knowledge file <code>knowledge/2.3_dynamics.md</code>. The points where the notes differ from this page are:
+<ul>
+<li>PDF page 27: the drone "experiences a force that is equal and opposite to the force of gravity" is given as an example of the third law. Thrust and weight act on the same body, so they are not a pair (2.3.7). They are equal in hover because the net force is zero.</li>
+<li>PDF page 28: thrust "is measured in kilograms or newtons". The unit of a force is the newton; the kilogram is a unit of mass (Try it 7).</li>
+<li>PDF page 28: "lift" is used for the vertical force of the rotors. This course calls that force thrust and keeps "lift" for the force of a wing (plan row fly.7).</li>
+<li>PDF pages 30 and 31: "at 50 % throttle the total thrust equals the weight" holds only with TWR 2 and a linear law (2.3.4).</li>
+<li>PDF page 34: "one-fourth of the total force produced by the rotor is consumed in overcoming the drag" is not used. No source we read says it, and the same page's hover equation uses the whole sum of the four thrusts.</li>
+<li>PDF page 34: the rotation law is written "T = L × a" with the words "torque = inertia multiplied by angular acceleration". The words are right. The letters clash with this page, where T is the thrust and a the linear acceleration, so chapter 3 writes it τ = I·α.</li>
+<li>PDF page 32: the notes give the rotor speed ω in rpm. The law F = k<sub>F</sub>·ω² holds in any unit of speed; only the number k<sub>F</sub> changes (2.3.4).</li>
+<li>PDF page 36: with θ the tilt of the drone, the notes write the horizontal part as F cos θ and the vertical part as F sin θ. That would give no vertical force in hover (θ = 0). With θ the tilt, the parts are F sin θ (horizontal) and F cos θ (vertical); the notes' form is right only for an angle measured from the horizontal (Problem 2).</li></ul></div></div>
+<div data-b="study-order"><div class="box"><b>Exact study order for this section.</b> (1) Read 2.3.1 and do Try it 1 and 2. (2) Draw the diagram of 2.3.2 for a drone you know and do Try it 4. (3) Read 2.3.3 and 2.3.4, then Try it 7 and 10. (4) Read 2.3.5 and do Try it 12 and 13. (5) Read 2.3.6 and 2.3.7 and do Try it 14 and 17. (6) Do Problems 1 to 5. (7) Do Think 1 to 3 last, on paper first.</div></div>
+<div data-b="next-a"><div class="box howto"><b>Page before:</b> <a href="2.2d_Real_scenarios_thinking_problems.html">2.2d Real scenarios: thinking problems</a>. <b>Next:</b> section 2.4, Attitude: roll, pitch and yaw (plan row fly.4), then 2.5, tilt to move (a = g·tan θ in level flight), and 2.6, the flight phases as a table of force balances. Falling with drag and the terminal speed are plan row fly.10; motor lag and jerk are on <a href="2.2c_How_PX4_and_Project_AirSim_plan_motion.html">page 2.2c</a>; rotation and torque are chapter 3.</div></div>
+<div data-b="refs"><p style="margin-top:22px;font-size:20px;font-weight:700">References</p>
+<ul class="reflist" style="list-style:none;margin:0;padding:0">
+<li>[<a class="cite" href="../reference/references.html#ref-1">1</a>] J. Gordon Leishman, <i>Introduction to Aerospace Flight Vehicles</i> (Embry-Riddle Aeronautical University, Eagle Pubs) (not checked: the chapter pages could not be fetched)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-21">21</a>] NASA Glenn, <i>Flight Equations with Drag</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-24">24</a>] MIT 16.00, <i>Theory of Flight</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-29">29</a>] PX4-Autopilot, source code at commit d28a642</li>
+<li>[<a class="cite" href="../reference/references.html#ref-30">30</a>] Project AirSim, source code at commit c80cff5</li>
+<li>[<a class="cite" href="../reference/references.html#ref-38">38</a>] PX4 User Guide, <i>Controller Diagrams</i> (<code>docs/en/flight_stack/controller_diagrams.md</code>)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-39">39</a>] PX4 User Guide, <i>SIH Simulation</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-42">42</a>] Project AirSim documentation, <i>Fast Physics</i></li>
+<li>[<a class="cite" href="../reference/references.html#ref-45">45</a>] National Geospatial-Intelligence Agency, World Geodetic System 1984 (WGS84)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-69">69</a>] The owner's notes, <i>Developing a Drone - notes (chapters 1-12)</i> (library item AD139), chapter 2 (PDF pages 27-37) and chapter 4 (PDF pages 55-56)</li>
+<li>[<a class="cite" href="../reference/references.html#ref-70">70</a>] E. Poquillon (ISAE-SUPAERO), <i>Fundamentals of Flight Mechanics</i>, Course 1 "The Basis" (Coursera), the owner's offline mirror, library item AD112: the videos "Newton's second law" (C1 M2) and "Load factor" (C1 M3)</li></ul>
+<p class="lead">The numbers in the exercises are made up for practice, not measurements of real parts. The ideas of this page (Newton's laws, the free-body diagram, weight, thrust and drag) are standard textbook mechanics; the simulator code was read at the two commits named in the text. Every number on this page is checked by <code>check_2_3.py</code>. Sources not checked: the chapters of Leishman [<a class="cite" href="../reference/references.html#ref-1">1</a>] (not checked). The ISAE-SUPAERO exercises were not copied: the videos gave the ideas of the three cases and of the load factor.</p></div>
+
+
+</main>
+<script>
+"use strict";
+// Figure helper. Every figure of this page is drawn here from the same numbers that the text uses, so a label cannot disagree with a formula.
+// Text markup: "v_{0}" is a subscript, "m^{2}" a superscript.
+const nf = (v, d = 0) => { const s = Math.abs(v).toFixed(d); return (v < 0 && Number(s) !== 0 ? "−" : "") + s; };
+const COL = {x:"#2E9E4A", v:"#2F6FD0", a:"#D68910", ink:"#1C1C1C", grey:"#5B5752", line:"#E2DED8", red:"#C0392B", purple:"#7A3FC0"};
+function F(id){
+  const s = document.getElementById(id), ns = "http://www.w3.org/2000/svg";
+  if (!s) return null;
+  const mk = (t, a, txt) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+  const add = (t, a, txt) => { const e = mk(t, a, txt); s.appendChild(e); return e; };
+  const done = {};
+  const marker = c => { const k = "mk" + id + c.replace("#", "");
+    if (!done[k]) { let d = s.querySelector("defs"); if (!d) { d = mk("defs", {}); s.prepend(d); }
+      const m = mk("marker", {id:k, viewBox:"0 0 10 10", refX:9, refY:5, markerWidth:7, markerHeight:7, orient:"auto"});
+      m.appendChild(mk("path", {d:"M0,0L10,5L0,10z", fill:c})); d.appendChild(m); done[k] = 1; }
+    return "url(#" + k + ")"; };
+  const o = {s, add};
+  o.line = (x1, y1, x2, y2, c = COL.ink, w = 2, dash) => add("line", Object.assign({x1, y1, x2, y2, stroke:c, "stroke-width":w}, dash ? {"stroke-dasharray":dash} : {}));
+  o.arrow = (x1, y1, x2, y2, c = COL.ink, w = 3) => add("line", {x1, y1, x2, y2, stroke:c, "stroke-width":w, "marker-end":marker(c)});
+  o.rect = (x, y, w, h, fill = "none", stroke = "none", sw = 1, fo = 1) => add("rect", {x, y, width:w, height:h, fill, stroke, "stroke-width":sw, "fill-opacity":fo});
+  o.poly = (pts, fill = "none", stroke = COL.ink, sw = 2, fo = 1, dash, close = false) => add(close || fill !== "none" ? "polygon" : "polyline",
+    Object.assign({points:pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill, stroke, "stroke-width":sw, "fill-opacity":fo}, dash ? {"stroke-dasharray":dash} : {}));
+  o.circle = (cx, cy, r, fill = COL.ink, stroke = "none") => add("circle", {cx, cy, r, fill, stroke});
+  o.text = (x, y, str, op = {}) => {
+    const {size = 12, fill = COL.ink, anchor = "start", bold = false, rot = null} = op;
+    const e = add("text", Object.assign({x, y, "font-size":size, fill, "text-anchor":anchor}, bold ? {"font-weight":700} : {}, rot ? {transform:`rotate(${rot} ${x} ${y})`} : {}));
+    for (const part of String(str).split(/(_\{[^}]*\}|\^\{[^}]*\})/)) { if (!part) continue;
+      if (part.startsWith("_{") || part.startsWith("^{")) e.appendChild(mk("tspan", {"baseline-shift":part[0] === "_" ? "sub" : "super", "font-size":Math.round(size * 0.75)}, part.slice(2, -1)));
+      else e.appendChild(document.createTextNode(part)); }
+    return e; };
+  o.graph = (b, g) => {
+    const [L, T, W, H] = b, X = x => L + (x - g.x[0]) / (g.x[1] - g.x[0]) * W, Y = y => T + H - (y - g.y[0]) / (g.y[1] - g.y[0]) * H;
+    for (const v of g.xt || []) { o.line(X(v), T, X(v), T + H, COL.line, 1); o.text(X(v), T + H + 14, nf(v, g.xd || 0), {size:11, anchor:"middle", fill:COL.grey}); }
+    for (const v of g.yt || []) { o.line(L, Y(v), L + W, Y(v), COL.line, 1); o.text(L - 5, Y(v) + 4, nf(v, g.yd || 0), {size:11, anchor:"end", fill:COL.grey}); }
+    if (g.y[0] < 0 && g.y[1] > 0) o.line(L, Y(0), L + W, Y(0), COL.ink, 1.2);
+    o.line(L, T + H, L + W, T + H, COL.ink, 1.5); o.line(L, T, L, T + H, COL.ink, 1.5);
+    if (g.xl) o.text(L + W / 2, T + H + 30, g.xl, {size:12, anchor:"middle"});
+    if (g.yl) o.text(L - 40, T + H / 2, g.yl, {size:12, anchor:"middle", rot:-90});
+    return {X, Y, L, T, W, H}; };
+  o.curve = (g, f, x0, x1, c = COL.ink, w = 3, dash, n = 160) => { const p = []; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } return o.poly(p, "none", c, w, 1, dash); };
+  o.area = (g, f, x0, x1, c, fo = 0.25, base = 0, n = 120) => { const p = [[g.X(x0), g.Y(base)]]; for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; p.push([g.X(x), g.Y(f(x))]); } p.push([g.X(x1), g.Y(base)]); return o.poly(p, c, "none", 0, fo); };
+  o.dot = (g, x, y, c = COL.ink, r = 4.5) => o.circle(g.X(x), g.Y(y), r, c);
+  return o;
+}
+window.figErrors = [];
+function fig(id, fn){ try { const f = F(id); if (!f) throw new Error("no svg with this id"); fn(f); } catch (e) { window.figErrors.push(id + ": " + e.message); } }
+// A small drone seen from the side, centered on (cx, cy): body, two rotor bars.
+function drone(f, cx, cy){
+  f.rect(cx - 18, cy - 6, 36, 12, "#fff", COL.ink, 1.8);
+  f.line(cx - 40, cy - 12, cx - 8, cy - 12, COL.ink, 3); f.line(cx + 8, cy - 12, cx + 40, cy - 12, COL.ink, 3);
+  f.line(cx - 24, cy - 12, cx - 24, cy - 6, COL.ink, 1.5); f.line(cx + 24, cy - 12, cx + 24, cy - 6, COL.ink, 1.5);
+}
+// A free-body panel: items = [label, value (N, plus = up), color, x offset]; k = pixels per newton. Labels sit past the arrow tip.
+function panel(f, x0, w, H, title, items, k, extra){
+  const cx = x0 + w / 2, cy = Math.round(H * 0.5);
+  f.rect(x0, 6, w, H - 12, "#fff", COL.line, 1.2);
+  f.text(cx, 26, title, {size: 13, bold: true, anchor: "middle"});
+  drone(f, cx, cy);
+  for (const [lab, val, col, off] of items) { if (!val) continue; const x = cx + (off || 0), up = val > 0, y0 = up ? cy - 14 : cy + 8, y1 = y0 + (up ? -1 : 1) * Math.abs(val) * k;
+    f.arrow(x, y0, x, y1, col, 3.5); f.text(x, up ? y1 - 8 : y1 + 16, lab, {size: 12, bold: true, anchor: "middle", fill: col}); }
+  if (extra) extra(cx, cy);
+}
+// vertical bar chart: items = [label1, label2, value, color]; lines = [value, label, color]
+function bars(f, box, ymax, yt, items, lines, yd = 0, yl = "N"){
+  const [L, T, W, H] = box, Y = y => T + H - y / ymax * H;
+  for (const v of yt) { f.line(L, Y(v), L + W, Y(v), COL.line, 1); f.text(L - 5, Y(v) + 4, nf(v, yd), {size: 11, anchor: "end", fill: COL.grey}); }
+  f.line(L, T + H, L + W, T + H, COL.ink, 1.5); f.line(L, T, L, T + H, COL.ink, 1.5); f.text(L - 40, T + H / 2, yl, {size: 12, anchor: "middle", rot: -90});
+  const bw = W / items.length;
+  items.forEach(([l1, l2, v, c, txt], i) => { const x = L + bw * i + bw * 0.2, w = bw * 0.6; f.rect(x, Y(v), w, T + H - Y(v), c, "none", 0, 0.8);
+    f.text(x + w / 2, Y(v) - 6, txt || String(v), {size: 12, bold: true, anchor: "middle"});
+    f.text(x + w / 2, T + H + 16, l1, {size: 12, anchor: "middle"}); f.text(x + w / 2, T + H + 31, l2, {size: 11, anchor: "middle", fill: COL.grey}); });
+  (lines || []).forEach(([v, lab, c], i) => { f.line(L, Y(v), L + W, Y(v), c, 2.5, "7 4"); f.text(L + W - 4, Y(v) - 6, lab, {size: 12, bold: true, anchor: "end", fill: c}); });
+  return Y;
+}
+// ---------- Figure 1: the autopilot loop ----------
+fig("g1", f => {
+  const box = (x, y, w, h, title, sub, hi) => { f.rect(x, y, w, h, hi ? "#EAF7ED" : "#fff", hi ? "#2E9E4A" : COL.grey, hi ? 2.5 : 1.2, 1);
+    f.text(x + w / 2, y + 24, title, {size: 14, bold: true, anchor: "middle"}); f.text(x + w / 2, y + 44, sub, {size: 11, anchor: "middle", fill: hi ? "#1F6E33" : COL.grey}); };
+  box(10, 30, 150, 64, "Planner", "other rows", false);
+  box(250, 30, 150, 64, "Controller + mixer", "rows 3, 7 · a → T → command", true);
+  box(490, 30, 150, 64, "Physics / drone", "row 8 · ΣF → a", true);
+  box(730, 30, 120, 64, "Sensors", "other rows", false);
+  box(490, 150, 150, 64, "Estimator", "other rows", false);
+  f.arrow(160, 62, 248, 62, COL.ink, 2.5); f.arrow(400, 62, 488, 62, COL.ink, 2.5); f.arrow(640, 62, 728, 62, COL.ink, 2.5);
+  f.line(790, 94, 790, 182, COL.ink, 2.5); f.line(790, 182, 700, 182, COL.ink, 2.5); f.arrow(700, 182, 642, 182, COL.ink, 2.5);
+  f.line(490, 182, 85, 182, COL.ink, 2.5); f.line(85, 182, 85, 130, COL.ink, 2.5); f.arrow(85, 130, 85, 96, COL.ink, 2.5);
+  f.text(204, 50, "wanted a", {size: 11, anchor: "middle", fill: COL.grey}); f.text(444, 50, "thrust", {size: 11, anchor: "middle", fill: COL.grey});
+  f.text(684, 50, "motion", {size: 11, anchor: "middle", fill: COL.grey}); f.text(782, 140, "measurements", {size: 11, anchor: "end", fill: COL.grey});
+  f.text(290, 174, "estimated x and v go back to the planner and the controller", {size: 11, anchor: "middle", fill: COL.grey});
+  f.rect(20, 226, 14, 14, "#EAF7ED", "#2E9E4A", 2); f.text(42, 238, "rows of this section", {size: 12});
+  f.rect(220, 226, 14, 14, "#fff", COL.grey, 1.2); f.text(242, 238, "other rows (see the autopilot map)", {size: 12});
+});
+// ---------- Figure 2: the three cases ----------
+fig("g2", f => {
+  const cases = [["(a) ΣF = 0", [0, 0], "v is constant"], ["(b) ΣF parallel to v", [1, 0], "speed grows, path straight"], ["(c) ΣF perpendicular to v", [0, -1], "v turns, path curves"]];
+  cases.forEach(([title, d, sub], i) => { const x0 = 10 + i * 286, w = 276;
+    f.rect(x0, 6, w, 318, "#fff", COL.line, 1.2); f.text(x0 + w / 2, 28, title, {size: 13, bold: true, anchor: "middle"});
+    let px = x0 + 36, py = 230, vx = 40, vy = 0; const dv = 22; const pts = [[px, py]];
+    for (let s = 0; s < 3; s++) { f.circle(px, py, 4, COL.ink);
+      f.arrow(px, py, px + vx * 0.9, py + vy * 0.9, COL.v, 3);
+      if (s < 2 && (d[0] || d[1])) f.arrow(px + vx * 0.9 + 4, py + vy * 0.9 + 4, px + vx * 0.9 + 4 + d[0] * dv * 0.9, py + vy * 0.9 + 4 + d[1] * dv * 0.9, COL.a, 2.5);
+      f.text(px, 258, "still " + (s + 1), {size: 11, anchor: "middle", fill: COL.grey});
+      const nx = px + vx * 1.55, ny = py + vy * 1.55; pts.push([nx, ny]); if (s < 2) { vx += d[0] * dv; vy += d[1] * dv; } px = nx; py = ny; if (i === 2) py = py; }
+    f.text(x0 + w / 2, 292, sub, {size: 12, anchor: "middle", fill: COL.grey});
+    f.text(x0 + w / 2, 312, i === 0 ? "equal blue arrows" : "orange = same Δv every step", {size: 11, anchor: "middle", fill: COL.grey}); });
+});
+// ---------- helpers for figures 3 to 31 ----------
+// lane: a vertical arrow from (x, y0) by dy pixels (dy < 0 is up) with its label past the tip; legend: one row of colored squares with words; key: a line sample with words
+const lane = (f, x, y0, dy, c, lab) => { f.arrow(x, y0, x, y0 + dy, c, 3); f.text(x, dy < 0 ? y0 + dy - 8 : y0 + dy + 16, lab, {size: 12, bold: true, anchor: "middle", fill: c}); };
+const legend = (f, y, items) => { const w = items.map(([c, t]) => 36 + t.length * 6.3); let x = 430 - w.reduce((a, b) => a + b, 0) / 2;
+  items.forEach(([c, t], i) => { f.rect(x, y - 11, 14, 14, c, "none", 0, 0.85); f.text(x + 20, y, t, {size: 12, fill: COL.grey}); x += w[i]; }); };
+const lineKey = (f, x, y, c, t, dash) => { f.line(x, y - 4, x + 32, y - 4, c, 3.5, dash); f.text(x + 40, y, t, {size: 12}); };
+const mid = (f, x, y, s, c = COL.ink, bold = false) => f.text(x, y, s, {size: 12, anchor: "middle", fill: c, bold});
+const TT = {size: 13, bold: true, anchor: "middle"};
+// ---------- Figure 3: Try it 2, two forces and their net force ----------
+fig("g3", f => {
+  const k = 45, oy = 270;
+  const arc = (ox, r) => { const p = []; for (let i = 0; i <= 20; i++) { const t = (53.13 * i / 20) * Math.PI / 180; p.push([ox + r * Math.cos(t), oy - r * Math.sin(t)]); } return p; };
+  const side = (x0, ox, title, cE, cN, cR, lE, lN, lR) => {
+    f.rect(x0, 6, 420, 308, "#fff", COL.line, 1.2); f.text(x0 + 210, 26, title, TT);
+    const ex = ox + 3 * k, ny = oy - 4 * k;
+    f.line(ex, oy, ex, ny, COL.grey, 1.2, "5 4"); f.line(ox, ny, ex, ny, COL.grey, 1.2, "5 4");
+    f.arrow(ox, oy, ex - 2, oy, cE, 3.5); f.arrow(ox, oy, ox, ny + 2, cN, 3.5); f.arrow(ox, oy, ex - 2, ny + 2, cR, 4);
+    f.text(ex + 8, oy + 4, lE, {size: 12, bold: true, fill: cE === COL.ink ? COL.ink : cE});
+    f.text(ox, ny - 8, lN, {size: 12, bold: true, anchor: "middle", fill: cN === COL.ink ? COL.ink : cN});
+    f.text(ex + 8, ny + 4, lR, {size: 12, bold: true, fill: cR});
+    f.poly(arc(ox, 55), "none", COL.grey, 1.5); f.text(ox + 66, oy - 32, "53.1°", {size: 12, fill: COL.grey});
+    f.text(x0 + 210, 300, "top view: north is up, east is right", {size: 11, anchor: "middle", fill: COL.grey}); };
+  side(10, 70, "Forces on the drone (N)", COL.ink, COL.ink, COL.purple, "3.0 N, east", "4.0 N, north", "ΣF = 5.00 N");
+  side(430, 490, "Acceleration = force ÷ m, with m = 2.0 kg", COL.a, COL.a, COL.a, "a_{x} = 1.50 m/s²", "a_{y} = 2.00 m/s²", "a = 2.50 m/s²");
+});
+// ---------- Figure 4: Try it 3, the stills of case Q and case P ----------
+fig("g4", f => {
+  const s = 14;
+  f.rect(10, 6, 420, 318, "#fff", COL.line, 1.2); f.rect(430, 6, 420, 318, "#fff", COL.line, 1.2);
+  f.text(220, 28, "Case Q: force along v (east)", TT); f.text(640, 28, "Case P: force at a right angle to v (north)", TT);
+  [[110, 10.0, 0, "10.0 m/s"], [190, 10.0, 2.5, "10.0 + 2.50 = 12.5 m/s"], [270, 12.5, 2.5, "12.5 + 2.50 = 15.0 m/s"]].forEach(([y, v, d, lab], i) => {
+    f.text(40, y - 16, "still " + (i + 1), {size: 11, fill: COL.grey});
+    f.arrow(40, y, 40 + v * s, y, COL.v, 3.5);
+    if (d) f.arrow(40 + v * s, y, 40 + (v + d) * s, y, COL.a, 3.5);
+    f.text(40 + (v + d) * s + 10, y + 4, lab, {size: 12, bold: true, fill: COL.v}); });
+  const ox = 470, oy = 250, x1 = ox + 10 * s;
+  f.arrow(ox, oy, x1, oy, COL.v, 3.5); f.arrow(ox, oy, x1, oy - 2.5 * s, COL.v, 3.5); f.arrow(ox, oy, x1, oy - 5 * s, COL.v, 3.5);
+  f.arrow(x1, oy, x1, oy - 2.5 * s, COL.a, 3.5); f.arrow(x1, oy - 2.5 * s, x1, oy - 5 * s, COL.a, 3.5);
+  f.text(x1 + 12, oy + 4, "still 1: 10.0 m/s at 0°", {size: 12, bold: true, fill: COL.v});
+  f.text(x1 + 12, oy - 2.5 * s + 4, "still 2: 10.31 m/s at 14.0°", {size: 12, bold: true, fill: COL.v});
+  f.text(x1 + 12, oy - 5 * s + 4, "still 3: 11.18 m/s at 26.6°", {size: 12, bold: true, fill: COL.v});
+  legend(f, 312, [[COL.v, "velocity v"], [COL.a, "Δv = 2.50 m/s, the same in every step"]]);
+});
+// ---------- Figure 5: the three rows of the table as one free-body diagram ----------
+fig("g5", f => {
+  const H = 360;
+  panel(f, 10, 840, H, "Drone climbing at a steady speed", [["T = 13.767 N", 13.767, COL.x, -150], ["W = 11.767 N", -11.767, COL.red, -150], ["D = 2.0 N", -2.0, COL.a, -50]], 7, (cx, cy) => {
+    lane(f, cx + 120, cy, -42, COL.v, "v (steady, up)");
+    mid(f, cx, H - 48, "ΣF = T − W − D = 13.767 − 11.767 − 2.0 = 0, so a = 0 and the speed stays steady"); });
+  legend(f, H - 22, [[COL.x, "thrust T"], [COL.red, "weight W"], [COL.a, "drag D"], [COL.v, "velocity v"], [COL.grey, "arrows to scale: 7 px per N"]]);
+});
+// ---------- Figure 6: Try it 4 (the figure is captioned Try it 5), climbing and descending at 3 m/s ----------
+fig("g6", f => {
+  const H = 380;
+  const mk = (x0, title, items, up, sum) => panel(f, x0, 420, H, title, items, 7, (cx, cy) => {
+    lane(f, cx + 150, cy, up ? -42 : 42, COL.v, "v = 3 m/s " + (up ? "up" : "down")); mid(f, cx, H - 46, sum); });
+  mk(10, "Climbing at 3 m/s", [["T = 13.767 N", 13.767, COL.x, -60], ["W = 11.767 N", -11.767, COL.red, -60], ["D = 2.0 N", -2.0, COL.a, 60]], true, "ΣF = 13.767 − 11.767 − 2.0 = 0");
+  mk(430, "Descending at 3 m/s", [["T = 9.767 N", 9.767, COL.x, -60], ["D = 2.0 N", 2.0, COL.a, 60], ["W = 11.767 N", -11.767, COL.red, -60]], false, "ΣF = 9.767 + 2.0 − 11.767 = 0");
+  legend(f, H - 22, [[COL.x, "thrust T"], [COL.red, "weight W"], [COL.a, "drag D"], [COL.v, "velocity v"]]);
+});
+// ---------- Figure 7: slowing down while still climbing ----------
+fig("g7", f => {
+  const H = 380, ka = 20;
+  const mk = (x0, title, items, up, aLab, a, sum) => panel(f, x0, 420, H, title, items, 7, (cx, cy) => {
+    if (up) lane(f, cx + 80, cy, -32, COL.v, "v = 4.0 m/s"); else f.text(cx + 80, cy + 4, "v = 0", {size: 12, bold: true, anchor: "middle", fill: COL.v});
+    lane(f, cx + 150, cy, -a * ka, COL.a, aLab); mid(f, cx, H - 46, sum); });
+  mk(10, "Moving up at 4.0 m/s", [["T = 10.4 N", 10.4, COL.x, -80], ["W = 11.767 N", -11.767, COL.red, -80], ["D = 0.80 N", -0.8, COL.a, 0]], true, "a = −1.81 m/s²", -1.81, "ΣF = 10.4 − 11.767 − 0.80 = −2.167 N");
+  mk(430, "At rest (v = 0)", [["T = 10.4 N", 10.4, COL.x, -80], ["W = 11.767 N", -11.767, COL.red, -80]], false, "a = −1.14 m/s²", -1.14, "ΣF = 10.4 − 11.767 = −1.367 N");
+  f.text(640, 230, "no drag: D = 0", {size: 12, anchor: "middle", fill: COL.grey});
+  legend(f, H - 22, [[COL.x, "thrust T"], [COL.red, "weight W"], [COL.a, "drag D (at the drone)"], [COL.v, "velocity v"], [COL.a, "acceleration a (right lane)"]]);
+});
+// ---------- Figure 8: three values of g on a number line ----------
+fig("g8", f => {
+  const X = g => 60 + (g - 9.790) / 0.020 * 740, y = 120;
+  f.line(60, y, 800, y, COL.ink, 2);
+  [9.790, 9.795, 9.800, 9.805, 9.810].forEach(g => { f.line(X(g), y - 6, X(g), y + 6, COL.ink, 1.5); f.text(X(g), y + 24, g.toFixed(3), {size: 11, anchor: "middle", fill: COL.grey}); });
+  mid(f, 430, y + 56, "acceleration of gravity g (m/s²)"); mid(f, 430, y + 84, "W = weight of the 1.2 kg drone", COL.grey);
+  [[9.7965, "Denver", "g = 9.7965 m/s²", "W = 11.756 N"], [9.8, "rough value", "g = 9.8 m/s²", "W = 11.760 N"], [9.8062, "home field", "g = 9.8062 m/s²", "W = 11.767 N"]].forEach(([g, n, a, w]) => {
+    f.line(X(g), 62, X(g), y, COL.grey, 1.2, "4 3"); f.circle(X(g), y, 6, COL.red);
+    mid(f, X(g), 22, n, COL.ink, true); mid(f, X(g), 38, a); mid(f, X(g), 54, w); });
+});
+// ---------- Figure 9: the scale reading, zoomed ----------
+fig("g9", f => {
+  const X = v => 60 + (v - 1198) / 3 * 740, y = 120, sp = v => String(v).replace(/^(\d)(\d{3})$/, "$1 $2");
+  f.line(60, y, 800, y, COL.ink, 2);
+  [1198, 1199, 1200, 1201].forEach(v => { f.line(X(v), y - 6, X(v), y + 6, COL.ink, 1.5); f.text(X(v), y + 24, sp(v), {size: 11, anchor: "middle", fill: COL.grey}); });
+  mid(f, 430, y + 84, "scale reading (g)");
+  [[1198.8, "Denver reading", "1 198.8 g"], [1200, "Home-field reading (set)", "1 200 g"]].forEach(([v, n, a]) => {
+    f.line(X(v), 52, X(v), y, COL.grey, 1.2, "4 3"); f.circle(X(v), y, 6, COL.red); mid(f, X(v), 22, n, COL.ink, true); mid(f, X(v), 40, a); });
+  f.arrow(548, 156, 262, 156, COL.red, 2.5); mid(f, 405, 176, "1.2 g lower in Denver, same mass", COL.red);
+});
+// ---------- Figure 10: Try it 8, a drone on a scale in a lift ----------
+fig("g10", f => {
+  const H = 380, ka = 12;
+  const mk = (i, title, items, a, aLab, sum, extra) => panel(f, 10 + i * 286, 276, H, title, items, 7, (cx, cy) => {
+    lane(f, cx + 90, cy, -a * ka, COL.a, aLab); mid(f, cx, H - 44, sum); if (extra) extra(cx, cy); });
+  mk(0, "Lift accelerating up", [["N = 13.567 N", 13.567, COL.x, -55], ["W = 11.767 N", -11.767, COL.red, 0]], 1.5, "a = +1.5 m/s²", "ΣF = 13.567 − 11.767 = +1.800 N");
+  mk(1, "Lift accelerating down", [["N = 9.967 N", 9.967, COL.x, -55], ["W = 11.767 N", -11.767, COL.red, 0]], -1.5, "a = −1.5 m/s²", "ΣF = 9.967 − 11.767 = −1.800 N");
+  mk(2, "Free fall", [["W = 11.767 N", -11.767, COL.red, 0]], -9.8062, "a = −g", "ΣF = −W = −11.767 N", (cx, cy) => { f.text(cx - 55, cy - 40, "no scale force: N = 0", {size: 12, anchor: "middle", fill: COL.grey}); f.text(cx + 90, cy - 10, "−9.8062 m/s²", {size: 12, bold: true, anchor: "middle", fill: COL.a}); });
+  legend(f, H - 22, [[COL.x, "scale force N"], [COL.red, "weight W"], [COL.a, "acceleration a"]]);
+});
+// ---------- Figure 11: thrust against rotor speed (the page calls it Figure 11; the id is g12) ----------
+fig("g12", f => {
+  const g = f.graph([80, 30, 700, 230], {x: [0, 1], y: [0, 1], xt: [0.25, 0.5, 1], yt: [0, 0.25, 0.5, 0.75, 1], xd: 2, yd: 2, xl: "rotor speed ÷ largest speed", yl: "thrust ÷ largest thrust"});
+  const r = Math.SQRT1_2;
+  f.curve(g, x => x, 0, 1, COL.grey, 2.5, "7 4", 2); f.curve(g, x => x * x, 0, 1, COL.x, 3.5);
+  f.line(g.X(0), g.Y(0.5), g.X(r), g.Y(0.5), COL.purple, 1.5, "4 4"); f.line(g.X(r), g.Y(0.5), g.X(r), g.Y(0), COL.purple, 1.5, "4 4");
+  f.dot(g, r, 0.5, COL.red, 6); mid(f, g.X(r), g.T + g.H + 14, "0.7071", COL.purple, true);
+  f.text(g.X(r) + 14, g.Y(0.5) + 22, "thrust 1/2 needs speed 0.7071", {size: 12, bold: true});
+  lineKey(f, g.L + 16,g.T + 24, COL.x, "rotor law: thrust = (speed)², the curve");
+  lineKey(f, g.L + 16,g.T + 46, COL.grey, "PX4 SIH: thrust linear in the command, the dashed line", "7 4");
+});
+// ---------- Figure 12: thrust-to-weight against the command (the id is g11) ----------
+fig("g11", f => {
+  const g = f.graph([80, 30, 640, 240], {x: [0, 1], y: [0, 4], xt: [0.75], yt: [0, 1, 2, 3, 4], xd: 2, yd: 0, xl: "command u (0 to 1)", yl: "thrust ÷ weight, T / W"});
+  const cs = ["#6AB57D", COL.x, "#1F6E33"];
+  f.line(g.X(0), g.Y(1), g.X(1), g.Y(1), COL.red, 2.5, "7 4"); f.text(g.L + 8, g.Y(1) - 8, "weight: T / W = 1", {size: 12, bold: true, fill: COL.red});
+  [1, 2, 4].forEach((w, i) => { f.line(g.X(1 / w), g.Y(1), g.X(1 / w), g.Y(0), COL.grey, 1, "3 3"); f.curve(g, u => w * u, 0, 1, cs[i], 3.5, undefined, 2);
+    f.dot(g, 1 / w, 1, cs[i], 5.5); f.text(g.X(1) + 8, g.Y(w) + 4, "TWR " + w + ".0", {size: 12, bold: true, fill: cs[i]});
+    mid(f, g.X(1 / w), g.T + g.H + 14, (1 / w).toFixed(2), cs[i], true); });
+});
+// ---------- Figure 13: TWR against the total mass ----------
+fig("g13", f => {
+  const g = f.graph([80, 30, 700, 240], {x: [1, 2], y: [0, 3.5], xt: [1, 1.2, 1.4, 1.6, 1.8, 2], yt: [1, 2, 3], xd: 1, yd: 0, xl: "total mass (kg)", yl: "thrust-to-weight ratio, TWR"});
+  const twr = m => 30 / (9.8062 * m);
+  f.line(g.L, g.Y(2), g.L + g.W, g.Y(2), COL.grey, 2.5, "7 4"); f.text(g.L + g.W - 4, g.Y(2) - 6, "TWR 2", {size: 12, bold: true, anchor: "end", fill: COL.grey});
+  f.curve(g, twr, 1, 2, COL.x, 3.5);
+  f.line(g.X(1.53), g.Y(2), g.X(1.53), g.Y(0), COL.grey, 1, "3 3"); mid(f, g.X(1.53), g.T + g.H + 14, "1.53", COL.red, true);
+  f.dot(g, 1.2, twr(1.2), COL.red, 5.5); f.dot(g, 1.7, twr(1.7), COL.red, 5.5); f.dot(g, 1.53, 2, COL.red, 5.5);
+  f.text(g.X(1.2) + 12, g.Y(twr(1.2)) - 8, "1.2 kg, empty drone: TWR 2.55", {size: 12, bold: true});
+  f.text(g.X(1.7) - 10, g.Y(twr(1.7)) + 22, "1.7 kg, payload 0.50 kg: TWR 1.80", {size: 12, bold: true, anchor: "end"});
+  f.text(g.X(1.53) + 14, g.Y(2) - 10, "TWR 2 at 1.53 kg: payload limit 0.33 kg", {size: 12, bold: true});
+});
+// ---------- Figure 14: two models, ten percent more speed ----------
+fig("g14", f => {
+  const g = f.graph([80, 30, 700, 240], {x: [0.8, 1.3], y: [0.6, 1.8], xt: [0.8, 0.9, 1.0, 1.2, 1.3], yt: [0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8], xd: 1, yd: 1, xl: "speed (or command) ÷ its hover value", yl: "thrust ÷ weight, T / W"});
+  f.curve(g, x => x * x, 0.8, 1.3, COL.x, 3.5); f.curve(g, x => x, 0.8, 1.3, COL.grey, 2.5, "7 4", 2);
+  f.line(g.X(1.1), g.Y(0.6), g.X(1.1), g.Y(1.1), COL.grey, 1, "3 3"); f.line(g.X(1.1), g.Y(1.1), g.X(1.1), g.Y(1.21), COL.purple, 3.5);
+  f.dot(g, 1.1, 1.21, COL.x, 5.5); f.dot(g, 1.1, 1.1, COL.grey, 5.5); f.dot(g, 1, 1, COL.red, 5.5);
+  f.text(g.X(1.1) - 10, g.Y(1.21) - 8, "quadratic law: 1.21", {size: 12, bold: true, anchor: "end", fill: COL.x});
+  f.text(g.X(1.1) + 10, g.Y(1.1) + 18, "linear law: 1.10", {size: 12, bold: true, fill: COL.grey});
+  f.text(g.X(1) + 10, g.Y(1) + 22, "hover: T / W = 1", {size: 12, bold: true, fill: COL.red});
+  mid(f, g.X(1.1), g.T + g.H + 14, "1.10", COL.purple, true);
+  lineKey(f, g.L + 16,g.T + 24, COL.x, "quadratic law, T / W = x^{2} (the curve)");
+  lineKey(f, g.L + 16,g.T + 46, COL.grey, "linear law, T / W = x (the dashed line)", "7 4");
+});
+// ---------- Figure 15: hover, climb and descent ----------
+fig("g15", f => {
+  const H = 380, ka = 14;
+  const mk = (i, title, items, a, aLab, sum) => panel(f, 10 + i * 286, 276, H, title, items, 6, (cx, cy) => {
+    if (a) lane(f, cx + 85, cy, -a * ka, COL.a, aLab); else f.text(cx + 85, cy + 4, "a = 0", {size: 12, bold: true, anchor: "middle", fill: COL.a}); mid(f, cx, H - 44, sum); });
+  mk(0, "Hover (row 1)", [["T = 11.767 N", 11.767, COL.x, -40], ["W = 11.767 N", -11.767, COL.red, -40]], 0, "", "ΣF = 11.767 − 11.767 = 0");
+  mk(1, "Climb (row 2)", [["T = 15.367 N", 15.367, COL.x, -40], ["W = 11.767 N", -11.767, COL.red, -40]], 3.0, "a = +3.00 m/s²", "ΣF = 15.367 − 11.767 = +3.600 N");
+  mk(2, "Descent (row 3)", [["T = 9.367 N", 9.367, COL.x, -40], ["W = 11.767 N", -11.767, COL.red, -40]], -2.0, "a = −2.00 m/s²","ΣF = 9.367 − 11.767 = −2.400 N");
+  legend(f, H - 22, [[COL.x, "thrust T"], [COL.red, "weight W"], [COL.a, "acceleration a"]]);
+});
+// ---------- Figure 16: a payload is dropped ----------
+fig("g16", f => {
+  const H = 380;
+  const mk = (x0, title, items, a, sum) => panel(f, x0, 420, H, title, items, 5.5, (cx, cy) => {
+    if (a) lane(f, cx + 120, cy, -a * 14, COL.a, "a = 4.09 m/s²"); else f.text(cx + 120, cy + 4, "a = 0", {size: 12, bold: true, anchor: "middle", fill: COL.a}); mid(f, cx, H - 46, sum); });
+  mk(10, "Before the drop: m = 1.7 kg", [["T = 16.671 N", 16.671, COL.x, -40], ["W = 16.671 N", -16.671, COL.red, -40]], 0, "ΣF = 16.671 − 16.671 = 0");
+  mk(430, "After the drop: m = 1.2 kg", [["T = 16.671 N", 16.671, COL.x, -40], ["W = 11.767 N", -11.767, COL.red, -40]], 4.09, "ΣF = 16.671 − 11.767 = +4.904 N");
+  legend(f, H - 22, [[COL.x, "thrust T"], [COL.red, "weight W"], [COL.a, "acceleration a"]]);
+});
+// ---------- Figure 17: thrust needed to stop in 2.0 m ----------
+fig("g17", f => {
+  const Y = bars(f, [90, 40, 700, 260], 30, [0, 5, 10, 15, 20, 25, 30], [["Drone alone", "4.0 m/s", 16.567, COL.x, "16.567 N"], ["Drone + payload", "4.0 m/s", 23.471, COL.x, "23.471 N"], ["Drone + payload", "5.0 m/s", 27.296, COL.red, "27.296 N"]], [[23.534, "", COL.ink]], 0, "thrust needed (N)");
+  f.text(96, Y(23.534) - 6, "largest thrust 23.534 N (dashed limit)", {size: 12, bold: true});
+});
+// ---------- Figure 18: linear and quadratic drag ----------
+fig("g18", f => {
+  const g = f.graph([80, 30, 620, 240], {x: [0, 20], y: [0, 25], xt: [0, 5, 10, 15, 20], yt: [0, 5, 10, 15, 20, 25], xl: "speed v (m/s)", yl: "drag D (N)"});
+  f.curve(g, v => 0.30 * v, 0, 20, COL.a, 3, "8 5", 2); f.curve(g, v => 0.06 * v * v, 0, 20, COL.a, 3.5);
+  f.dot(g, 5, 1.5, COL.red, 5.5); f.dot(g, 20, 6, COL.a, 5.5); f.dot(g, 20, 24, COL.a, 5.5);
+  f.text(g.X(20) + 10, g.Y(24) + 4, "24.0 N (quadratic)", {size: 12, bold: true}); f.text(g.X(20) + 10, g.Y(6) + 4, "6.00 N (linear)", {size: 12, bold: true});
+  f.text(g.X(5) - 12, g.Y(1.5) - 32, "at 5.0 m/s both", {size: 12, bold: true, anchor: "end", fill: COL.red}); f.text(g.X(5) - 12, g.Y(1.5) - 16, "give 1.50 N", {size: 12, bold: true, anchor: "end", fill: COL.red});
+  lineKey(f, g.L + 16,g.T + 24, COL.a, "linear: D = k_{1}·v, k_{1} = 0.30 N·s/m (straight line)", "8 5");
+  lineKey(f, g.L + 16,g.T + 46, COL.a, "quadratic: D = k_{2}·v^{2}, k_{2} = 0.06 N·s²/m² (curve)");
+});
+// ---------- Figure 19: falling at 10.0 m/s with thrust equal to weight ----------
+fig("g19", f => {
+  const H = 380;
+  panel(f, 10, 840, H, "Drone moving down at 10.0 m/s", [["T = 11.767 N", 11.767, COL.x, -160], ["D = 6.00 N", 6.0, COL.a, -60], ["W = 11.767 N", -11.767, COL.red, -160]], 7, (cx, cy) => {
+    lane(f, cx + 70, cy, -42, COL.purple, "ΣF = 6.00 N"); lane(f, cx + 180, cy, -70, COL.a, "a = 5.00 m/s²"); lane(f, cx + 300, cy, 40, COL.v, "v = 10.0 m/s");
+    mid(f, cx, H - 58, "ΣF = T + D − W = 11.767 + 6.00 − 11.767 = +6.00 N"); mid(f, cx, H - 40, "a = ΣF / m = 6.00 / 1.2 = +5.00 m/s²"); });
+  legend(f, H - 20, [[COL.x, "thrust T"], [COL.a, "drag D"], [COL.red, "weight W"], [COL.purple, "net force ΣF"], [COL.a, "acceleration a"], [COL.v, "velocity v"]]);
+});
+// ---------- Figure 20: top ground speeds in wind ----------
+fig("g20", f => {
+  const Y = bars(f, [90, 30, 700, 230], 15, [0, 5, 10, 15], [["Headwind", "3.0 m/s", 7.0, COL.v, "7.0 m/s"], ["Still air", "no wind", 10.0, COL.v, "10.0 m/s"], ["Tailwind", "3.0 m/s", 13.0, COL.v, "13.0 m/s"]], [[10.0, "", COL.ink]], 0, "top ground speed (m/s)");
+  f.text(96, Y(10) - 6, "air speed 10.0 m/s in all three cases (dashed)", {size: 12, bold: true});
+});
+// ---------- Figure 21: the pair of forces at a rotor ----------
+fig("g21", f => {
+  const xl = 400, xr = 620;
+  [xl, xr].forEach(x => { f.rect(x - 50, 204, 100, 116, "#DCEBFA", "none", 0, 0.9); f.text(x + 10, 236, "air", {size: 12, fill: COL.grey});
+    f.line(x - 50, 150, x + 50, 150, COL.ink, 4); f.line(x, 150, x, 166, COL.ink, 2);
+    f.arrow(x, 140, x, 40, COL.x, 4); f.arrow(x, 212, x, 312, COL.red, 4); });
+  f.rect(380, 164, 260, 34, "#fff", COL.ink, 2);
+  const L = (y, s, c, b) => f.text(335, y, s, {size: b ? 13 : 12, bold: !!b, anchor: "end", fill: c || COL.ink});
+  L(70, "Thrust T (up)", COL.x, 1); L(88, "force of the air on the rotor"); L(104, "acts on the drone");
+  L(244, "Force on the air (down)", COL.red, 1); L(262, "force of the rotor on the air"); L(278, "acts on the air");
+  f.text(685, 70, "T, on the drone", {size: 13, bold: true, fill: COL.x}); f.text(685, 262, "on the air", {size: 13, bold: true, fill: COL.red});
+  mid(f, 510, 60, "the two arrows have the same size", COL.grey);
+});
+// ---------- Figure 22: narrow fast stream and wide slow stream ----------
+fig("g22", f => {
+  f.line(430, 8, 430, 330, COL.line, 1.5);
+  const col = (cx, w, dv, xs, q, ttl) => {
+    f.text(cx, 22, ttl, TT);
+    f.line(cx - w / 2, 100, cx + w / 2, 100, COL.ink, 4); f.arrow(cx, 92, cx, 52, COL.x, 4); f.text(cx + 12, 66, "T = 11.767 N", {size: 12, bold: true, fill: COL.x});
+    f.rect(cx - w / 2, 108, w, 142, "#DCEBFA", "none", 0, 0.9);
+    xs.forEach(x => f.arrow(x, 122, x, 122 + dv * 12, COL.v, 3.5));
+    mid(f, cx, 272, "Δv = " + dv.toFixed(1) + " m/s", COL.v, true); mid(f, cx, 290, "Q = " + q + " kg/s of air"); mid(f, cx, 310, "T = Q·Δv = 11.767 N", COL.x, true); };
+  col(215, 60, 8.0, [215], "1.471", "Narrow, fast column");
+  col(640, 120, 4.0, [610, 670], "2.942", "Column twice as wide");
+});
+// ---------- Figure 23: a drone flying inside a sealed box on a scale ----------
+fig("g23", f => {
+  const H = 380;
+  const mk = (i, title, N, sum) => panel(f, 10 + i * 286, 276, H, title, [["N = " + N + " N", Number(N), COL.x, -55], ["W = 31.380 N", -31.38, COL.red, 0]], 3, (cx, cy) => {
+    f.rect(cx - 62, cy - 36, 124, 62, "none", COL.grey, 2); f.text(cx - 56, cy + 20, "box", {size: 11, fill: COL.grey}); mid(f, cx, H - 44, sum); });
+  mk(0, "Hover (drone a = 0)", "31.380", "N = (2.0 + 1.2) × 9.8062 = 31.380 N");
+  mk(1, "Climb (drone a = +3.00 m/s²)", "34.980", "N = 31.380 + 1.2 × 3.00 = 34.980 N");
+  mk(2, "Descent (drone a = −2.00 m/s²)", "28.980", "N = 31.380 + 1.2 × (−2.00) = 28.980 N");
+  legend(f, H - 22, [[COL.x, "scale force N"], [COL.red, "weight of box and drone"]]);
+});
+// ---------- Figure 24: the forces of Problem 1 ----------
+fig("g24", f => {
+  bars(f, [90, 40, 700, 240], 30, [0, 5, 10, 15, 20, 25, 30], [["Weight", "W = m·g", 14.709, COL.red, "14.709 N"], ["Half of the", "largest thrust", 15.0, COL.grey, "15.000 N"], ["Thrust for a", "6.00 m/s² climb", 23.709, COL.x, "23.709 N"], ["Largest", "thrust T_{max}", 30.0, "#1F6E33", "30.0 N"]], [], 0, "force (N)");
+});
+// ---------- Figure 25: Problem 2, the triangle of forces in a crosswind ----------
+fig("g25", f => {
+  const k = 18, ox = 430, oy = 300, py = oy - 11.767 * k, qx = ox - 2.4 * k, arc = [];
+  for (let i = 0; i <= 12; i++) { const t = 11.5 * i / 12 * Math.PI / 180; arc.push([ox - 70 * Math.sin(t), oy - 70 * Math.cos(t)]); }
+  f.arrow(ox, oy, ox, py, COL.v, 4); f.arrow(ox, oy, qx, py, COL.x, 4); f.arrow(ox, py, qx + 3, py, COL.a, 4);
+  f.poly([[ox, py + 10], [ox - 10, py + 10], [ox - 10, py]], "none", COL.grey, 1.5); f.poly(arc, "none", COL.grey, 1.5);
+  f.text(ox + 14, oy - 11.767 * k / 2, "V = 11.767 N", {size: 13, bold: true, fill: COL.v}); f.text(ox + 14, oy - 11.767 * k / 2 + 17, "vertical part, carries the weight", {size: 12});
+  f.text(ox - 24, oy - 11.767 * k / 2, "T = 12.009 N", {size: 13, bold: true, anchor: "end", fill: COL.x}); f.text(ox - 24, oy - 11.767 * k / 2 + 17, "thrust, the hypotenuse", {size: 12, anchor: "end"});
+  mid(f, (ox + qx) / 2, py - 26, "H = 2.4 N, points west", COL.a, true); mid(f, (ox + qx) / 2, py - 10, "cancels the wind (east)", COL.grey);
+  f.text(ox + 12, oy - 50, "tilt 11.5° from the vertical", {size: 12, bold: true});
+  mid(f, 430, 330, "side view, east to the right: the wind pushes the drone east with 2.4 N", COL.grey);
+});
+// ---------- Figure 26: acceleration of the falling drone against its speed ----------
+fig("g26", f => {
+  const g = f.graph([90, 30, 680, 240], {x: [0, 14], y: [-11.5, 1.5], xt: [0, 2, 4, 6, 8, 10, 12, 14], yt: [-10, -8, -6, -4, -2, 0], xd: 0, yd: 0, xl: "downward speed (m/s)", yl: "acceleration a (m/s²)"});
+  const a = v => -9.7965 + 0.05 * v * v;
+  f.curve(g, a, 0, 14, COL.a, 3.5);
+  f.dot(g, 0, a(0), COL.red, 5.5); f.dot(g, 10, a(10), COL.red, 5.5); f.dot(g, 14, 0, COL.red, 5.5);
+  f.text(g.X(0) + 12, g.Y(a(0)) + 20, "−9.7965 m/s² at rest", {size: 12, bold: true});
+  f.text(g.X(10) + 12, g.Y(a(10)) + 22, "−4.80 m/s² at 10.0 m/s", {size: 12, bold: true});
+  f.text(g.X(14) - 10, g.Y(0) - 8, "0 at 14.00 m/s: drag = weight", {size: 12, bold: true, anchor: "end"});
+});
+// ---------- Figure 27: speed against time for the punch-up ----------
+fig("g27", f => {
+  const g = f.graph([90, 30, 680, 240], {x: [0, 0.9], y: [0, 30], xt: [0.2, 0.4, 0.6], xd: 1, yt: [0, 5, 10, 15, 20, 25, 30], yd: 0, xl: "time t (s)", yl: "vertical speed v (m/s)"});
+  const v = t => 29.42 * t;
+  f.area(g, v, 0, 0.82, COL.v, 0.22, 0, 2); f.curve(g, v, 0, 0.82, COL.v, 3.5, undefined, 2);
+  f.line(g.X(0.82), g.Y(0), g.X(0.82), g.Y(v(0.82)), COL.grey, 1.2, "4 4"); f.line(g.X(0), g.Y(v(0.82)), g.X(0.82), g.Y(v(0.82)), COL.grey, 1.2, "4 4");
+  f.dot(g, 0.82, v(0.82), COL.v, 5.5); mid(f, g.X(0.82), g.T + g.H + 14, "0.82", COL.v, true);
+  f.text(g.X(0.82) - 10, g.Y(v(0.82)) - 10, "24.12 m/s at 0.82 s", {size: 12, bold: true, anchor: "end"});
+  f.text(g.X(0.04), g.Y(26), "slope = a = 29.42 m/s²", {size: 12, bold: true, fill: COL.v});
+  f.text(g.X(0.36), g.Y(3.5), "area under the line = height gained = 10.0 m", {size: 12, bold: true});
+});
+// ---------- Figure 28: the hover command with and without the parcel ----------
+fig("g28", f => {
+  const Y = bars(f, [150, 40, 560, 220], 1.1, [0, 0.25, 0.5, 0.75, 1.0], [["Empty drone", "1.2 kg", 0.5, COL.x, "0.50"], ["With the parcel", "1.7 kg", 0.7083, COL.x, "0.7083"]], [[1.0, "limit: full thrust, 1.0", COL.red]], 2, "hover command u");
+  [[0.5, "spare 0.50"], [0.7083, "spare 0.29"]].forEach(([v, s], i) => mid(f, 150 + 280 * (i + 0.5), Y((v + 1) / 2) + 4, s, COL.grey));
+});
+// ---------- Figure 29: Think 1, a parcel at a high field ----------
+fig("t1", f => {
+  const Y = bars(f, [150, 40, 560, 220], 35, [0, 5, 10, 15, 20, 25, 30, 35], [["Largest thrust", "sea level", 30.0, COL.x, " "], ["Largest thrust", "Denver", 25.68, COL.x, " "]], [[31.348, "needed for TWR 2 with the parcel: 31.348 N", COL.red]], 0, "thrust (N)");
+  [[30.0, "30.0 N"], [25.68, "25.68 N"]].forEach(([v, s], i) => mid(f, 150 + 280 * (i + 0.5), Y(v) + 20, s, COL.ink, true));
+});
+// ---------- Figure 30: Think 2, one rotor fails ----------
+fig("t2", f => {
+  const items = [1, 2, 3, 4].map(i => ["rotor " + i, "", 2.942, COL.x, "2.942 N"]).concat([1, 2, 3].map(i => ["rotor " + i, "", 3.922, "#1F6E33", "3.922 N"]));
+  bars(f, [90, 50, 700, 230], 7, [0, 1, 2, 3, 4, 5, 6, 7], items, [[6.0, "largest thrust of one rotor: 6.0 N", COL.red]], 0, "thrust of one rotor (N)");
+  f.line(490, 50, 490, 300, COL.line, 1.5);
+  mid(f, 290, 334, "four rotors, 2.942 N each", COL.ink, true); mid(f, 640, 334, "three rotors, 3.922 N each", COL.ink, true);
+});
+// ---------- Figure 31: Think 3, the spray tank that empties ----------
+fig("t3", f => {
+  const g = f.graph([90, 30, 700, 250], {x: [0, 4], y: [0, 25], xt: [0, 1, 2, 3, 4], yt: [0, 5, 10, 15, 20, 25], xl: "time (minutes)", yl: "force (N)"});
+  const T0 = 21.574, w = t => (2.2 - 0.25 * t) * 9.8062;
+  f.poly([[g.X(0), g.Y(T0)], [g.X(4), g.Y(T0)], [g.X(4), g.Y(w(4))]], COL.purple, "none", 0, 0.2);
+  f.curve(g, () => T0, 0, 4, COL.x, 3.5, undefined, 2); f.curve(g, w, 0, 4, COL.red, 3.5, undefined, 2);
+  f.dot(g, 0, T0, COL.ink, 5); f.dot(g, 4, w(4), COL.red, 5.5);
+  f.text(g.X(0.1), g.Y(T0) - 10, "thrust T = 21.574 N, kept constant", {size: 12, bold: true, fill: COL.x});
+  f.text(g.X(4) - 8, g.Y(w(4)) + 22, "weight W = m·g falls to 11.767 N at 4 min", {size: 12, bold: true, anchor: "end", fill: COL.red});
+  mid(f, g.X(2.6), g.Y((T0 + w(2.6)) / 2) + 4, "net force ΣF = T − W (shaded)", COL.ink, true);
+});
+//@@FIGS
+const PAGE = "2.3";                                 // note keys: "2.3:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes (owner's order 2026-10-20: "each table must have an editor tool").
+// A table's key is "<page>:<block>#t<n>", n counting the tables inside that block.
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+</script>
+</body>
+</html>

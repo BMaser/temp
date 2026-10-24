@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why we learn it: inside an autopilot</title>
+<!-- Reference page of the v2 course. Source of truth: github coursera_mirror\mirrors\Autonomous_Racing_Drone_Path\v2\reference\.
+     Code citations: PX4-Autopilot @ d28a642 and ProjectAirSim @ c80cff5, opened on GitHub on 2026-10-20 (every link is tested by check_map.py).
+     Marks and notes go to ..\notes.json under keys "map:<block>". -->
+<style>
+:root{--paper:#FAF8F5;--card:#fff;--ink:#1C1C1C;--ink2:#5B5752;--line:#E2DED8;--accent:#E8331C;
+  --cL:#2F6FD0;--cW:#C0392B;--cT:#2E9E4A;--cD:#D68910;
+  --m-yellow:#FFE9A8;--m-green:#CDEFD3;--m-red:#FBD0C8;--m-blue:#CFE2FA;--b-yellow:#E0B100;--b-green:#2E9E4A;--b-red:#E8331C;--b-blue:#2F6FD0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+header .crumb{font-size:13px;color:var(--ink2)} header .crumb a{color:var(--ink2)}
+header .sp{flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--ink2)}
+.pill.ok{border-color:#9BD3A8;background:#EAF7ED;color:#1F6E33}.pill.warn{border-color:#F2C27A;background:#FFF5E3;color:#8A5A00}
+button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1180px;padding:24px 28px 80px}
+h1{font-size:28px;margin:0 0 4px} h2{font-size:20px;margin:28px 0 8px;display:flex;align-items:center;gap:10px}
+h2 .step{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 9px}
+.lead{color:var(--ink2);margin:0}
+.blk{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;margin:0 0 12px}
+.blk>.c{padding:10px 12px;border-left:4px solid transparent;border-radius:4px}
+.blk:hover>.c{background:rgba(0,0,0,.025)}
+.blk.mk-yellow>.c{background:var(--m-yellow);border-left-color:var(--b-yellow)}.blk.mk-green>.c{background:var(--m-green);border-left-color:var(--b-green)}
+.blk.mk-red>.c{background:var(--m-red);border-left-color:var(--b-red)}.blk.mk-blue>.c{background:var(--m-blue);border-left-color:var(--b-blue)}
+.m{font-size:13px}.tools{display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .12s;margin-bottom:6px}
+.blk:hover .tools,.blk:focus-within .tools,.blk.has .tools{opacity:1}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}.dot.on{box-shadow:0 0 0 2px var(--ink)}
+.tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.note q{display:block;font-size:12px;color:var(--ink2);border-left:3px solid var(--line);padding-left:6px;margin-bottom:4px;quotes:none}
+.note textarea{width:100%;min-height:54px;border:0;resize:vertical;font:inherit;font-size:13px;background:transparent;outline:none}
+.note .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)}.note .meta button{border:0;padding:0;font-size:11px;color:var(--accent);background:none}
+table.t{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);border-bottom:2px solid var(--ink);padding:6px 8px}
+table.t td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.f{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:17px;white-space:nowrap}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prob{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:6px;padding:10px 14px}
+details{margin-top:8px}summary{cursor:pointer;font-weight:600;color:var(--cL)}
+.trap{font-size:13px;background:#FFF5E3;border:1px solid #F2C27A;border-radius:6px;padding:6px 10px;margin-top:6px}
+figcaption{font-size:13px;color:var(--ink2);margin-top:4px}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (max-width:900px){.blk{grid-template-columns:1fr} main{padding:16px}}
+h2.sub{font-size:21px;margin:34px 0 10px;padding-top:10px;border-top:2px solid var(--ink)}
+h2.sub .no{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:99px;padding:2px 10px}
+.howto{background:#F3F7FD;border-color:#CFE2FA}
+.tblk{margin:8px 0}.tblk .tbar{display:flex;gap:8px;align-items:center;opacity:.45;transition:opacity .12s;margin:0 0 4px}
+.tblk:hover .tbar,.tblk:focus-within .tbar,.tblk.has .tbar{opacity:1}
+.tlab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ttools{display:flex;gap:6px;align-items:center}.ttools button{padding:2px 9px;font-size:12px}
+.tblk.mk-yellow>table{outline:3px solid var(--b-yellow)}.tblk.mk-green>table{outline:3px solid var(--b-green)}
+.tblk.mk-red>table{outline:3px solid var(--b-red)}.tblk.mk-blue>table{outline:3px solid var(--b-blue)}
+.tnotes .note{margin-top:6px}
+table.wide{font-size:12.5px}
+table.wide td,table.wide th{padding:5px 6px}
+table.wide code{font-size:11.5px;overflow-wrap:anywhere}
+table.wide{table-layout:fixed;overflow-wrap:break-word}
+table.wide col:nth-child(2){width:12%}
+table.wide .f{white-space:normal;font-size:15px}
+tr:target td{background:#FFF5E3}
+.src{font-size:12px;color:var(--ink2)}
+</style>
+</head>
+<body>
+<header>
+  <span class="crumb"><a href="../../index.html">Course home</a> › <a href="../plan.html#ov">Course plan</a> › <a href="../plan.html#p1">Part I</a> › <b>Why we learn it: inside an autopilot</b> (reference)</span>
+  <span class="sp"></span>
+  <span id="status" class="pill">loading…</span>
+  <button id="connect" class="primary">Connect notes.json</button>
+</header>
+<main id="main">
+<div data-b="title"><h1>Why we learn it: what is inside an autopilot</h1>
+<p class="lead">Reference page · plan row 1.6 · 10 parts of a multirotor autopilot, 4 parts of a fixed-wing autopilot · code from the PX4-Autopilot source code @ d28a642 [<a class="cite" href="references.html#ref-29">29</a>] and the Project AirSim source code @ c80cff5 [<a class="cite" href="references.html#ref-30">30</a>] (its documentation site: [<a class="cite" href="references.html#ref-41">41</a>]), opened on GitHub on 2026-10-20</p></div>
+
+<div data-b="goal"><div class="box"><b>Goal.</b> After this page you can name the parts of a drone's autopilot, say what question each part answers, find the part in PX4 [<a class="cite" href="references.html#ref-29">29</a>] and in Project AirSim [<a class="cite" href="references.html#ref-30">30</a>], and see which chapter of this course teaches the math it needs.</div></div>
+
+<h2 class="sub" id="loop-h"><span class="no">A</span> The loop of a multirotor autopilot</h2>
+<div data-b="loop"><p>An autopilot is a chain of parts that pass numbers to each other. Each part answers one question and hands its answer to the next part. Figure 1 draws the whole chain as a closed loop. The numbers 1 to 10 in the boxes are the row numbers of the table in part B.</p>
+<figure>
+<svg id="fig1" viewBox="0 0 900 410" width="100%" style="max-width:900px" role="img" aria-label="The autopilot loop of a multirotor: ten numbered boxes. Planner, position controller, velocity controller, attitude controller, rate controller along the top; mixer, motors and rotors, physics, sensors, estimator along the bottom. The estimate goes back to boxes 2, 3, 4 and 5.">
+ <defs>
+  <marker id="mA1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#1C1C1C"/></marker>
+  <marker id="mA2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#7B3FA0"/></marker>
+ </defs>
+ <!-- top row: boxes 1 to 5 -->
+ <rect x="20" y="50" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="70" y="80" text-anchor="middle" font-size="11.5" font-weight="700">1 Planner</text><text x="70" y="110" text-anchor="middle" font-size="9.5" fill="#5B5752">2.2 · Ch 13</text>
+ <rect x="205" y="50" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="255" y="72" text-anchor="middle" font-size="11.5" font-weight="700">2 Position</text><text x="255" y="86" text-anchor="middle" font-size="11.5" font-weight="700">controller</text><text x="255" y="110" text-anchor="middle" font-size="9.5" fill="#5B5752">2.2 · Q 2.4, 2.5</text>
+ <rect x="390" y="50" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="440" y="72" text-anchor="middle" font-size="11.5" font-weight="700">3 Velocity</text><text x="440" y="86" text-anchor="middle" font-size="11.5" font-weight="700">controller</text><text x="440" y="110" text-anchor="middle" font-size="9.5" fill="#5B5752">2.1a · 2.1b · 2.4</text>
+ <rect x="575" y="50" width="100" height="72" rx="6" fill="#E3F4E6" stroke="#2E9E4A" stroke-width="2"/>
+ <text x="625" y="72" text-anchor="middle" font-size="11.5" font-weight="700">4 Attitude</text><text x="625" y="86" text-anchor="middle" font-size="11.5" font-weight="700">controller</text><text x="625" y="110" text-anchor="middle" font-size="9.5" fill="#5B5752">m.5 · Q 2.2–2.4</text>
+ <rect x="760" y="50" width="100" height="72" rx="6" fill="#E3F4E6" stroke="#2E9E4A" stroke-width="2"/>
+ <text x="810" y="72" text-anchor="middle" font-size="11.5" font-weight="700">5 Rate</text><text x="810" y="86" text-anchor="middle" font-size="11.5" font-weight="700">controller</text><text x="810" y="110" text-anchor="middle" font-size="9.5" fill="#5B5752">Q q.5 · q.i · 2.5</text>
+ <!-- bottom row: boxes 6 to 10, right to left -->
+ <rect x="760" y="270" width="100" height="72" rx="6" fill="#E3F4E6" stroke="#2E9E4A" stroke-width="2"/>
+ <text x="810" y="292" text-anchor="middle" font-size="11.5" font-weight="700">6 Mixer</text><text x="810" y="306" text-anchor="middle" font-size="10">(allocation)</text><text x="810" y="330" text-anchor="middle" font-size="9.5" fill="#5B5752">m.5 · Q 2.1</text>
+ <rect x="575" y="270" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="625" y="292" text-anchor="middle" font-size="11.5" font-weight="700">7 Motors</text><text x="625" y="306" text-anchor="middle" font-size="11.5" font-weight="700">and rotors</text><text x="625" y="330" text-anchor="middle" font-size="9.5" fill="#5B5752">2.1a · q.1</text>
+ <rect x="390" y="270" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#5B5752" stroke-width="2.5" stroke-dasharray="6 4"/>
+ <text x="440" y="292" text-anchor="middle" font-size="11.5" font-weight="700">8 Physics</text><text x="440" y="306" text-anchor="middle" font-size="10">world / simulator</text><text x="440" y="330" text-anchor="middle" font-size="9.5" fill="#5B5752">2.1 · 2.2 · Part II</text>
+ <rect x="205" y="270" width="100" height="72" rx="6" fill="#FBEED8" stroke="#D68910" stroke-width="2"/>
+ <text x="255" y="300" text-anchor="middle" font-size="11.5" font-weight="700">9 Sensors</text><text x="255" y="330" text-anchor="middle" font-size="9.5" fill="#5B5752">Part II · Ch 10</text>
+ <rect x="20" y="270" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="70" y="300" text-anchor="middle" font-size="11.5" font-weight="700">10 Estimator</text><text x="70" y="330" text-anchor="middle" font-size="9.5" fill="#5B5752">2.2 · Ch 12</text>
+ <!-- arrows along the top row, with their signals -->
+ <line x1="123" y1="86" x2="202" y2="86" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="162" y="65" text-anchor="middle" font-size="10">position</text><text x="162" y="77" text-anchor="middle" font-size="10">goal</text><text x="162" y="102" text-anchor="middle" font-size="11" font-weight="700">x<tspan baseline-shift="sub" font-size="8">sp</tspan></text>
+ <line x1="308" y1="86" x2="387" y2="86" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="347" y="65" text-anchor="middle" font-size="10">velocity</text><text x="347" y="77" text-anchor="middle" font-size="10">goal</text><text x="347" y="102" text-anchor="middle" font-size="11" font-weight="700">v<tspan baseline-shift="sub" font-size="8">sp</tspan></text>
+ <line x1="493" y1="86" x2="572" y2="86" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="532" y="65" text-anchor="middle" font-size="10">attitude goal</text><text x="532" y="77" text-anchor="middle" font-size="10">and thrust</text><text x="532" y="102" text-anchor="middle" font-size="11" font-weight="700">q<tspan baseline-shift="sub" font-size="8">d</tspan>, T</text>
+ <line x1="678" y1="86" x2="757" y2="86" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="717" y="65" text-anchor="middle" font-size="10">rate</text><text x="717" y="77" text-anchor="middle" font-size="10">goal</text><text x="717" y="102" text-anchor="middle" font-size="11" font-weight="700">ω<tspan baseline-shift="sub" font-size="8">sp</tspan></text>
+ <!-- 5 to 6 -->
+ <line x1="850" y1="124" x2="850" y2="267" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="843" y="172" text-anchor="end" font-size="10">torque τ</text><text x="843" y="184" text-anchor="end" font-size="10">+ thrust T</text>
+ <!-- bottom arrows -->
+ <line x1="757" y1="306" x2="678" y2="306" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="717" y="285" text-anchor="middle" font-size="10">motor</text><text x="717" y="297" text-anchor="middle" font-size="10">commands</text><text x="717" y="322" text-anchor="middle" font-size="11" font-weight="700">u</text>
+ <line x1="572" y1="306" x2="493" y2="306" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="532" y="285" text-anchor="middle" font-size="10">forces and</text><text x="532" y="297" text-anchor="middle" font-size="10">torques</text><text x="532" y="322" text-anchor="middle" font-size="11" font-weight="700">F, τ</text>
+ <line x1="387" y1="306" x2="308" y2="306" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="347" y="285" text-anchor="middle" font-size="10">true</text><text x="347" y="297" text-anchor="middle" font-size="10">motion</text><text x="347" y="322" text-anchor="middle" font-size="11" font-weight="700">x, v, q, ω</text>
+ <line x1="202" y1="306" x2="123" y2="306" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mA1)"/>
+ <text x="162" y="285" text-anchor="middle" font-size="10">sensor</text><text x="162" y="297" text-anchor="middle" font-size="10">readings</text>
+ <!-- the estimate goes back to 2, 3, 4, 5 -->
+ <path d="M70,268 L70,215 L770,215" fill="none" stroke="#7B3FA0" stroke-width="2.2"/>
+ <line x1="225" y1="215" x2="225" y2="125" stroke="#7B3FA0" stroke-width="2.2" marker-end="url(#mA2)"/>
+ <line x1="410" y1="215" x2="410" y2="125" stroke="#7B3FA0" stroke-width="2.2" marker-end="url(#mA2)"/>
+ <line x1="595" y1="215" x2="595" y2="125" stroke="#7B3FA0" stroke-width="2.2" marker-end="url(#mA2)"/>
+ <line x1="770" y1="215" x2="770" y2="125" stroke="#7B3FA0" stroke-width="2.2" marker-end="url(#mA2)"/>
+ <circle cx="225" cy="215" r="3.5" fill="#7B3FA0"/><circle cx="410" cy="215" r="3.5" fill="#7B3FA0"/><circle cx="595" cy="215" r="3.5" fill="#7B3FA0"/>
+ <text x="100" y="238" font-size="10.5" fill="#7B3FA0" font-weight="700">estimate x̂, v̂, q̂, ω̂ goes to boxes 2, 3, 4 and 5</text>
+ <!-- legend -->
+ <rect x="20" y="368" width="14" height="14" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/><text x="40" y="380" font-size="11">Part I: flight theory (2.1, 2.2)</text>
+ <rect x="280" y="368" width="14" height="14" fill="#E3F4E6" stroke="#2E9E4A" stroke-width="2"/><text x="300" y="380" font-size="11">Math toolkit (m) and Quadrotor mathematics (Q)</text>
+ <rect x="600" y="368" width="14" height="14" fill="#FBEED8" stroke="#D68910" stroke-width="2"/><text x="620" y="380" font-size="11">Part II to III: software, sensors, camera</text>
+ <rect x="20" y="388" width="14" height="14" fill="#E3EEFB" stroke="#5B5752" stroke-width="2.5" stroke-dasharray="4 3"/><text x="40" y="400" font-size="11">Dashed: box 8, the world or the simulator. All other boxes run on the drone (PX4).</text>
+</svg>
+<figcaption>Figure 1. The autopilot loop of a multirotor. Each box is one part; the number is its row in the table of part B. The black arrows carry the signal written beside them; the purple arrows carry the estimate. The small text in each box names the chapter that teaches the math of the part (Q means Quadrotor mathematics; the numbers after Q are its sections). Boxes 2 to 6 follow the cascade of the PX4 User Guide, <i>Controller Diagrams</i> [<a class="cite" href="references.html#ref-38">38</a>].</figcaption></figure>
+<p><b>Why four controllers in a row?</b> Boxes 2 to 5 are four controllers. Each one is faster than the one before it. The PX4 User Guide [<a class="cite" href="references.html#ref-37">37</a>], page <i>Controller Diagrams</i> [<a class="cite" href="references.html#ref-38">38</a>], draws the same cascade for a multicopter: position, velocity, acceleration to attitude and thrust, attitude, rate, and then the mixer. The position controller (box 2) is the slowest: a drone needs time to move a meter. The rate controller (box 5) is the fastest: a drone starts to turn almost at once when the motors push differently. Each slower controller does not command the motors directly. It only says where the next, faster controller should aim: position goal → velocity goal → attitude goal → rate goal. A faster inner loop keeps the drone steady while the slower outer loop is still thinking. The estimator (box 10) sits outside, because all four controllers need to know where the drone is, how fast it moves, which way it points and how fast it turns.</p>
+<p><b>What is on the drone and what is not.</b> Boxes 1 to 7, 9 and 10 run on the drone, in PX4. Box 8 is the world: on a real drone it is the air and the frame; in a simulator it is a program that adds up the forces and moves the drone one time step. This is why a simulator can replace the world and leave the other nine boxes unchanged.</p></div>
+
+<h2 class="sub" id="table-h"><span class="no">B</span> The multirotor table: 10 parts</h2>
+<div data-b="table">
+<p><b>How to read this table.</b> The table has ten rows, one for each box of Figure 1; the row number is the box number. Read a row from left to right. <b>Part</b> is the name. <b>What it answers</b> is the question that part solves. <b>The math, in letters</b> is the main formula of the part; the letters are explained below the table. <b>PX4</b> and <b>Project AirSim</b> name a file and its line numbers; the link opens the file at those lines on GitHub, at the version named in the column title (a version is a GitHub commit; the lines are valid for that version only). <b>Course</b> says where this course teaches the math; a link opens the page, and a plain name means that the section is not written yet. Figure 2 draws every row of the table as one line.</p>
+<p><b>The letters.</b> A subscript <span class="f">sp</span> means "set point", the goal. <span class="f">x</span>, <span class="f">v</span>, <span class="f">a</span> are the position (m), the velocity (m/s) and the acceleration (m/s²) of the drone; <span class="f">x<sub>sp</sub></span>, <span class="f">v<sub>sp</sub></span>, <span class="f">a<sub>sp</sub></span> are the goals for them. <span class="f">K<sub>p</sub></span>, <span class="f">K<sub>d</sub></span> and <span class="f">K<sub>ff</sub></span> are gains, fixed numbers that say how strongly a controller reacts to the error, to the change of the error, and to the goal itself (feed-forward). <span class="f">e<sub>v</sub></span> is the velocity error <span class="f">v<sub>sp</sub> − v</span> (m/s). The sign <span class="f">∫</span> means "the sum of the errors over time"; it removes a constant error. <span class="f">v̇</span> and <span class="f">ω̇</span> are the changes per second of v and of ω. <span class="f">T</span> is the thrust (N); <span class="f">T<sub>c</sub></span> is the thrust size the controller asks for; <span class="f">body_z</span> is the unit arrow that points along the drone's own up axis. <span class="f">q</span> is the attitude (a quaternion, four numbers); <span class="f">q<sub>d</sub></span> is the wanted attitude; <span class="f">q<sub>e</sub> = q⁻¹ ⊗ q<sub>d</sub></span> is the attitude error (⊗ is the product of two quaternions); <span class="f">imag(q<sub>e</sub>)</span> is its three imaginary numbers; <span class="f">e = 2·imag(q<sub>e</sub>)</span> is the turn that is still missing, as three angles in radians. <span class="f">ω</span> is the turn rate (rad/s) and <span class="f">ω<sub>sp</sub></span> its goal; <span class="f">∘</span> means "multiply each of the three numbers by its own gain". <span class="f">τ</span> is the torque, the twisting force (N·m). <span class="f">u</span> is the vector of the four motor commands; <span class="f">c</span> is the wanted thrust and three torques (4 numbers); <span class="f">B</span> is the effectiveness matrix (how much thrust and torque each motor makes); <span class="f">B⁺</span> is its pseudo-inverse; <span class="f">u<sub>trim</sub></span> and <span class="f">c<sub>trim</sub></span> are the values for hover. <span class="f">C<sub>T</sub></span> is the thrust coefficient (no unit), <span class="f">ρ</span> the air density (kg/m³), <span class="f">n</span> the rotor speed (rev/s), <span class="f">d</span> the rotor diameter (m). <span class="f">F</span> is a force (N), <span class="f">m</span> the mass (kg), <span class="f">Δt</span> the length of one time step (s), and <span class="f">←</span> means "is replaced by". <span class="f">R</span> is the rotation matrix from the body to the world, <span class="f">Δv</span> is the velocity change that the IMU measured in one step (m/s), and <span class="f">g</span> is the gravity (m/s²). <span class="f">f</span> is the specific force that an accelerometer measures (m/s²).</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:12%"><col style="width:14%"><col style="width:15%"><col style="width:20%"><col style="width:20%"><col style="width:16%"></colgroup>
+<tr><th>#</th><th>Part</th><th>What it answers</th><th>The math, in letters</th><th>PX4 (PX4-Autopilot @ d28a642) [<a class="cite" href="references.html#ref-29">29</a>]</th><th>Project AirSim (ProjectAirSim @ c80cff5) [<a class="cite" href="references.html#ref-30">30</a>]</th><th>Course</th></tr>
+<tr id="row-1"><td>1</td><td><b>Planner</b></td><td>Where should the drone be a moment from now, and how fast?</td><td><span class="f">a smooth x(t), v(t), a(t) with limits on v and a</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/flight_mode_manager/tasks/Auto/FlightTaskAuto.cpp#L73"><code>src/modules/flight_mode_manager/tasks/Auto/FlightTaskAuto.cpp:73</code></a> (<code>_position_smoothing.reset(accel_prev, vel_prev, pos_prev)</code>); the S-curve with limits on a and on the jerk: <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/motion_planning/VelocitySmoothing.cpp#L240-L264"><code>src/lib/motion_planning/VelocitySmoothing.cpp:240-264</code></a></td>
+ <td>The goals come from outside (Simple Flight [<a class="cite" href="references.html#ref-44">44</a>]), through <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/OffboardApi.hpp"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/OffboardApi.hpp</code></a> (whole file, no line). A move to a position or along a path with one speed is followed by <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/src/multirotor_api_base.cpp#L728-L838"><code>vehicle_apis/multirotor_api/src/multirotor_api_base.cpp:728-838</code></a> (no jerk limit found there).</td>
+ <td><a href="../samples/2.2a_Position_velocity_acceleration_on_a_line.html">2.2a</a> · <a href="../samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b</a> · <a href="../samples/2.2c_How_PX4_and_Project_AirSim_plan_motion.html">2.2c</a> (2.2 Kinematics, fly.2); Ch 13 Planning through the gates</td></tr>
+<tr id="row-2"><td>2</td><td><b>Position controller</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>I am here and should be there: how fast should I move toward it?</td><td><span class="f">v<sub>sp</sub> = K<sub>p</sub>·(x<sub>sp</sub> − x)</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/PositionControl/PositionControl.cpp#L130"><code>src/modules/mc_pos_control/PositionControl/PositionControl.cpp:130</code></a></td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/PositionController.hpp#L45"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/PositionController.hpp:45</code></a> (makes a VelocityController) and <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/PositionController.hpp#L66"><code>:66</code></a> (its PID goal is the goal position)</td>
+ <td><a href="../samples/2.2a_Position_velocity_acceleration_on_a_line.html">2.2a</a> · <a href="../samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b</a> (2.2, fly.2); Quadrotor mathematics: 2.4 cascade, 2.5 PID by hand</td></tr>
+<tr id="row-3"><td>3</td><td><b>Velocity controller</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>How hard, and which way, must I push?</td><td><span class="f">a<sub>sp</sub> = K<sub>p</sub>·e<sub>v</sub> + ∫ − K<sub>d</sub>·v̇</span>; then the thrust vector <span class="f">T = body_z·T<sub>c</sub></span>, with the tilt limited</td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/PositionControl/PositionControl.cpp#L150"><code>PositionControl.cpp:150</code></a> (a<sub>sp</sub>), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/PositionControl/PositionControl.cpp#L190"><code>:190</code></a> (uses g and the hover thrust), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/PositionControl/PositionControl.cpp#L218"><code>:218</code></a> (tilt limit), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_pos_control/PositionControl/PositionControl.cpp#L224"><code>:224</code></a> (thrust vector)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/VelocityController.hpp#L47-L53"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/VelocityController.hpp:47-53</code></a> (v<sub>y</sub> becomes roll, v<sub>x</sub> becomes −pitch: it hands the job to an AngleLevelController)</td>
+ <td><a href="../samples/2.1a_The_four_forces_one_at_a_time.html">2.1a</a> (weight, thrust, hover) · <a href="../samples/2.1b_Forces_together_tilt_wind_simulators.html">2.1b</a> (net force, tilt); fly.3 F = m·a; Quadrotor mathematics 2.4</td></tr>
+<tr id="row-4"><td>4</td><td><b>Attitude controller</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>I lean the wrong way: how fast should I turn?</td><td><span class="f">q<sub>e</sub> = q⁻¹ ⊗ q<sub>d</sub>; e = 2·imag(q<sub>e</sub>); ω<sub>sp</sub> = K<sub>p</sub> ∘ e</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/mc_att_control/AttitudeControl/AttitudeControl.cpp#L182-L189"><code>src/modules/mc_att_control/AttitudeControl/AttitudeControl.cpp:182-189</code></a></td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/AngleLevelController.hpp#L48-L49"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/AngleLevelController.hpp:48-49</code></a> (it makes an inner AngleRateController)</td>
+ <td>Math toolkit m.5; Quadrotor mathematics: 2.2 frames, 2.3 rotations, 2.4</td></tr>
+<tr id="row-5"><td>5</td><td><b>Rate controller</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>I turn too slowly: how much twisting force (torque)?</td><td><span class="f">τ = K<sub>p</sub>·(ω<sub>sp</sub> − ω) + ∫ − K<sub>d</sub>·ω̇ + K<sub>ff</sub>·ω<sub>sp</sub></span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/rate_control/rate_control.cpp#L75-L78"><code>src/lib/rate_control/rate_control.cpp:75-78</code></a></td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/AngleRateController.hpp#L53-L54"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/multirotor/AngleRateController.hpp:53-54</code></a> and <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/PidController.hpp#L81-L93"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/PidController.hpp:81-93</code></a> (error = goal − measured; P and D terms)</td>
+ <td>Quadrotor mathematics: q.5 Newton–Euler, q.i inertia, 2.5 PID</td></tr>
+<tr id="row-6"><td>6</td><td><b>Mixer (control allocation)</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>Which 4 motor commands give this thrust and these 3 torques?</td><td><span class="f">u = u<sub>trim</sub> + B⁺·(c − c<sub>trim</sub>)</span>, B⁺ = pseudo-inverse of the effectiveness matrix B</td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/control_allocation/control_allocation/ControlAllocationPseudoInverse.cpp#L69"><code>src/lib/control_allocation/control_allocation/ControlAllocationPseudoInverse.cpp:69</code></a> (B⁺ = geninv(B)) and <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/control_allocation/control_allocation/ControlAllocationPseudoInverse.cpp#L192"><code>:192</code></a> (u)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/Mixer.hpp#L139-L146"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/Mixer.hpp:139-146</code></a> (quad-X mixing)</td>
+ <td>Math toolkit m.5 matrices; Quadrotor mathematics 2.1 "Four motors → thrust and three torques"</td></tr>
+<tr id="row-7"><td>7</td><td><b>Motors and rotors</b></td><td>Which motor signal gives this thrust? How fast does the motor follow?</td><td><span class="f">T = C<sub>T</sub>·ρ·n²·d⁴</span> (2.1a 2.1.8); inverse thrust curve; motor lag</td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/mixer_module/functions/FunctionMotors.hpp#L81-L119"><code>src/lib/mixer_module/functions/FunctionMotors.hpp:81-119</code></a> (inverse thrust curve)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/src/actuators/rotor.cpp#L357-L385"><code>core_sim/src/actuators/rotor.cpp:357-385</code></a> (command → speed → thrust and torque)</td>
+ <td><a href="../samples/2.1a_The_four_forces_one_at_a_time.html">2.1a</a> 2.1.8; Quadrotor mathematics q.1</td></tr>
+<tr id="row-8"><td>8</td><td><b>Physics (world or simulator)</b> [<a class="cite" href="references.html#ref-39">39</a>, <a class="cite" href="references.html#ref-42">42</a>, <a class="cite" href="references.html#ref-43">43</a>]</td><td>Given all forces, where is the drone one time step later?</td><td><span class="f">F = m·a; v ← v + a·Δt; x ← x + v·Δt</span> (and better forms)</td>
+ <td>simulator SIH: <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/simulation/simulator_sih/sih.cpp#L641-L646"><code>src/modules/simulation/simulator_sih/sih.cpp:641-646</code></a> (translation), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/simulation/simulator_sih/sih.cpp#L696-L700"><code>:696-700</code></a> (integrator)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/physics/src/fast_physics.cpp#L113-L143"><code>physics/src/fast_physics.cpp:113-143</code></a> (total force and torque from all rotors), <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/physics/src/fast_physics.cpp#L541-L543"><code>:541-543</code></a> (velocity update)</td>
+ <td><a href="../samples/2.1a_The_four_forces_one_at_a_time.html">2.1a</a> · <a href="../samples/2.1b_Forces_together_tilt_wind_simulators.html">2.1b</a> · <a href="../samples/2.2a_Position_velocity_acceleration_on_a_line.html">2.2a</a> · <a href="../samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b</a>; fly.3 F = m·a; Part II "Your own simulator from the formulas"</td></tr>
+<tr id="row-9"><td>9</td><td><b>Sensors</b></td><td>What do the IMU, barometer, GPS and camera measure, and with what noise?</td><td><span class="f">IMU: specific force f = a − g in the body frame; angular rate ω; noise and bias</span></td>
+ <td>real drone: <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/sensors/vehicle_imu/VehicleIMU.cpp"><code>src/modules/sensors/vehicle_imu/VehicleIMU.cpp</code></a> (whole file); simulator SIH: <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/simulation/simulator_sih/sih.cpp#L746-L756"><code>sih.cpp:746-756</code></a></td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/src/sensors/imu.cpp#L185-L192"><code>core_sim/src/sensors/imu.cpp:185-192</code></a> (true values), <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/src/sensors/imu.cpp#L209-L235"><code>:209-235</code></a> (noise and bias walk)</td>
+ <td>Part II (PX4 and sensors); Part III Ch 10 The camera and its picture</td></tr>
+<tr id="row-10"><td>10</td><td><b>Estimator</b> [<a class="cite" href="references.html#ref-40">40</a>]</td><td>Where am I, how fast, which way do I point, from noisy sensors?</td><td><span class="f">predict: v ← v + R·Δv + g·Δt; x ← x + ½·(v<sub>old</sub> + v<sub>new</sub>)·Δt</span> (trapezoid)</td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/ekf2/EKF/ekf.cpp#L233"><code>src/modules/ekf2/EKF/ekf.cpp:233</code></a> (predictState), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/ekf2/EKF/ekf.cpp#L264-L276"><code>:264-276</code></a> (velocity, gravity, trapezoid position)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/AirSimSimpleFlightEstimator.hpp#L23-L52"><code>vehicle_apis/multirotor_api/include/simple_flight/AirSimSimpleFlightEstimator.hpp:23-52</code></a>, <a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/AirSimSimpleFlightEstimator.hpp#L103-L123"><code>:103-123</code></a>: it passes the TRUE state through; it estimates nothing</td>
+ <td><a href="../samples/2.2a_Position_velocity_acceleration_on_a_line.html">2.2a</a> · <a href="../samples/2.2b_Three_dimensions_laps_falling_fixed_wing_simulators.html">2.2b</a> (the trapezoid step); Part II PX4; Ch 12 Where is the drone?</td></tr>
+</table>
+<p class="trap"><b>Watch out.</b> Project AirSim's own simple flight controller is fed the simulator's true state (row 10). A controller that flies well there can still fail on a real drone with noisy sensors. PX4's EKF2 is a real estimator: it has to cope with the noise of row 9.</p>
+<figure>
+<svg id="fig2" viewBox="0 0 900 380" width="100%" style="max-width:900px" role="img" aria-label="The ten rows of the multirotor table as a grid: part, PX4 file, Project AirSim file, and the course chapter, one line per row, colored by chapter">
+ <text x="20" y="22" font-size="11" font-weight="700" fill="#5B5752">PART</text><text x="175" y="22" font-size="11" font-weight="700" fill="#5B5752">PX4 FILE : LINES</text><text x="420" y="22" font-size="11" font-weight="700" fill="#5B5752">PROJECT AIRSIM FILE : LINES</text><text x="705" y="22" font-size="11" font-weight="700" fill="#5B5752">COURSE</text>
+ <line x1="10" y1="30" x2="890" y2="30" stroke="#1C1C1C" stroke-width="1.5"/>
+ <rect x="10" y="34" width="880" height="30" rx="4" fill="#E3EEFB"/><text x="20" y="54" font-size="11.5" font-weight="700">1 Planner</text><text x="175" y="54" font-size="10">FlightTaskAuto.cpp:73</text><text x="420" y="54" font-size="10">OffboardApi.hpp (whole file)</text><text x="705" y="54" font-size="10.5">2.2 · Ch 13</text>
+ <rect x="10" y="67" width="880" height="30" rx="4" fill="#E3EEFB"/><text x="20" y="87" font-size="11.5" font-weight="700">2 Position controller</text><text x="175" y="87" font-size="10">PositionControl.cpp:130</text><text x="420" y="87" font-size="10">PositionController.hpp:45, 66</text><text x="705" y="87" font-size="10.5">2.2 · Q 2.4, 2.5</text>
+ <rect x="10" y="100" width="880" height="30" rx="4" fill="#E3EEFB"/><text x="20" y="120" font-size="11.5" font-weight="700">3 Velocity controller</text><text x="175" y="120" font-size="10">PositionControl.cpp:150, 190, 218, 224</text><text x="420" y="120" font-size="10">VelocityController.hpp:47–53</text><text x="705" y="120" font-size="10.5">2.1a · 2.1b · fly.3 · Q 2.4</text>
+ <rect x="10" y="133" width="880" height="30" rx="4" fill="#E3F4E6"/><text x="20" y="153" font-size="11.5" font-weight="700">4 Attitude controller</text><text x="175" y="153" font-size="10">AttitudeControl.cpp:182–189</text><text x="420" y="153" font-size="10">AngleLevelController.hpp:48–49</text><text x="705" y="153" font-size="10.5">m.5 · Q 2.2–2.4</text>
+ <rect x="10" y="166" width="880" height="30" rx="4" fill="#E3F4E6"/><text x="20" y="186" font-size="11.5" font-weight="700">5 Rate controller</text><text x="175" y="186" font-size="10">rate_control.cpp:75–78</text><text x="420" y="186" font-size="10">AngleRateController.hpp:53–54 · PidController.hpp:81–93</text><text x="705" y="186" font-size="10.5">Q q.5 · q.i · Q 2.5</text>
+ <rect x="10" y="199" width="880" height="30" rx="4" fill="#E3F4E6"/><text x="20" y="219" font-size="11.5" font-weight="700">6 Mixer</text><text x="175" y="219" font-size="10">ControlAllocationPseudoInverse.cpp:69, 192</text><text x="420" y="219" font-size="10">Mixer.hpp:139–146</text><text x="705" y="219" font-size="10.5">m.5 · Q 2.1</text>
+ <rect x="10" y="232" width="880" height="30" rx="4" fill="#E3EEFB"/><text x="20" y="252" font-size="11.5" font-weight="700">7 Motors and rotors</text><text x="175" y="252" font-size="10">FunctionMotors.hpp:81–119</text><text x="420" y="252" font-size="10">rotor.cpp:357–385</text><text x="705" y="252" font-size="10.5">2.1a 2.1.8 · q.1</text>
+ <rect x="10" y="265" width="880" height="30" rx="4" fill="#E3EEFB"/><text x="20" y="285" font-size="11.5" font-weight="700">8 Physics / simulator</text><text x="175" y="285" font-size="10">sih.cpp:641–646, 696–700</text><text x="420" y="285" font-size="10">fast_physics.cpp:113–143, 541–543</text><text x="705" y="285" font-size="10.5">2.1 · 2.2 · fly.3 · Part II</text>
+ <rect x="10" y="298" width="880" height="30" rx="4" fill="#FBEED8"/><text x="20" y="318" font-size="11.5" font-weight="700">9 Sensors</text><text x="175" y="318" font-size="10">VehicleIMU.cpp · sih.cpp:746–756</text><text x="420" y="318" font-size="10">imu.cpp:185–192, 209–235</text><text x="705" y="318" font-size="10.5">Part II · Ch 10</text>
+ <rect x="10" y="331" width="880" height="30" rx="4" fill="#E3EEFB"/><text x="20" y="351" font-size="11.5" font-weight="700">10 Estimator</text><text x="175" y="351" font-size="10">ekf.cpp:233, 264–276</text><text x="420" y="351" font-size="10">AirSimSimpleFlightEstimator.hpp:23–52, 103–123</text><text x="705" y="351" font-size="10.5">2.2 · Part II · Ch 12</text>
+ <text x="20" y="376" font-size="10" fill="#5B5752">Color = the chapter that teaches the math, as in Figure 1: blue Part I, green math toolkit and Quadrotor mathematics (Q), orange Part II to III.</text>
+</svg>
+<figcaption>Figure 2. The ten rows of the multirotor table, one line each: the part, the PX4 file and lines, the Project AirSim file and lines, and the course chapter. Only the file name is shown; the folder is in the table above.</figcaption></figure>
+</div>
+
+<h2 class="sub" id="fw-h"><span class="no">C</span> The fixed-wing table: 4 parts (kept apart)</h2>
+<div data-b="fw">
+<p>A fixed-wing aircraft has no rotors that tilt its thrust. It turns by moving control surfaces (aileron, elevator, rudder), and its lift depends on the speed of the air over the wings. So its autopilot has other parts. The multirotor and the fixed-wing parts are never mixed in this course. Figure 3 draws the fixed-wing loop.</p>
+<p><b>How to read this table.</b> The table has four rows, F1 to F4, one for each part drawn in Figure 3. The columns are the same as in the multirotor table: the part, what it answers, the main formula, the PX4 file with its lines [<a class="cite" href="references.html#ref-29">29</a>], the Project AirSim file (in this table a whole file, without lines) [<a class="cite" href="references.html#ref-30">30</a>], and where the course teaches it. <span class="f">V</span> is the airspeed (m/s), <span class="f">V̇</span> its change per second, <span class="f">g</span> the gravity (m/s²), <span class="f">ḣ</span> the climb rate (m/s). <span class="f">φ</span> is the bank angle (rad), <span class="f">R</span> the radius of the turn (m). <span class="f">ρ</span> is the air density (kg/m³), <span class="f">S</span> the wing area (m²), <span class="f">C<sub>L</sub></span> the lift coefficient (no unit), <span class="f">L</span> the lift (N). Figure 3 draws every row.</p>
+<table class="t wide"><colgroup><col style="width:3%"><col style="width:12%"><col style="width:14%"><col style="width:15%"><col style="width:20%"><col style="width:20%"><col style="width:16%"></colgroup>
+<tr><th>#</th><th>Part</th><th>What it answers</th><th>The math, in letters</th><th>PX4 (PX4-Autopilot @ d28a642) [<a class="cite" href="references.html#ref-29">29</a>]</th><th>Project AirSim (ProjectAirSim @ c80cff5) [<a class="cite" href="references.html#ref-30">30</a>]</th><th>Course</th></tr>
+<tr id="row-F1"><td>F1</td><td><b>Energy controller (TECS)</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>Speed and height trade against each other: how much throttle and how much pitch?</td><td><span class="f">specific energy rates: kinetic V·V̇/g, potential ḣ</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/tecs/TECS.cpp#L337-L350"><code>src/lib/tecs/TECS.cpp:337-350</code></a> (energy rates), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/lib/tecs/TECS.cpp#L646-L673"><code>:646-673</code></a> (throttle from total energy rate)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/vtolfixedwing/FWThrottleController.hpp"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/vtolfixedwing/FWThrottleController.hpp</code></a> (whole file)</td>
+ <td>fly.fw1, fly.fw3 (glide); <a href="../samples/2.1a_The_four_forces_one_at_a_time.html">2.1a</a> · <a href="../samples/2.1b_Forces_together_tilt_wind_simulators.html">2.1b</a> forces</td></tr>
+<tr id="row-F2"><td>F2</td><td><b>Attitude controller</b> [<a class="cite" href="references.html#ref-38">38</a>]</td><td>Bank and pitch are wrong: how fast should I roll and pitch?</td><td><span class="f">coordinated turn: turn rate from bank, tan φ = V²/(g·R)</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/fw_att_control/FixedwingAttitudeControl.cpp#L284-L296"><code>src/modules/fw_att_control/FixedwingAttitudeControl.cpp:284-296</code></a> (coordinated-turn feed-forward)</td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/vtolfixedwing/AngleLevelControllerFW.hpp"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/vtolfixedwing/AngleLevelControllerFW.hpp</code></a> (whole file)</td>
+ <td>fly.fw2 turns, bank and sideslip</td></tr>
+<tr id="row-F3"><td>F3</td><td><b>Rate controller</b></td><td>How far must the control surfaces move?</td><td><span class="f">deflection scaled by 1/V² (surfaces work harder at low speed)</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/fw_rate_control/FixedwingRateControl.cpp#L160-L208"><code>src/modules/fw_rate_control/FixedwingRateControl.cpp:160-208</code></a> (airspeed scaling), <a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/fw_rate_control/FixedwingRateControl.cpp#L353-L374"><code>:353-374</code></a></td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/vehicle_apis/multirotor_api/include/simple_flight/firmware/vtolfixedwing/AngleRateControllerFW.hpp"><code>vehicle_apis/multirotor_api/include/simple_flight/firmware/vtolfixedwing/AngleRateControllerFW.hpp</code></a> (whole file)</td>
+ <td>fly.fw1 wing and tail; <a href="../samples/2.1a_The_four_forces_one_at_a_time.html">2.1a</a> lift <span class="f">L = ½·ρ·V²·S·C<sub>L</sub></span></td></tr>
+<tr id="row-F4"><td>F4</td><td><b>Airspeed</b></td><td>How fast does the AIR flow over the wing?</td><td><span class="f">airspeed = ground velocity − wind</span></td>
+ <td><a href="https://github.com/PX4/PX4-Autopilot/blob/d28a642/src/modules/airspeed_selector/airspeed_selector_main.cpp#L753-L758"><code>src/modules/airspeed_selector/airspeed_selector_main.cpp:753-758</code></a></td>
+ <td><a href="https://github.com/iamaisim/ProjectAirSim/blob/c80cff5/core_sim/src/sensors/airspeed.cpp"><code>core_sim/src/sensors/airspeed.cpp</code></a> (whole file)</td>
+ <td><a href="../samples/2.1b_Forces_together_tilt_wind_simulators.html">2.1b</a> 2.1.12 wind; fly.hud instruments</td></tr>
+</table>
+<figure>
+<svg id="fig3" viewBox="0 0 900 330" width="100%" style="max-width:900px" role="img" aria-label="The fixed-wing loop: energy controller F1, attitude controller F2, rate controller F3, control surfaces and throttle, the aircraft; the airspeed sensor F4 feeds F1 and F3">
+ <defs>
+  <marker id="mB1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#1C1C1C"/></marker>
+  <marker id="mB2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#7B3FA0"/></marker>
+ </defs>
+ <rect x="20" y="60" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="70" y="82" text-anchor="middle" font-size="11.5" font-weight="700">F1 Energy</text><text x="70" y="96" text-anchor="middle" font-size="11.5" font-weight="700">(TECS)</text><text x="70" y="120" text-anchor="middle" font-size="9.5" fill="#5B5752">fly.fw1 · fly.fw3</text>
+ <rect x="205" y="60" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="255" y="82" text-anchor="middle" font-size="11.5" font-weight="700">F2 Attitude</text><text x="255" y="96" text-anchor="middle" font-size="11.5" font-weight="700">controller</text><text x="255" y="120" text-anchor="middle" font-size="9.5" fill="#5B5752">fly.fw2</text>
+ <rect x="390" y="60" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="440" y="82" text-anchor="middle" font-size="11.5" font-weight="700">F3 Rate</text><text x="440" y="96" text-anchor="middle" font-size="11.5" font-weight="700">controller</text><text x="440" y="120" text-anchor="middle" font-size="9.5" fill="#5B5752">fly.fw1 · 2.1a</text>
+ <rect x="575" y="60" width="100" height="72" rx="6" fill="#F0EEEA" stroke="#5B5752" stroke-width="1.5"/>
+ <text x="625" y="82" text-anchor="middle" font-size="11" font-weight="700">Surfaces</text><text x="625" y="96" text-anchor="middle" font-size="11" font-weight="700">and throttle</text><text x="625" y="120" text-anchor="middle" font-size="9.5" fill="#5B5752">no table row</text>
+ <rect x="760" y="60" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#5B5752" stroke-width="2.5" stroke-dasharray="6 4"/>
+ <text x="810" y="90" text-anchor="middle" font-size="11.5" font-weight="700">Aircraft</text><text x="810" y="104" text-anchor="middle" font-size="10">world / simulator</text>
+ <rect x="760" y="230" width="100" height="72" rx="6" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/>
+ <text x="810" y="252" text-anchor="middle" font-size="11.5" font-weight="700">F4 Airspeed</text><text x="810" y="266" text-anchor="middle" font-size="11.5" font-weight="700">sensor</text><text x="810" y="290" text-anchor="middle" font-size="9.5" fill="#5B5752">2.1b · fly.hud</text>
+ <line x1="123" y1="96" x2="202" y2="96" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mB1)"/>
+ <text x="162" y="80" text-anchor="middle" font-size="10">pitch goal</text> <line x1="308" y1="96" x2="387" y2="96" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mB1)"/>
+ <text x="347" y="80" text-anchor="middle" font-size="10">rate goal</text>
+ <line x1="493" y1="96" x2="572" y2="96" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mB1)"/>
+ <text x="532" y="80" text-anchor="middle" font-size="10">deflection</text>
+ <line x1="678" y1="96" x2="757" y2="96" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mB1)"/>
+ <text x="717" y="70" text-anchor="middle" font-size="10">forces and</text><text x="717" y="82" text-anchor="middle" font-size="10">moments</text>
+ <path d="M90,58 L90,32 L625,32 L625,57" fill="none" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mB1)"/>
+ <text x="357" y="24" text-anchor="middle" font-size="10">throttle (from the total energy rate)</text>
+ <line x1="810" y1="134" x2="810" y2="227" stroke="#1C1C1C" stroke-width="2.2" marker-end="url(#mB1)"/>
+ <text x="803" y="172" text-anchor="end" font-size="10">true motion</text><text x="803" y="184" text-anchor="end" font-size="10">and the wind</text>
+ <path d="M757,266 L45,266 L45,135" fill="none" stroke="#7B3FA0" stroke-width="2.2" marker-end="url(#mB2)"/>
+ <line x1="440" y1="266" x2="440" y2="135" stroke="#7B3FA0" stroke-width="2.2" marker-end="url(#mB2)"/>
+ <circle cx="440" cy="266" r="3.5" fill="#7B3FA0"/>
+ <text x="600" y="258" text-anchor="middle" font-size="10.5" fill="#7B3FA0" font-weight="700">airspeed V goes to F1 and F3</text>
+ <rect x="20" y="304" width="14" height="14" fill="#E3EEFB" stroke="#2F6FD0" stroke-width="2"/><text x="40" y="316" font-size="11">Part I: flight theory (a table row)</text>
+ <rect x="330" y="304" width="14" height="14" fill="#E3EEFB" stroke="#5B5752" stroke-width="2.5" stroke-dasharray="4 3"/><text x="350" y="316" font-size="11">Dashed: the world or the simulator</text>
+ <rect x="620" y="304" width="14" height="14" fill="#F0EEEA" stroke="#5B5752" stroke-width="1.5"/><text x="640" y="316" font-size="11">Output part, not a row</text>
+</svg>
+<figcaption>Figure 3. The fixed-wing loop. F1 decides the throttle and the pitch from the energy of the aircraft; F2 turns the pitch goal of F1 and a bank goal into a rate goal (the bank goal comes from the path-following guidance, which steers the aircraft along its route and is not a row of this table); F3 turns the rate goal into a deflection of the control surfaces; the aircraft moves; the airspeed sensor F4 measures the air flow and sends the airspeed V to F1 and F3 (purple). Each box with an F-number is one row of the table.</figcaption></figure>
+</div>
+
+<h2 class="sub" id="howread-h"><span class="no">D</span> How each section page starts from now on</h2>
+<div data-b="howread"><div class="box howto"><b>The "Why you learn this" box.</b> Every section page of the course opens, right after its goal, with a box called "Why you learn this". The box has a table of three columns: the autopilot part (a row of this map, as a link), what this page gives to that part, and where the part is in PX4 [<a class="cite" href="references.html#ref-29">29</a>] and in Project AirSim [<a class="cite" href="references.html#ref-30">30</a>]. A small figure draws the loop of Figure 1 with this page's rows highlighted. The box ends with one sentence that starts "Without this page, …" and says what would be missing. The links of the box look like <code>autopilot_map.html#row-3</code> (multirotor) or <code>autopilot_map.html#row-F4</code> (fixed wing); the link opens this page at that row of the table. Use the box to know why you are reading the page before you read it.</div></div>
+
+<div data-b="refs"><p style="margin-top:22px;font-size:20px;font-weight:700">References</p>
+<ul class="reflist" style="list-style:none;margin:0;padding:0">
+<li>[<a class="cite" href="references.html#ref-29">29</a>] PX4-Autopilot, source code at commit d28a642 (file and line numbers as in the tables)</li>
+<li>[<a class="cite" href="references.html#ref-30">30</a>] Project AirSim, source code at commit c80cff5 (file and line numbers as in the tables)</li>
+<li>[<a class="cite" href="references.html#ref-37">37</a>] PX4 Autopilot User Guide (main)</li>
+<li>[<a class="cite" href="references.html#ref-38">38</a>] PX4 User Guide, <i>Controller Diagrams</i> (the multicopter cascade; rows 2 to 6)</li>
+<li>[<a class="cite" href="references.html#ref-39">39</a>] PX4 User Guide, <i>SIH Simulation</i> (row 8)</li>
+<li>[<a class="cite" href="references.html#ref-40">40</a>] PX4 User Guide, <i>Using PX4's Navigation Filter (EKF2)</i> (row 10)</li>
+<li>[<a class="cite" href="references.html#ref-41">41</a>] Project AirSim documentation (version 1.0.0), iamaisim.github.io/ProjectAirSim</li>
+<li>[<a class="cite" href="references.html#ref-42">42</a>] Project AirSim documentation, <i>Fast Physics for Drones</i> (row 8)</li>
+<li>[<a class="cite" href="references.html#ref-43">43</a>] Project AirSim documentation, <i>Scene Configuration Settings</i> (the simulation clock; row 8)</li>
+<li>[<a class="cite" href="references.html#ref-44">44</a>] Project AirSim documentation, <i>Simple Flight Controller for Drones</i> (rows 1 to 6)</li></ul>
+<p class="lead">The "math, in letters" column states the idea of each part; it is a summary for orientation and does not copy the code. Course names refer to the rows of the <a href="../plan.html#p1">course plan</a>. Every link of this page is tested by <code>check_map.py</code>.</p></div>
+</main>
+<script>
+"use strict";
+const PAGE = "map";                                  // note keys: "map:<block>"
+const LS = "ardp_v2_sec_" + PAGE;
+let mine = {};                                       // this page's notes only
+let fileHandle = null;
+try { mine = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e) {}
+const idb = (() => { function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("ardp_v2",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  return { get:k=>open().then(db=>new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })),
+           set:(k,v)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); })) }; })();
+function setStatus(k,t){ const s=document.getElementById("status"); s.className="pill "+k; s.textContent=t; }
+async function readFile(h){ const txt = await (await h.getFile()).text(); return txt.trim() ? JSON.parse(txt) : {version:1, notes:{}}; }
+let timer=null;
+function save(){ try { localStorage.setItem(LS, JSON.stringify(mine)); } catch(e) {} clearTimeout(timer); timer=setTimeout(writeFile, 400); }
+async function writeFile(){                          // read, merge (keep every other page's notes), write
+  if (!fileHandle) { setStatus("warn","Saved in this browser only — connect notes.json"); return; }
+  try {
+    const d = await readFile(fileHandle); d.notes = d.notes || {};
+    for (const k of Object.keys(d.notes)) if (k.startsWith(PAGE+":")) delete d.notes[k];
+    Object.assign(d.notes, mine); d.saved = new Date().toISOString();
+    const w = await fileHandle.createWritable(); await w.write(JSON.stringify(d,null,1)); await w.close();
+    setStatus("ok","Saved to "+fileHandle.name+" · "+new Date().toLocaleTimeString());
+  } catch(e) { setStatus("warn","Could not write the file — click Connect notes.json"); }
+}
+async function adopt(h){
+  fileHandle = h; const d = await readFile(h);
+  for (const [k,v] of Object.entries(d.notes||{})) if (k.startsWith(PAGE+":") && !mine[k]) mine[k]=v;
+  save(); paintAll(); setStatus("ok","Connected to "+h.name);
+}
+document.getElementById("connect").onclick = async () => {
+  if (!window.showOpenFilePicker) { alert("Use Chrome or Edge to save notes to the file."); return; }
+  try { const [h] = await showOpenFilePicker({types:[{description:"Notes",accept:{"application/json":[".json"]}}]});
+    if ((await h.requestPermission({mode:"readwrite"}))!=="granted") return;
+    await idb.set("handle", h).catch(()=>{}); await adopt(h);
+  } catch(e) { if (e.name!=="AbortError") alert("Could not open the file: "+e.message); }
+};
+(async () => { try { const h = await idb.get("handle"); if (!h) return;
+  if ((await h.queryPermission({mode:"readwrite"}))==="granted") return adopt(h);
+  const b = document.getElementById("connect"); b.textContent = "Reconnect "+h.name;
+  b.onclick = async () => { if ((await h.requestPermission({mode:"readwrite"}))==="granted") { b.textContent="Connect notes.json"; await adopt(h); } };
+} catch(e) {} })();
+
+const COLORS = [["yellow","discuss"],["green","good as is"],["red","change this"],["blue","question"]];
+const el = (t,a={},...k)=>{ const e=document.createElement(t); for (const [x,v] of Object.entries(a)) { if (x.startsWith("on")) e[x]=v; else e.setAttribute(x,v); } for (const c of k) if (c!=null) e.append(c.nodeType?c:document.createTextNode(c)); return e; };
+function key(b){ return PAGE+":"+b.dataset.b; }
+function wrapBlocks(){
+  for (const src of [...document.querySelectorAll("[data-b]")]) {
+    const b = el("div",{class:"blk","data-b":src.dataset.b}); const c = el("div",{class:"c"}); const m = el("div",{class:"m"});
+    src.replaceWith(b); src.removeAttribute("data-b"); c.append(src); b.append(c,m);
+  }
+}
+// Every block AND every table gets its own marks and notes. A table's key is "<page>:<block>#t<n>".
+function getK(k, label){ return mine[k] || (mine[k] = {label, mark:null, items:[]}); }
+function drawTools(k, label, host, cls, tools, notes, repaint){
+  const n = mine[k];
+  host.className = cls + (n&&n.mark?" mk-"+n.mark:"") + (n&&(n.mark||n.items.length)?" has":"");
+  tools.innerHTML = ""; notes.innerHTML = "";
+  for (const [col,meaning] of COLORS) tools.append(el("button",{class:"dot"+(n&&n.mark===col?" on":""), title:meaning, "aria-label":"mark "+meaning,
+    style:"background:var(--b-"+col+")", onclick:()=>{ const x=getK(k,label); x.mark = x.mark===col?null:col; tidy(k); save(); repaint(); }}));
+  tools.append(el("button",{onclick:()=>{
+    const s = getSelection(); let q = "";
+    if (s && s.rangeCount && host.contains(s.anchorNode)) q = s.toString().trim().slice(0,300);
+    getK(k,label).items.push({q, t:"", at:new Date().toISOString()}); save(); repaint();
+    const tas = host.querySelectorAll("textarea"); if (tas.length) tas[tas.length-1].focus(); }}, "+ Note"));          // the newest note is the last textarea in its host
+  for (const [i,it] of (n?n.items:[]).entries()) {
+    const ta = el("textarea",{placeholder:"Your note…","aria-label":"note"}); ta.value = it.t||"";
+    ta.oninput = () => { it.t=ta.value; it.at=new Date().toISOString(); save(); };
+    notes.append(el("div",{class:"note"}, it.q?el("q",{},"“"+it.q+"”"):null, ta, el("div",{class:"meta"}, (it.at||"").slice(0,16).replace("T"," "),
+      el("button",{onclick:()=>{ if (!it.t || confirm("Delete this note?")) { n.items.splice(i,1); tidy(k); save(); repaint(); } }},"delete"))));
+  }
+}
+function paint(b){
+  const m = b.querySelector(".m"); m.innerHTML = "";
+  const tools = el("div",{class:"tools"}), notes = el("div"); m.append(tools, notes);
+  drawTools(key(b), PAGE+" "+b.dataset.b, b, "blk", tools, notes, () => paint(b));
+}
+function wrapTables(){
+  for (const b of document.querySelectorAll(".blk")) {
+    [...b.querySelector(".c").querySelectorAll("table")].forEach((t, i) => {
+      const w = el("div",{class:"tblk","data-t":b.dataset.b+"#t"+(i+1)});
+      t.replaceWith(w); w.append(el("div",{class:"tbar"}), t, el("div",{class:"tnotes"}));
+    });
+  }
+}
+function paintT(w){
+  const bar = w.querySelector(".tbar"); bar.innerHTML = "";
+  const tools = el("div",{class:"ttools"}); bar.append(el("span",{class:"tlab"},"Table"), tools);
+  drawTools(PAGE+":"+w.dataset.t, PAGE+" "+w.dataset.t, w, "tblk", tools, w.querySelector(".tnotes"), () => paintT(w));
+}
+function tidy(k){ const n=mine[k]; if (n && !n.mark && !n.items.length) delete mine[k]; }
+function paintAll(){ document.querySelectorAll(".blk").forEach(paint); document.querySelectorAll(".tblk").forEach(paintT); }
+wrapBlocks(); wrapTables(); paintAll(); setStatus("warn","Saved in this browser only — connect notes.json");
+if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+</script>
+</body>
+</html>
